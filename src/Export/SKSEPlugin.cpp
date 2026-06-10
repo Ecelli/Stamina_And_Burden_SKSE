@@ -4,6 +4,7 @@
 #include "Serialization/Serde.h"
 #include "Settings/INI/INISettings.h"
 #include "Settings/JSON/JSONSettings.h"
+#include "Common/Utils.h"
 
 static void MessageEventCallback(SKSE::MessagingInterface::Message* a_msg)
 {
@@ -49,11 +50,7 @@ extern "C" DLLEXPORT bool SKSEAPI SKSEPlugin_Query(const SKSE::QueryInterface* a
 	}
 
 	const auto ver = a_skse->RuntimeVersion();
-#ifdef SKYRIM_AE
-	if (ver < SKSE::RUNTIME_SSE_LATEST) {
-#else
-	if (ver < SKSE::RUNTIME_1_5_39) {
-#endif
+	if (ver < MIN_RUNTIME) {
 		logger::critical(FMT_STRING("Unsupported runtime version {}"), ver.string());
 		return false;
 	}
@@ -67,12 +64,10 @@ extern "C" DLLEXPORT bool SKSEAPI SKSEPlugin_Load(const SKSE::LoadInterface * a_
 	logger::info("Author: Ecelli"sv);
 	SECTION_SEPARATOR;
 
-#ifdef SKYRIM_AE
 	const auto ver = a_skse->RuntimeVersion();
-	if (ver < SKSE::RUNTIME_SSE_LATEST) {
+	if (ver < MIN_RUNTIME) {
 		return false;
 	}
-#endif
 
 	logger::info("Performing startup tasks..."sv);
 

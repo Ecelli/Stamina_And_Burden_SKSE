@@ -9,6 +9,7 @@
 #include <Windows.h>
 #include <ClibUtil/utils.hpp>
 
+#include <algorithm>
 #include <unordered_set>
 #include <fstream>
 #include <spdlog/sinks/basic_file_sink.h>
@@ -93,11 +94,12 @@ template <class T>
 inline constexpr bool always_false = false;
 
 #define SECTION_SEPARATOR logger::info("=========================================================="sv)
-
 #ifdef SKYRIM_AE
 #	define OFFSET(se, ae) ae
 #	define OFFSET_3(se, ae, vr) ae
+constexpr auto MIN_RUNTIME = SKSE::RUNTIME_SSE_LATEST;
 #else
 #	define OFFSET(se, ae) se
 #	define OFFSET_3(se, ae, vr) se
+constexpr auto MIN_RUNTIME = SKSE::RUNTIME_1_5_39;
 #endif
