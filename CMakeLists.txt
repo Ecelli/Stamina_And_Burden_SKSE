@@ -7,7 +7,7 @@ endif()
 
 # -------- Project ----------
 project(
-	TemplateProject
+	StaminaAndBurden
 	VERSION 1.0.0
 	LANGUAGES CXX
 )

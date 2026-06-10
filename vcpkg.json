@@ -1,9 +1,9 @@
 {
-  "name": "template-plugin",
+  "name": "stamina-and-burden",
   "version-string": "1.0.0",
-  "description": "Template for SKSE plugin built using commonlib. MIT License by default.",
-  "homepage": "https://github.com/SeaSparrowOG/SKSE-Plugin-Template",
-  "license": "MIT",
+  "description": "SKSE plugin adding stamina-based burden mechanics to Skyrim AE.",
+  "homepage": "https://github.com/Ecelli/StaminaAndBurden",
+  "license": "Apache-2.0",
   "dependencies": [
     "boost-stl-interfaces",
     "clib-util",

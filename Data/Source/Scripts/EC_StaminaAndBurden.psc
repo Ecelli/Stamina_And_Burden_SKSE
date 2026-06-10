@@ -1,4 +1,4 @@
-Scriptname SEA_TemplateProject
+Scriptname EC_StaminaAndBurden
 
 Int[] Function GetVersion() Global Native
 

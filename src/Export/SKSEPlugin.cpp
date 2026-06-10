@@ -29,7 +29,7 @@ extern "C" DLLEXPORT constinit auto SKSEPlugin_Version = []()
 
 		v.PluginVersion(Plugin::VERSION);
 		v.PluginName(Plugin::NAME);
-		v.AuthorName("SeaSparrow"sv);
+		v.AuthorName("Ecelli"sv);
 		v.UsesAddressLibrary();
 		v.UsesUpdatedStructs();
 
@@ -64,7 +64,7 @@ extern "C" DLLEXPORT bool SKSEAPI SKSEPlugin_Query(const SKSE::QueryInterface* a
 extern "C" DLLEXPORT bool SKSEAPI SKSEPlugin_Load(const SKSE::LoadInterface * a_skse)
 {
 	SKSE::Init(a_skse);
-	logger::info("Author: SeaSparrow"sv);
+	logger::info("Author: Ecelli"sv);
 	SECTION_SEPARATOR;
 
 #ifdef SKYRIM_AE
