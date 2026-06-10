@@ -27,10 +27,10 @@ if(NOT IS_DIRECTORY "${Skyrim64Path}")
 endif()
 
 list(APPEND CMAKE_MODULE_PATH
-	"${PROJECT_SOURCE_DIR}/tools/SKSE-CMakeModules/Modules"
+	"${PROJECT_SOURCE_DIR}/Tools/SKSE-CMakeModules/Modules"
 )
 list(APPEND CMAKE_MODULE_PATH
-	"${PROJECT_SOURCE_DIR}/tools/Bethesda-CMakeModules/Modules"
+	"${PROJECT_SOURCE_DIR}/Tools/Bethesda-CMakeModules/Modules"
 )
 
 include(SKSEPlugin)
@@ -191,7 +191,7 @@ if(DEFINED OUTPUT_FOLDER)
 			-DSRC_DIR=${DATA_DIR}
 			-DDST_DIR=${OUTPUT_FOLDER}
 			-DPROJECT_NAME=${PROJECT_NAME}
-			-P "${PROJECT_SOURCE_DIR}/CMake/Scripts/CMake-Copy-Artifacts.cmake"
+			-P "${PROJECT_SOURCE_DIR}/cmake/Scripts/CMake-Copy-Artifacts.cmake"
 	)
 
 	if(COPY_SCRIPTS)
@@ -199,13 +199,13 @@ if(DEFINED OUTPUT_FOLDER)
 			COMMAND "${CMAKE_COMMAND}"
 				-DSOURCE_SCRIPTS=${PAPYRUS_SOURCE_DIR}
 				-DOUTPUT_FOLDER=${OUTPUT_FOLDER}
-				-P "${PROJECT_SOURCE_DIR}/CMake/Scripts/CMake-Copy-Sources.cmake"
+				-P "${PROJECT_SOURCE_DIR}/cmake/Scripts/CMake-Copy-Sources.cmake"
 		)
 		list(APPEND POST_BUILD_COMMANDS
 			COMMAND "${CMAKE_COMMAND}"
 				-DCOMPILED_SCRIPTS="${CMAKE_BINARY_DIR}/Scripts"
 				-DOUTPUT_FOLDER=${OUTPUT_FOLDER}
-				-P "${PROJECT_SOURCE_DIR}/CMake/Scripts/CMake-Copy-Scripts.cmake"
+				-P "${PROJECT_SOURCE_DIR}/cmake/Scripts/CMake-Copy-Scripts.cmake"
 		)
 
 		if(COPY_BSA)
@@ -215,7 +215,7 @@ if(DEFINED OUTPUT_FOLDER)
 					-DDST_DIR=${OUTPUT_FOLDER}
 					-DPROJECT_NAME=${PROJECT_NAME}
 					-DBINARY_DIR=${CMAKE_BINARY_DIR}
-					-P "${PROJECT_SOURCE_DIR}/CMake/Scripts/CMake-Copy-Archive.cmake"
+					-P "${PROJECT_SOURCE_DIR}/cmake/Scripts/CMake-Copy-Archive.cmake"
 			)
 		endif()
 	endif()
