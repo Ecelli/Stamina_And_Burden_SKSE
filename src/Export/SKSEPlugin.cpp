@@ -1,3 +1,6 @@
+#include <thread>
+
+#include "Burden/BurdenManager.h"
 #include "Data/ModObjectManager.h"
 #include "Hooks/Hooks.h"
 #include "Papyrus/Papyrus.h"
@@ -14,6 +17,21 @@ static void MessageEventCallback(SKSE::MessagingInterface::Message* a_msg)
 		if (!Data::PreloadModObjects()) {
 			SKSE::stl::report_and_fail("Failed to preload mod objects. Check the log for more information."sv);
 		}
+
+        // EC BEGIN:: Temp code just to trigger time logging
+		std::thread([]() {
+			while (true) {
+				std::this_thread::sleep_for(std::chrono::seconds(1));
+				SKSE::GetTaskInterface()->AddTask([]() {
+					auto* player = RE::PlayerCharacter::GetSingleton();
+					if (player && player->Get3D()) {
+						Burden::UpdateBurdenLog(player);
+					}
+				});
+			}
+		}).detach();
+        // EC END:: Temp code just to trigger time logging
+
 		SECTION_SEPARATOR;
 		logger::info("Finished startup tasks, enjoy your game!"sv);
 		Settings::JSON::Holder::GetSingleton()->Release();
