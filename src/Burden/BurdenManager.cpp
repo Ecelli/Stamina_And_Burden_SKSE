@@ -33,4 +33,14 @@ namespace Burden
 			data.equippedWeight,
 			data.maxEquippedWeight);
 	}
+
+	void TaskUpdatePlayerBurdenLog()
+	{
+        SKSE::GetTaskInterface()->AddTask([]() {
+            auto* player = RE::PlayerCharacter::GetSingleton();
+            if (player && player->Get3D()) {
+                UpdateBurdenLog(player);
+            }
+        });
+	}
 }

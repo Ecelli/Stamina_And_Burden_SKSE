@@ -16,4 +16,5 @@ namespace Burden
 	float GetEquippedWeight(RE::Actor* actor);
 	ActorBurdenData UpdateBurden(RE::Actor* actor);
 	void UpdateBurdenLog(RE::Actor* actor);
+	void TaskUpdatePlayerBurdenLog();
 }
