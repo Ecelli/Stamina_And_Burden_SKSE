@@ -1,4 +1,5 @@
 #include "Burden/BurdenManager.h"
+#include "Settings/Params/BurdenParams.h"
 
 namespace Burden
 {
@@ -11,10 +12,11 @@ namespace Burden
 	{
 		ActorBurdenData data{};
 
+		auto* params = BurdenParams::GetSingleton();
 		data.maxCarryWeight = actor->GetPermanentActorValue(RE::ActorValue::kCarryWeight);
 		data.carryWeight = actor->GetInventoryChanges()->GetInventoryWeight();
 		data.equippedWeight = GetEquippedWeight(actor);
-		data.maxEquippedWeight = 0.4f * data.maxCarryWeight;
+		data.maxEquippedWeight = params->maxEquippedWeightRatio.Get() * data.maxCarryWeight;
 
 		data.carryBurden = std::clamp(data.carryWeight / data.maxCarryWeight, 0.0f, 1.0f);
 		data.burden = std::clamp(data.equippedWeight / data.maxEquippedWeight, 0.0f, 1.0f);
