@@ -16,8 +16,6 @@ static void MessageEventCallback(SKSE::MessagingInterface::Message* a_msg)
 			SKSE::stl::report_and_fail("Failed to preload mod objects. Check the log for more information."sv);
 		}
 
-		Common::make_heartbeat(std::chrono::seconds(1), Burden::TaskUpdatePlayerBurdenLog);
-
 		SECTION_SEPARATOR;
 		logger::info("Finished startup tasks, enjoy your game!"sv);
 		Settings::JSON::Holder::GetSingleton()->Release();

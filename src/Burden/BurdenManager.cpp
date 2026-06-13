@@ -22,7 +22,7 @@ namespace Burden
 		return data;
 	}
 
-	void UpdateBurdenLog(RE::Actor* actor)
+	ActorBurdenData UpdateBurdenLog(RE::Actor* actor)
 	{
 		auto data = UpdateBurden(actor);
 		logger::info("Burden | Carry: {:.2f}% ({:.1f}/{}), Equipped: {:.2f}% ({:.1f}/{:.1f})",
@@ -32,6 +32,7 @@ namespace Burden
 			data.burden * 100.0f,
 			data.equippedWeight,
 			data.maxEquippedWeight);
+        return data;
 	}
 
 	void TaskUpdatePlayerBurdenLog()
