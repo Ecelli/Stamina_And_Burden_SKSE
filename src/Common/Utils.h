@@ -1,5 +1,23 @@
 #pragma once
 
+#include <chrono>
+#include <functional>
+#include <thread>
+
+namespace Common
+{
+	template <typename F>
+	void make_heartbeat(std::chrono::seconds interval, F&& func)
+	{
+		std::thread([interval, func = std::forward<F>(func)]() mutable {
+			while (true) {
+				std::this_thread::sleep_for(interval);
+				func();
+			}
+		}).detach();
+	}
+}
+
 namespace Math
 {
 	[[nodiscard]] constexpr inline float Clamp01(float x) noexcept
