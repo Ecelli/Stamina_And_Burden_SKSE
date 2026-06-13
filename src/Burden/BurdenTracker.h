@@ -4,10 +4,6 @@
 
 namespace Burden::Tracker
 {
-	/**
-	 * Registers an actor for burden tracking and computes initial burden.
-	 * @param a_actor  The actor to track (must be valid).
-	 */
 	void Register(RE::Actor* a_actor);
 
 	/**
@@ -21,11 +17,6 @@ namespace Burden::Tracker
 	 * No-op if the actor is not tracked.
 	 */
 	void Update(RE::Actor* a_actor);
-
-	/**
-	 * @param a_formId  The actor's FormID.
-	 * @return true if the actor is currently tracked.
-	 */
 	bool IsTracked(RE::FormID a_formId);
 
 	/**

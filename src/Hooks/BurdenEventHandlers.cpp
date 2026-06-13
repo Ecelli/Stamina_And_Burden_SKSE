@@ -10,7 +10,6 @@ namespace Hooks
 		return RE::BSEventNotifyControl::kContinue;
 	}
 
-	// We check if an actor is equipped/unequipped and Update Burden
 	RE::BSEventNotifyControl EquipHandler::ProcessEvent(const RE::TESEquipEvent* a_event, RE::BSTEventSource<RE::TESEquipEvent>*)
 	{
 		if (!a_event || !a_event->actor) {
@@ -18,11 +17,7 @@ namespace Hooks
 		}
 
 		auto* actor = a_event->actor->As<RE::Actor>();
-		if (!actor) {
-			return RE::BSEventNotifyControl::kContinue;
-		}
-
-		if (Burden::Tracker::IsTracked(actor->GetFormID())) {
+		if (actor) {
 			Burden::Tracker::Update(actor);
 		}
 
@@ -47,11 +42,9 @@ namespace Hooks
 			}
 		}
 
-		if (Burden::Tracker::IsTracked(formId)) {
-			auto* actor = RE::TESForm::LookupByID<RE::Actor>(formId);
-			if (actor) {
-				Burden::Tracker::Update(actor);
-			}
+		auto* actor = RE::TESForm::LookupByID<RE::Actor>(formId);
+		if (actor) {
+			Burden::Tracker::Update(actor);
 		}
 
 		return RE::BSEventNotifyControl::kContinue;
