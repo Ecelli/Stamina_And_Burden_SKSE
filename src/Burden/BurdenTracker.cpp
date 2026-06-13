@@ -41,14 +41,27 @@ namespace Burden::Tracker
 			return;
 		}
 
-		auto& map = GetMap();
-		auto it = map.find(a_actor->GetFormID());
-		if (it == map.end()) {
+		auto formId = a_actor->GetFormID();
+		if (!IsTracked(formId)) {
 			return;
 		}
 
-		it->second = UpdateBurden(a_actor);
-		UpdateBurdenLog(a_actor);
+		SKSE::GetTaskInterface()->AddTask([formId]() {
+
+			auto& map = GetMap();
+			auto it = map.find(formId);
+			if (it == map.end()) {
+				return;
+			}
+
+            auto* actor = RE::TESForm::LookupByID<RE::Actor>(formId);
+			if (!actor) {
+				return;
+			}
+
+			it->second = UpdateBurden(actor);
+			UpdateBurdenLog(actor);
+		});
 	}
 
 	bool IsTracked(RE::FormID a_formId)

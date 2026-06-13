@@ -4,7 +4,7 @@
 
 struct BurdenParams : REX::Singleton<BurdenParams>
 {
-	Parameter<float> maxEquippedWeightRatio{ 0.6f, 0.0f, 1.0f };
+	Parameter<float> maxEquippedWeightRatio{ 0.4f, 0.0f, 1.0f };
     // Equip Slot Burden Multipliers
 	Parameter<float> SlotBurdenMult_def{ 1.0f, 0.2f, 10.0f };
 	Parameter<float> SlotBurdenMult_body{ 0.7f, 0.2f, 10.0f };
