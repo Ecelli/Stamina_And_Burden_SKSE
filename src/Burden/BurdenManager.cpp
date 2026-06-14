@@ -4,6 +4,36 @@
 
 namespace
 {
+	bool HasSteedStoneBlessing(RE::Actor* a_actor)
+	{
+		static RE::SpellItem* steedStoneAbility = nullptr;
+		static bool initialized = false;
+		if (!initialized) {
+			steedStoneAbility = RE::TESForm::LookupByEditorID<RE::SpellItem>("doomSteedAbility");
+			initialized = true;
+			if (steedStoneAbility) {
+				logger::info("  >Steed Stone ability found: {:X}", steedStoneAbility->GetFormID());
+			} else {
+				logger::warn("  >Steed Stone ability NOT found by EditorID 'doomSteedAbility'");
+			}
+		}
+		if (!steedStoneAbility) {
+			return false;
+		}
+
+		auto* effectList = a_actor->GetActiveEffectList();
+		if (!effectList) {
+			return false;
+		}
+
+		for (auto* effect : *effectList) {
+			if (effect && effect->spell == steedStoneAbility) {
+				return true;
+			}
+		}
+		return false;
+	}
+
 	float GetSlotMultiplier(RE::TESObjectARMO* a_armor)
 	{
 		if (!a_armor) {
@@ -66,9 +96,13 @@ namespace
 	public:
 		RE::Actor* actor;
 		float total = 0.0f;
+		float SteedMult;
+		bool steedStoneActive;
 
 		explicit BurdenEquipVisitor(RE::Actor* a_actor) :
-			actor(a_actor)
+			actor(a_actor),
+			steedStoneActive(HasSteedStoneBlessing(a_actor)),
+			SteedMult(BurdenParams::GetSingleton()->SteedStoneBurdenMult.Get())
 		{}
 
 		RE::BSContainer::ForEachResult Visit(RE::InventoryEntryData* a_entry) override
@@ -85,6 +119,9 @@ namespace
 			if (auto* armor = obj->As<RE::TESObjectARMO>()) {
 				slotMult = GetSlotMultiplier(armor);
 				armorTypeMult = GetWeightedArmorTypeMult(actor, armor);
+				if (steedStoneActive) {
+					slotMult *= SteedMult;
+				}
 			}
 
 			total += weight * slotMult * armorTypeMult;
@@ -116,7 +153,7 @@ namespace Burden
 		ActorBurdenData data{};
 
 		auto* params = BurdenParams::GetSingleton();
-		data.maxCarryWeight = actor->GetPermanentActorValue(RE::ActorValue::kCarryWeight);
+		data.maxCarryWeight = actor->GetActorValue(RE::ActorValue::kCarryWeight);
 		data.carryWeight = actor->GetInventoryChanges()->GetInventoryWeight();
 		data.equippedWeight = ComputeEquipmentBurden(actor);
 		data.maxEquippedWeight = params->maxEquippedWeightRatio.Get() * data.maxCarryWeight;
