@@ -27,7 +27,7 @@ namespace Burden::Tracker
 			return;
 		}
 
-		map.emplace(formId, UpdateBurden(a_actor));
+		map.emplace(formId, UpdateBurdenLog(a_actor));
 	}
 
 	void Unregister(RE::FormID a_formId)
