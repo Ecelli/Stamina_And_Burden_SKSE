@@ -1,15 +1,25 @@
 #include "BurdenTracker.h"
 #include "Common/Utils.h"
 
-// Function-local static map avoids static-initialization-order issues:
-// the map is lazily constructed on first access, safe to call at any point.
+// Tier 1: tracked actors (event-driven, persistent for the session)
+// Tier 2: transient NPC cache — grows freely within a worldspace,
+// cleared on worldspace change or game load.
+// Function-local static maps avoid static-initialization-order issues.
 namespace
 {
-	using Map = std::unordered_map<RE::FormID, Burden::ActorBurdenData>;
+	using TrackedMap = std::unordered_map<RE::FormID, Burden::ActorBurdenData>;
 
-	Map& GetMap()
+	TrackedMap& GetTrackedMap()
 	{
-		static Map map;
+		static TrackedMap map;
+		return map;
+	}
+
+	using TransientMap = std::unordered_map<RE::FormID, Burden::ActorBurdenData>;
+
+	TransientMap& GetTransientMap()
+	{
+		static TransientMap map;
 		return map;
 	}
 }
@@ -23,7 +33,7 @@ namespace Burden::Tracker
 		}
 
 		auto formId = a_actor->GetFormID();
-		auto& map = GetMap();
+		auto& map = GetTrackedMap();
 		if (map.contains(formId)) {
 			return;
 		}
@@ -33,7 +43,7 @@ namespace Burden::Tracker
 
 	void Unregister(RE::FormID a_formId)
 	{
-		GetMap().erase(a_formId);
+		GetTrackedMap().erase(a_formId);
 	}
 
 	void Update(RE::Actor* a_actor)
@@ -49,13 +59,13 @@ namespace Burden::Tracker
 
 		SKSE::GetTaskInterface()->AddTask([formId]() {
 
-			auto& map = GetMap();
+			auto& map = GetTrackedMap();
 			auto it = map.find(formId);
 			if (it == map.end()) {
 				return;
 			}
 
-            auto* actor = RE::TESForm::LookupByID<RE::Actor>(formId);
+			auto* actor = RE::TESForm::LookupByID<RE::Actor>(formId);
 			if (!actor) {
 				return;
 			}
@@ -67,7 +77,36 @@ namespace Burden::Tracker
 
 	bool IsTracked(RE::FormID a_formId)
 	{
-		return GetMap().contains(a_formId);
+		return GetTrackedMap().contains(a_formId);
+	}
+
+	const Burden::ActorBurdenData& GetOrComputeBurden(RE::Actor* a_actor)
+	{
+		auto formId = a_actor->GetFormID();
+
+		// Tier 1: tracked map
+		auto& tracked = GetTrackedMap();
+		auto it = tracked.find(formId);
+		if (it != tracked.end()) {
+			return it->second;
+		}
+
+		// Tier 2: transient cache
+		auto& transient = GetTransientMap();
+		auto tIt = transient.find(formId);
+		if (tIt != transient.end()) {
+			return tIt->second;
+		}
+
+		// Compute and cache
+		auto [newIt, _] = transient.emplace(formId, UpdateBurden(a_actor));
+		return newIt->second;
+	}
+
+	void ClearTransientCache()
+	{
+        // We also call this back from other places like worldspace transition
+		GetTransientMap().clear();
 	}
 
 	// On a new game or save load, all previously-tracked actors are stale.
@@ -75,7 +114,8 @@ namespace Burden::Tracker
 	// future Papyrus API as needed.
 	void OnGameLoad()
 	{
-		GetMap().clear();
+		GetTrackedMap().clear();
+		ClearTransientCache();
 
 		auto* player = RE::PlayerCharacter::GetSingleton();
 		if (player) {
@@ -93,7 +133,7 @@ namespace Burden::Tracker
 	void TaskTrackBurdenParams()
 	{
 		SKSE::GetTaskInterface()->AddTask([]() {
-			auto& map = GetMap();
+			auto& map = GetTrackedMap();
 			for (auto& [formId, data] : map) {
 				auto* actor = RE::TESForm::LookupByID<RE::Actor>(formId);
 				if (!actor) {
@@ -102,12 +142,11 @@ namespace Burden::Tracker
 
 				if (static_cast<int>(actor->GetActorValue(RE::ActorValue::kLightArmor)) != data.lightSkill
 					|| static_cast<int>(actor->GetActorValue(RE::ActorValue::kHeavyArmor)) != data.heavySkill
-                    || std::abs(actor->GetActorValue(RE::ActorValue::kCarryWeight) - data.maxCarryWeight) > 0.001f) {
+					|| std::abs(actor->GetActorValue(RE::ActorValue::kCarryWeight) - data.maxCarryWeight) > 0.001f) {
 
 					Burden::Tracker::Update(actor);
 				}
 			}
 		});
 	}
-
 }
