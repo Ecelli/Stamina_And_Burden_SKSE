@@ -100,8 +100,10 @@ namespace Burden::Tracker
 					continue;
 				}
 
-				float current = actor->GetActorValue(RE::ActorValue::kCarryWeight);
-				if (std::abs(current - data.maxCarryWeight) > 0.001f) {
+				if (static_cast<int>(actor->GetActorValue(RE::ActorValue::kLightArmor)) != data.lightSkill
+					|| static_cast<int>(actor->GetActorValue(RE::ActorValue::kHeavyArmor)) != data.heavySkill
+                    || std::abs(actor->GetActorValue(RE::ActorValue::kCarryWeight) - data.maxCarryWeight) > 0.001f) {
+
 					Burden::Tracker::Update(actor);
 				}
 			}
