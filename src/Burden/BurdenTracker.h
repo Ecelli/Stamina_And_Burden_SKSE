@@ -25,4 +25,12 @@ namespace Burden::Tracker
 	 * Burden is dynamically computed — no serialization needed.
 	 */
 	void OnGameLoad();
+
+	/**
+	 * Starts a background heartbeat that periodically checks
+	 * GetActorValue(kCarryWeight) for all tracked actors.
+	 * An update is triggered when the value differs from the
+	 * cached ActorBurdenData.maxCarryWeight.
+	 */
+	void TaskTrackBurdenParams();
 }
