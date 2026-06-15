@@ -6,8 +6,8 @@
 
 namespace Common
 {
-	template <typename F>
-	void make_heartbeat(std::chrono::seconds interval, F&& func)
+	template <typename Rep, typename Period, typename F>
+	void make_heartbeat(std::chrono::duration<Rep, Period> interval, F&& func)
 	{
 		std::thread([interval, func = std::forward<F>(func)]() mutable {
 			while (true) {
