@@ -27,10 +27,10 @@ namespace Burden::Tracker
 	void OnGameLoad();
 
 	/**
-	 * Starts a background heartbeat that periodically checks
-	 * GetActorValue(kCarryWeight) for all tracked actors.
-	 * An update is triggered when the value differs from the
-	 * cached ActorBurdenData.maxCarryWeight.
+	 * Periodic heartbeat callback dispatched by the background thread.
+	 * Reads GetActorValue(kCarryWeight), kLightArmor, and kHeavyArmor
+	 * for each tracked actor and triggers an Update() when any cached
+	 * value differs from the current value.
 	 */
 	void TaskTrackBurdenParams();
 }

@@ -139,6 +139,10 @@ This is deferred until after the core mechanics work. The console commands provi
 
 The existing `Settings::INI` system (`INISettings.h/cpp`, `EXPECTED_SETTINGS`) is **replaced** by `SettingsRegistry`. The old files remain in the repo until cleanup at the end.
 
+### 2.6 Current state (before SettingsRegistry)
+
+Burden parameters currently use `Parameter<T>` via `BurdenParams` singleton (`src/Settings/Params/BurdenParams.h`) with typed `ForEach()` export and the legacy `Settings::INI` reader. The `StaminaAndBurden.ini` shipped file still exists at `Data/SKSE/Plugins/`. The `SettingsRegistry` design (§2) is deferred and will replace both when introduced.
+
 ---
 
 ## 3. Module Specifications
@@ -147,56 +151,77 @@ The existing `Settings::INI` system (`INISettings.h/cpp`, `EXPECTED_SETTINGS`) i
 
 **Purpose:** Tracks equipped and total burden ratio per actor.
 
+**Architecture:** Two namespaces:
+
+- `Burden::` — burden computation functions (`UpdateBurden`, `ComputeEquipmentBurden`, `GetSlotMultiplier`, `GetWeightedArmorTypeMult`)
+- `Burden::Tracker` — actor registry (`Register`, `Unregister`, `Update`, `IsTracked`, `OnGameLoad`) with a `FormID`-keyed map of `ActorBurdenData`
+
 **Formulas:**
 
 ```
-TotalBurdenRatio = clamp(currentWeight / maxCarryWeight, 0.0, 1.0)
+TotalBurdenRatio    = clamp(currentWeight / maxCarryWeight, 0.0, 1.0)
 
-EquippedWeightedSum = Σ( item.weight × slotMultiplier )
-MaxEquippedWeight   = fEquippedMaxCarryFraction × maxCarryWeight
+EquippedWeightedSum = Σ( item.weight × slotMult × armorTypeSkillMult )
+MaxEquippedWeight   = fmaxEquippedWeightRatio × maxCarryWeight
 EquippedBurdenRatio = clamp(EquippedWeightedSum / MaxEquippedWeight, 0.0, 1.0)
 ```
 
-**Slot weight multipliers** (configurable via INI, defaults in code):
+**Slot weight multipliers** (configurable, stored as `Parameter<float>` in `BurdenParams`):
 
-| Slot (BipedObjectSlot)                                    | Default Multiplier | INI Key          |
-|-----------------------------------------------------------+--------------------+------------------|
-| `kBody`, `kModChestPrimary`                               |               0.80 | `fSlotMult_Body` |
-| `kFeet`                                                   |               1.50 | `fSlotMult_Feet` |
-| All other slots (head, hands, shield, ring, amulet, etc.) |               1.00 | *(implicit)*     |
+| Slot                              | Default | Param Name              |
+|-----------------------------------+---------+-------------------------|
+| Body (kBody / kModChestPrimary)   | 0.70    | `fSlotBurdenMult_body`  |
+| Head                              | 1.20    | `fSlotBurdenMult_head`  |
+| Hands                             | 0.80    | `fSlotBurdenMult_hand`  |
+| Feet                              | 1.50    | `fSlotBurdenMult_feet`  |
+| All other slots                   | 1.00    | `fSlotBurdenMult_def`   |
 
-**Triggering:** Listens to `TESEquipEvent` (for equipped) and `TESContainerChangedEvent` (for total). For NPCs, lazy-calculates inside hooks that fire per-actor. Caches the last-known `maxCarryWeight` per actor.
+**Armor type skill-weighted multiplier:**
 
-**Class sketch:**
+For each equipped armor piece, burden is scaled by a skill-interpolated factor:
+
+```
+skillRatio  = 1.0 - clamp(skillValue / iPlayerMaxSkill, 0.0, 1.0)
+skillMult   = Interpolate(minMult, maxMult, skillRatio, fSkillInterpolate)
+```
+
+`skillValue` = current Light Armor or Heavy Armor skill (depending on piece). At 0 skill → `maxMult` (highest burden), at 100 skill → `minMult` (lowest burden). Parameters: `fSkillBurdenMult_minLight`/`maxLight`, `fSkillBurdenMult_minHeavy`/`maxHeavy`.
+
+**Steed Stone:** When the Steed Stone ability spell (`doomSteedAbility`) is active, all slot multipliers are multiplied by `fSteedStoneBurdenMult` (default 0.30). Detected via `ActiveEffect::spell == steedStoneAbility` each `UpdateBurden()` call.
+
+**Triggering (3 triggers):**
+
+1. **Event sinks** — `TESEquipEvent` (equip/unequip) and `TESContainerChangedEvent` (pick up/drop/transfer) call `Tracker::Update(actor)`, which defers a full `UpdateBurden()` via `AddTask` to next frame.
+
+2. **Heartbeat polling** — A background thread wakes every 200ms and dispatches `TaskTrackBurdenParams()` via `AddTask`. For each tracked actor, reads `GetActorValue(kCarryWeight)`, `kLightArmor`, and `kHeavyArmor` and compares against cached values in `ActorBurdenData`. Uses short-circuit `||` — stops reading once a change is found.
+
+3. **Game load** — `TESLoadGameEvent` (via `LoadGameHandler`) → `Tracker::OnGameLoad()` clears the map, re-registers the player, and starts the heartbeat thread (once via `static bool` guard).
+
+**Data struct (`ActorBurdenData` in `BurdenManager.h`):**
 
 ```cpp
-class BurdenManager : public REX::Singleton<BurdenManager> {
-public:
-    void UpdateBurden(RE::Actor* actor);
-    float GetEquippedBurdenRatio(RE::Actor* actor) const;
-    float GetTotalBurdenRatio(RE::Actor* actor) const;
-
-    static float GetSlotMultiplier(RE::BGSBipedObjectForm::BipedObjectSlot slot);
-
-    // Event sinks
-    void OnEquip(const RE::TESEquipEvent* event);
-    void OnContainerChange(const RE::TESContainerChangedEvent* event);
-
-    // Debug query (for sb_getburden)
-    struct DebugInfo {
-        float totalRatio, equippedRatio, maxWeight, equippedWeight, weightedSum;
-    };
-    DebugInfo GetDebugInfo(RE::Actor* actor) const;
-
-private:
-    mutable std::unordered_map<RE::ActorHandle, BurdenData> cache;
-    struct BurdenData {
-        float equippedRatio;
-        float totalRatio;
-        float maxCarryWeight;
-    };
+struct ActorBurdenData {
+    float maxCarryWeight{ 0.0f };      // GetActorValue(kCarryWeight)
+    float carryWeight{ 0.0f };          // current inventory weight
+    float equippedWeight{ 0.0f };       // weighted equipped sum
+    float maxEquippedWeight{ 0.0f };    // fmaxEquippedWeightRatio × maxCarryWeight
+    float carryBurden{ 0.0f };          // carryWeight / maxCarryWeight (clamped)
+    float burden{ 0.0f };               // equippedWeight / maxEquippedWeight (clamped)
+    int   lightSkill{ -1 };             // cached for heartbeat comparison
+    int   heavySkill{ -1 };             // cached for heartbeat comparison
 };
 ```
+
+**Computation flow (`UpdateBurden`):**
+
+1. Read `GetActorValue(kCarryWeight)` → `maxCarryWeight`
+2. Read `GetInventoryChanges()->GetInventoryWeight()` → `carryWeight`
+3. Run `ComputeEquipmentBurden(actor)` → `VisitWornItems` with `BurdenEquipVisitor` → `equippedWeight`
+4. `maxEquippedWeight = fmaxEquippedWeightRatio * maxCarryWeight`
+5. Clamp ratios → `carryBurden`, `burden`
+6. Read `GetActorValue(kLightArmor)` + `GetActorValue(kHeavyArmor)` → cache `lightSkill`, `heavySkill`
+
+**Parameters** live in `BurdenParams` (REX::Singleton), exported via `ForEach(F&&)` with typed key names (`f`/`i` prefix convention).
 
 ### 3.2 RegenManager
 
@@ -355,16 +380,18 @@ Normal ──(stamina = 0)──▶ Exhausted ──(duration expires)──▶ 
 
 ## 4. Hook Summary
 
-| ID                | Function                   | Module               | Technique       | Purpose                                         |
-|-------------------+----------------------------+----------------------+-----------------+-------------------------------------------------|
-| `38603`           | `Character::sub_140627930` | ActionManager        | `write_call<5>` | Attack stamina cost → override                  |
-| `38452`           | `ActorState::HasFlags1`    | RegenManager         | `write_call<5>` | Modify regen condition return                   |
-| vtable or detour  | `Actor::RestoreActorValue` | RegenManager         | detour          | Scale regen deltas                              |
-| `38627`           | `Character::sub_140628C20` | Block/Combat Manager | `write_call<5>` | Hit processing → stamina redirect + dmg scaling |
-| `49170`           | `AttackAction`             | ActionManager        | `write_call<5>` | Prevent action when locked                      |
-| *(event sink)*    | `TESEquipEvent`            | BurdenManager        | Event sink      | Trigger burden recalc                           |
-| *(event sink)*    | `TESContainerChangedEvent` | BurdenManager        | Event sink      | Trigger burden recalc                           |
-| *(game settings)* | `fJumpStaminaCost` etc.    | ActionManager        | Direct write    | Movement costs on burden change                 |
+| ID                | Function                   | Module               | Technique        | Purpose                                           |
+|-------------------+----------------------------+----------------------+------------------+---------------------------------------------------|
+| *(event sink)*    | `TESEquipEvent`            | BurdenManager        | Event sink       | Trigger burden recalc on equip/unequip             |
+| *(event sink)*    | `TESContainerChangedEvent` | BurdenManager        | Event sink       | Trigger burden recalc on pickup/drop/transfer      |
+| *(event sink)*    | `TESLoadGameEvent`         | BurdenManager        | Event sink       | Re-register player + start heartbeat on game load  |
+| *(heartbeat)*     | `TaskTrackBurdenParams`    | BurdenManager        | 200ms poll       | Detect carry weight + skill changes from any source|
+| *(future)*        | `38603`                    | ActionManager        | `write_call<5>`  | Attack stamina cost → override                     |
+| *(future)*        | `38452`                    | RegenManager         | `write_call<5>`  | Modify regen condition return                      |
+| *(future)*        | vtable/detour              | Actor::RestoreAV     | RegenManager     | Scale regen deltas                                  |
+| *(future)*        | `38627`                    | Block/Combat Manager | `write_call<5>`  | Hit processing → stamina redirect + dmg scaling     |
+| *(future)*        | `49170`                    | ActionManager        | `write_call<5>`  | Prevent action when locked                          |
+| *(future)*        | game settings              | ActionManager        | Direct write     | Movement costs on burden change                     |
 
 ---
 
@@ -392,6 +419,52 @@ BurdenManager::UpdateBurden(actor)
             └── hook 38627 (all hits)
                 └── stamina-conditional + exhaustion scaling
 ```
+
+---
+
+## 5b. HUD Integration — Optional TrueHUD Burden Widget
+
+**Purpose:** Display real-time burden ratios on the player HUD via TrueHUD's mod API.
+
+**Dependency status:** Optional — TrueHUD must be installed by the user. No build-time dependency. Detection via `GetModuleHandle("TrueHUD.dll")` + `GetProcAddress` at `kPostLoad`.
+
+### Module: `src/HUD/`
+
+| File | Purpose |
+|---|---|
+| `HUD/TrueHUDAPI.h` | Vendored API header (MIT, from TrueHUD repo) |
+| `HUD/BurdenWidget.h` | `BurdenWidget` class declaration |
+| `HUD/BurdenWidget.cpp` | API detection + special resource bar registration |
+
+### Integration approach: Special Resource Bar
+
+TrueHUD's `RegisterSpecialResourceFunctions` adds an extra colored bar alongside the player's health/magicka/stamina bars. No SWF required.
+
+**Registration flow:**
+
+1. `kPostLoad` → try `TRUEHUD_API::RequestPluginAPI(InterfaceVersion::V4)`
+2. If `nullptr` → log "TrueHUD not detected", no-op
+3. If valid → `RequestSpecialResourceBarsControl(handle)` → if `OK`, `RegisterSpecialResourceFunctions(handle, getCurrentBurden, getMax, ...)`
+4. Callbacks read from `Burden::Tracker::GetActorBurdenData(playerID)`
+
+**Graceful degradation:**
+
+| Scenario | Behavior |
+|---|---|
+| TrueHUD not installed | No burden bar, everything else works |
+| TrueHUD installed, special bar free | Burden bar displayed on player HUD |
+| TrueHUD installed, special bar taken | Log warning, no bar, everything else works |
+
+**Parameters** (configured via SettingsRegistry):
+| Key | Default | Purpose |
+|---|---|---|
+| `iBurdenWidgetRefreshMs` | `200` | How often the burden bar value updates |
+| *Color config deferred — TrueHUD allows `OverrideBarColor` in later versions* |
+
+
+### Startup wiring
+
+Add `BurdenWidget::Register()` call in `SKSEPlugin_Load` messaging listener (`kPostLoad` case), alongside existing startup steps.
 
 ---
 
@@ -446,11 +519,19 @@ Default values embedded in C++ code. No shipped INI file.
 
 ```cpp
 // Section: Burden
-{ "fEquippedMaxCarryFraction",    "Burden",         0.4f   },
-{ "fTotalBurdenCurve_k",          "Burden",         0.5f   },
-{ "fEquippedBurdenCurve_k",       "Burden",         0.5f   },
-{ "fSlotMult_Body",               "Burden.SlotWeights", 0.80f },
-{ "fSlotMult_Feet",               "Burden.SlotWeights", 1.50f },
+{ "fmaxEquippedWeightRatio",      "Burden",             0.4f   },
+{ "fSlotBurdenMult_def",          "Burden.SlotWeights", 1.0f   },
+{ "fSlotBurdenMult_body",         "Burden.SlotWeights", 0.70f  },
+{ "fSlotBurdenMult_feet",         "Burden.SlotWeights", 1.5f   },
+{ "fSlotBurdenMult_head",         "Burden.SlotWeights", 1.2f   },
+{ "fSlotBurdenMult_hand",         "Burden.SlotWeights", 0.8f   },
+{ "iPlayerMaxSkill",              "Burden.Skill",       100    },
+{ "fSkillInterpolate",            "Burden.Skill",       0.0f   },
+{ "fSkillBurdenMult_minHeavy",    "Burden.Skill",       0.5f   },
+{ "fSkillBurdenMult_maxHeavy",    "Burden.Skill",       2.5f   },
+{ "fSkillBurdenMult_minLight",    "Burden.Skill",       0.6f   },
+{ "fSkillBurdenMult_maxLight",    "Burden.Skill",       2.0f   },
+{ "fSteedStoneBurdenMult",        "Burden.Effects",     0.3f   },
 
 // Section: Regen.Stamina
 { "fStaminaRegenMult_LowBurden",  "Regen.Stamina",  1.5f   },
@@ -507,13 +588,14 @@ Default values embedded in C++ code. No shipped INI file.
 
 ### Phase 1 — Burden Foundation
 
-| Task                                                                              | Files                                                                            |
-|-----------------------------------------------------------------------------------+----------------------------------------------------------------------------------|
-| Implement `SettingsRegistry` with hardcoded defaults + INI persistence            | `src/Config/SettingsRegistry.h/.cpp`                                             |
-| Implement `BurdenManager` (total + equipped tracking only, no slot weighting yet) | `src/Burden/BurdenManager.h/.cpp`                                                |
-| Register equip/container event sinks                                              | `src/Export/SKSEPlugin.cpp`, `src/Hooks/Hooks.cpp`                               |
-| Add `sb_getburden` console command (Papyrus native + TestCommands.yaml entry)     | `src/Console/ConsoleCommands.h/.cpp`, `Papyrus/Papyrus.cpp`, `TestCommands.yaml` |
-| Verify burden values in-game before proceeding                                    | *(manual test)*                                                                  |
+| Task                                                                     | Files                                                  |
+|--------------------------------------------------------------------------+--------------------------------------------------------|
+| Implement `BurdenManager` (slot weighting, skill-weighted armor mult)     | `src/Burden/BurdenManager.h/.cpp`                     |
+| Implement `BurdenTracker` (actor registry, deferred Update)               | `src/Burden/BurdenTracker.h/.cpp`                     |
+| Register equip/container/gameload event sinks                             | `src/Hooks/Hooks.cpp`, `src/Hooks/BurdenEventHandlers`|
+| Implement heartbeat polling (`make_heartbeat` + `TaskTrackBurdenParams`)  | `src/Common/Utils.h`, `src/Burden/BurdenTracker.cpp`  |
+| Add `BurdenParams` singleton with typed `ForEach` export                  | `src/Settings/Params/BurdenParams.h`                  |
+| Verify burden values in-game before proceeding                            | *(manual test)*                                        |
 
 ### Phase 1b — Weighted Burden
 
@@ -522,6 +604,15 @@ Default values embedded in C++ code. No shipped INI file.
 | Add slot multiplier map + `GetSlotMultiplier()`      | `src/Burden/BurdenManager.cpp`    |
 | Update `sb_getburden` to show weighted vs unweighted | `src/Console/ConsoleCommands.cpp` |
 | Verify weighted burden in-game                       | *(manual test)*                   |
+
+### Phase 1c — HUD Burden Widget
+
+| Task | Files |
+|---|---|
+| Vendor `TrueHUDAPI.h` into project | `src/HUD/TrueHUDAPI.h` |
+| Implement `BurdenWidget` (API detection + registration) | `src/HUD/BurdenWidget.h/.cpp` |
+| Wire into startup messaging listener | `src/Export/SKSEPlugin.cpp` |
+| Expose burden data access from Tracker | `src/Burden/BurdenTracker.h/.cpp` |
 
 ### Phase 2 — Runtime Configuration
 
