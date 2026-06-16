@@ -15,8 +15,10 @@ namespace Hooks {
 		holder->AddEventSink(new LoadGameHandler());
 		holder->AddEventSink(new EquipHandler());
 		holder->AddEventSink(new ContainerHandler());
+		holder->AddEventSink(new WorldspaceChangeHandler());
 
 		logger::info("  >Registered burden event handlers"sv);
+
 		return true;
 	}
 }

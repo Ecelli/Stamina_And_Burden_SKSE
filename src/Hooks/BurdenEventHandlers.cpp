@@ -2,8 +2,33 @@
 
 // ProcessEvent is called synchronously by the game's event dispatch.
 // Return kContinue to allow other sinks to process the event.
+namespace
+{
+	void CheckWorldspaceChange()
+	{
+		static RE::FormID lastWorldspace = 0;
+		auto* player = RE::PlayerCharacter::GetSingleton();
+		if (!player)
+			return;
+
+		auto* worldspace = player->GetWorldspace();
+		RE::FormID current = worldspace ? worldspace->GetFormID() : 0;
+		if (current != lastWorldspace) {
+			lastWorldspace = current;
+			Burden::Tracker::ClearTransientCache();
+			logger::info("  >Cleared transient burden cache (worldspace change)");
+		}
+	}
+}
+
 namespace Hooks
 {
+	RE::BSEventNotifyControl WorldspaceChangeHandler::ProcessEvent(const RE::TESActorLocationChangeEvent*, RE::BSTEventSource<RE::TESActorLocationChangeEvent>*)
+	{
+		SKSE::GetTaskInterface()->AddTask(CheckWorldspaceChange);
+		return RE::BSEventNotifyControl::kContinue;
+	}
+
 	RE::BSEventNotifyControl LoadGameHandler::ProcessEvent(const RE::TESLoadGameEvent*, RE::BSTEventSource<RE::TESLoadGameEvent>*)
 	{
 		Burden::Tracker::OnGameLoad();
