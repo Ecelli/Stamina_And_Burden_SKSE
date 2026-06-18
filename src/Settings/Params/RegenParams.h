@@ -31,6 +31,8 @@ namespace Regen
 		Parameter<float> MagickaRegenMult_HighStamina{ 1.0f, 0.0f, 10.0f };
 		Parameter<float> MagickaRegenCurve_k{ 0.9f, 0.0f, 1.0f };
 
+		// Debug logging
+		Parameter<bool> EnableDebugLogging{ true, false, true };
 
 		template <typename F>
 		static void ForEach(F&& a_fn)
@@ -53,17 +55,18 @@ namespace Regen
 			a_fn("fMagickaRegenMult_LowStamina"sv, s.MagickaRegenMult_LowStamina);
 			a_fn("fMagickaRegenMult_HighStamina"sv, s.MagickaRegenMult_HighStamina);
 			a_fn("fMagickaRegenCurve_k"sv, s.MagickaRegenCurve_k);
+			a_fn("bEnableDebugLogging"sv, s.EnableDebugLogging);
 		}
 	};
 
 	struct RegenPenalties : REX::Singleton<RegenPenalties>
 	{
 		// Movement state multipliers
-		Parameter<float> RegenMult_static{ 1.3f, 0.0f, 10.0f };
-		Parameter<float> RegenMult_walking{ 1.0f, 0.0f, 10.0f };
+		Parameter<float> RegenMult_static{ 0.0f, 0.0f, 10.0f };
+		Parameter<float> RegenMult_walking{ 0.3f, 0.0f, 10.0f };
 		Parameter<float> RegenMult_running{ 0.7f, 0.0f, 10.0f };
-		Parameter<float> RegenMult_sprinting{ 0.0f, 0.0f, 10.0f };
-		Parameter<float> RegenMult_swimming{ 0.0f, 0.0f, 10.0f };
+		Parameter<float> RegenMult_sprinting{ 1.0f, 0.0f, 10.0f };
+		Parameter<float> RegenMult_swimming{ 1.5f, 0.0f, 10.0f };
 		Parameter<float> RegenMult_blocking{ 0.5f, 0.0f, 10.0f };
 
 		template <typename F>
