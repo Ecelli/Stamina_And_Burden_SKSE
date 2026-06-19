@@ -3,6 +3,7 @@
 #include <chrono>
 #include <functional>
 #include <thread>
+#include "Settings/Params/RegenParams.h"
 
 namespace Common
 {
@@ -16,6 +17,17 @@ namespace Common
 			}
 		}).detach();
 	}
+}
+
+namespace Regen
+{
+    template <typename... Args>
+    void RegenLog(std::string_view a_fmt, Args&&... a_args)
+    {
+        if (RegenParams::GetSingleton()->EnableDebugLogging.Get()) {
+            logger::info(fmt::runtime(a_fmt), std::forward<Args>(a_args)...);
+        }
+    }
 }
 
 namespace Math

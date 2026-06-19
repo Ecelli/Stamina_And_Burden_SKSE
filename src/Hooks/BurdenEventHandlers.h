@@ -37,4 +37,13 @@ namespace Hooks
 	public:
 		RE::BSEventNotifyControl ProcessEvent(const RE::TESContainerChangedEvent* a_event, RE::BSTEventSource<RE::TESContainerChangedEvent>*) override;
 	};
+
+	/// Fires when an actor changes location (including worldspace transitions).
+	/// Clears the transient NPC burden cache so stale 30-day-respawn data is
+	/// re-computed on the next regen tick.
+	class WorldspaceChangeHandler : public RE::BSTEventSink<RE::TESActorLocationChangeEvent>
+	{
+	public:
+		RE::BSEventNotifyControl ProcessEvent(const RE::TESActorLocationChangeEvent* a_event, RE::BSTEventSource<RE::TESActorLocationChangeEvent>*) override;
+	};
 }

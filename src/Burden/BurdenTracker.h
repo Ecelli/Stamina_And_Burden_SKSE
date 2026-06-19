@@ -20,6 +20,19 @@ namespace Burden::Tracker
 	bool IsTracked(RE::FormID a_formId);
 
 	/**
+	 * Returns the burden data for any actor via a 2-tier cache:
+	 *   Tier 1 — tracked actors (event-driven, persistent for the session).
+	 *   Tier 2 — transient cache, computed once, and cleaned up periodically (worldspace).
+	 * Non-tracked actors are computed on-demand and cached in the transient tier.
+	 */
+	const Burden::ActorBurdenData& GetOrComputeBurden(RE::Actor* a_actor);
+
+	/**
+	 * Clears the transient NPC cache. Called on worldspace change 
+	 */
+	void ClearTransientCache();
+
+	/**
 	 * Called when a game is loaded (new save or existing save).
 	 * Clears all tracked actors and re-registers the player.
 	 * Burden is dynamically computed — no serialization needed.

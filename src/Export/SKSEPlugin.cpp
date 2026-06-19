@@ -2,6 +2,7 @@
 #include "Data/ModObjectManager.h"
 #include "Hooks/Hooks.h"
 #include "Papyrus/Papyrus.h"
+#include "Settings/Params/SettingsOverride.h"
 #include "Serialization/Serde.h"
 #include "Settings/INI/INISettings.h"
 #include "Settings/JSON/JSONSettings.h"
@@ -11,6 +12,8 @@ static void MessageEventCallback(SKSE::MessagingInterface::Message* a_msg)
 {
 	switch (a_msg->type) {
 	case SKSE::MessagingInterface::kDataLoaded:
+		SECTION_SEPARATOR;
+		Regen::OverrideGameSettings();
 		SECTION_SEPARATOR;
 		if (!Data::PreloadModObjects()) {
 			SKSE::stl::report_and_fail("Failed to preload mod objects. Check the log for more information."sv);

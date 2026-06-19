@@ -227,28 +227,24 @@ struct ActorBurdenData {
 
 **Purpose:** Modifies stamina/health/magicka regeneration rates based on burden, cross-AV levels, weather, and exhaustion.
 
-**Formulas (all smooth via `Math::Interpolate`):**
+**Formulas:**
 
 ```
-staminaRegenMult = Interpolate(RegenStaminaMult_LowBurden,   // at burden=0
-                               RegenStaminaMult_HighBurden,  // at burden=1
-                               blendedBurdenRatio,           // (equipped+total)/2
-                               kStamina)
-                × Interpolate(1.0, RegenStaminaMult_LowHealth, 1 - healthRatio, k)
-                × Interpolate(1.0, RegenStaminaMult_LowMagicka, 1 - magickaRatio, k)
-                × (weatherManager.IsBadWeather(actor) && actor->IsPlayer() ? RegenStaminaMult_BadWeather : 1.0)
-                × (isExhausted(actor) ? ExhaustedRegenMult : 1.0)
+regenBonus     = burdenMult × crossAVmult × gassedOutFactor (placeholder 1.0)
+penalties      = movementPenalty + actionPenalty + weatherPenalty (placeholder 0.0)
+result         = regenBonus - penalties
 
-healthRegenMult  = Interpolate(HealthRegenMult_HighStamina,   // at stamina=100%
-                               HealthRegenMult_LowStamina,    // at stamina=0%
-                               1 - staminaRatio, kHealth)
+Movement penalty by actor state: static / walking / running / sprinting / swimming (RegenPenalties).
+Action penalty: blockingPenalty × burdenRatio (RegenPenalties).
 
-magickaRegenMult = Interpolate(MagickaRegenMult_HighStamina,  // at stamina=100%
-                               MagickaRegenMult_LowStamina,   // at stamina=0%
-                               1 - staminaRatio, kMagicka)
+Cross-AV stamina: burden(%) × health(%) × stamina(%) × magicka(%)
+  Each factor via Math::Interpolate(Low, High, ratio, k).
+
+Health regen:  staminaRatio → HealthRegenMult_{Low,High}Stamina via Interpolate
+Magicka regen: staminaRatio → MagickaRegenMult_{Low,High}Stamina via Interpolate
 ```
 
-**Hook strategy:** Hook `Actor::RestoreActorValue`. When the delta is positive (regen, not damage) and the AV is stamina/health/magicka, scale the delta by the computed multiplier. Also hook the regen condition function to short-circuit when burden is extremely high.
+**Hook strategy:** `write_call<5>` on `REL::ID(38452) + 0x2B6` intercepts the engine's internal AVRegen rate function. The Thunk calls the original to get the base regen rate, multiplies by our formula, and returns the modified `__m128`. If the formula returns a negative rate, `DamageActorValue()` drains the actor directly and the returned rate is 0.0. A 100ms heartbeat (started in `BurdenTracker::OnGameLoad`) detects full-stamina + negative-multiplier and drains 0.1 to push below 100%, allowing regen ticks to fire.
 
 ### 3.3 ActionManager
 
@@ -380,18 +376,18 @@ Normal ──(stamina = 0)──▶ Exhausted ──(duration expires)──▶ 
 
 ## 4. Hook Summary
 
-| ID                | Function                   | Module               | Technique        | Purpose                                           |
-|-------------------+----------------------------+----------------------+------------------+---------------------------------------------------|
-| *(event sink)*    | `TESEquipEvent`            | BurdenManager        | Event sink       | Trigger burden recalc on equip/unequip             |
-| *(event sink)*    | `TESContainerChangedEvent` | BurdenManager        | Event sink       | Trigger burden recalc on pickup/drop/transfer      |
-| *(event sink)*    | `TESLoadGameEvent`         | BurdenManager        | Event sink       | Re-register player + start heartbeat on game load  |
-| *(heartbeat)*     | `TaskTrackBurdenParams`    | BurdenManager        | 200ms poll       | Detect carry weight + skill changes from any source|
-| *(future)*        | `38603`                    | ActionManager        | `write_call<5>`  | Attack stamina cost → override                     |
-| *(future)*        | `38452`                    | RegenManager         | `write_call<5>`  | Modify regen condition return                      |
-| *(future)*        | vtable/detour              | Actor::RestoreAV     | RegenManager     | Scale regen deltas                                  |
-| *(future)*        | `38627`                    | Block/Combat Manager | `write_call<5>`  | Hit processing → stamina redirect + dmg scaling     |
-| *(future)*        | `49170`                    | ActionManager        | `write_call<5>`  | Prevent action when locked                          |
-| *(future)*        | game settings              | ActionManager        | Direct write     | Movement costs on burden change                     |
+| ID                | Function                       | Module               | Technique        | Purpose                                           |
+|-------------------+--------------------------------+----------------------+------------------+---------------------------------------------------|
+| *(event sink)*    | `TESEquipEvent`                | BurdenManager        | Event sink       | Trigger burden recalc on equip/unequip             |
+| *(event sink)*    | `TESContainerChangedEvent`     | BurdenManager        | Event sink       | Trigger burden recalc on pickup/drop/transfer      |
+| *(event sink)*    | `TESLoadGameEvent`             | BurdenManager        | Event sink       | Re-register player + start heartbeat on game load  |
+| *(heartbeat)*     | `TaskTrackBurdenParams`        | BurdenManager        | 200ms poll       | Detect carry weight + skill changes from any source|
+| *(completed)*     | `38452 + 0x2B6`                | RegenManager         | `write_call<5>`  | Intercept AVRegen rate function × formula          |
+| *(completed)*     | `TaskPlayerFullStaminaMonitor` | RegenManager         | 100ms poll       | Drain 0.1 stamina when full + negative mult        |
+| *(future)*        | `38603`                        | ActionManager        | `write_call<5>`  | Attack stamina cost → override                     |
+| *(future)*        | `38627`                        | Block/Combat Manager | `write_call<5>`  | Hit processing → stamina redirect + dmg scaling     |
+| *(future)*        | `49170`                        | ActionManager        | `write_call<5>`  | Prevent action when locked                          |
+| *(future)*        | game settings                  | ActionManager        | Direct write     | Movement costs on burden change                     |
 
 ---
 
@@ -499,94 +495,51 @@ The existing `UnitTest_Serialization` declarations are removed (or implemented o
 
 ## 7. Serialization
 
-Reserve ID `'EXHD'` for a `BurdenSerde` class inheriting `Serialization::Serializable`. Currently a no-op placeholder for future MCM-persistent state.
-
-```cpp
-class BurdenSerde : public Serialization::Serializable {
-    bool Save(SKSE::SerializationInterface*) override { return true; }
-    bool Load(SKSE::SerializationInterface*) override { return true; }
-    bool Revert(SKSE::SerializationInterface*) override { return true; }
-};
-```
-
-Registered in `SKSEPlugin_Load` via `Register(ID)`.
+**On hold.** No serialization of burden state is currently needed — burden data is recomputed dynamically on game load. The current serialization ID is `'TRJT'` (from the template project). A future `BurdenSerde` (`'EXHD'`) may be added if save-scoped state becomes necessary.
 
 ---
 
 ## 8. All Settings (hardcoded defaults in SettingsRegistry)
 
-Default values embedded in C++ code. No shipped INI file.
+Setting keys in `Parameter<T>` structs, organized by compile-time group. No shipped INI file. Values and ranges defined in C++ defaults — subject to empirical tuning via curve plotting (planned ImGui overlay).
 
-```cpp
-// Section: Burden
-{ "fmaxEquippedWeightRatio",      "Burden",             0.4f   },
-{ "fSlotBurdenMult_def",          "Burden.SlotWeights", 1.0f   },
-{ "fSlotBurdenMult_body",         "Burden.SlotWeights", 0.70f  },
-{ "fSlotBurdenMult_feet",         "Burden.SlotWeights", 1.5f   },
-{ "fSlotBurdenMult_head",         "Burden.SlotWeights", 1.2f   },
-{ "fSlotBurdenMult_hand",         "Burden.SlotWeights", 0.8f   },
-{ "iPlayerMaxSkill",              "Burden.Skill",       100    },
-{ "fSkillInterpolate",            "Burden.Skill",       0.0f   },
-{ "fSkillBurdenMult_minHeavy",    "Burden.Skill",       0.5f   },
-{ "fSkillBurdenMult_maxHeavy",    "Burden.Skill",       2.5f   },
-{ "fSkillBurdenMult_minLight",    "Burden.Skill",       0.6f   },
-{ "fSkillBurdenMult_maxLight",    "Burden.Skill",       2.0f   },
-{ "fSteedStoneBurdenMult",        "Burden.Effects",     0.3f   },
+### Burden (BurdenParams)
+  fmaxEquippedWeightRatio
+  fSlotBurdenMult_def / fSlotBurdenMult_body / fSlotBurdenMult_feet / fSlotBurdenMult_head / fSlotBurdenMult_hand
+  iPlayerMaxSkill
+  fSkillInterpolate
+  fSkillBurdenMult_minHeavy / fSkillBurdenMult_maxHeavy / fSkillBurdenMult_minLight / fSkillBurdenMult_maxLight
+  fSteedStoneBurdenMult
 
-// Section: Regen.Stamina
-{ "fStaminaRegenMult_LowBurden",  "Regen.Stamina",  1.5f   },
-{ "fStaminaRegenMult_HighBurden", "Regen.Stamina",  0.5f   },
-{ "fStaminaRegenMult_LowHealth",  "Regen.Stamina",  0.5f   },
-{ "fStaminaRegenMult_LowMagicka", "Regen.Stamina",  0.5f   },
-{ "fStaminaRegenMult_BadWeather", "Regen.Stamina",  0.75f  },
-{ "fStaminaRegenCurve_k",         "Regen.Stamina",  0.5f   },
+### Regen.Stamina (RegenParams)
+  fStaminaRegenMult_LowBurden / fStaminaRegenMult_HighBurden
+  fStaminaRegenMult_LowHealth / fStaminaRegenMult_HighHealth
+  fStaminaRegenMult_LowStamina / fStaminaRegenMult_HighStamina
+  fStaminaRegenMult_LowMagicka / fStaminaRegenMult_HighMagicka
+  fStaminaRegenCurve_kStamina / fStaminaRegenCurve_kMagicka / fStaminaRegenCurve_kHealth
+  bEnableDebugLogging
+  *(planned: fStaminaRegenMult_BadWeather)*
 
-// Section: Regen.Health
-{ "fHealthRegenMult_LowStamina",  "Regen.Health",   0.5f   },
-{ "fHealthRegenMult_HighStamina", "Regen.Health",   1.0f   },
-{ "fHealthRegenCurve_k",          "Regen.Health",   0.5f   },
+### Regen.Health (RegenParams)
+  fHealthRegenMult_LowStamina / fHealthRegenMult_HighStamina
+  fHealthRegenCurve_k
 
-// Section: Regen.Magicka
-{ "fMagickaRegenMult_LowStamina", "Regen.Magicka",  0.5f   },
-{ "fMagickaRegenMult_HighStamina","Regen.Magicka",  1.0f   },
-{ "fMagickaRegenCurve_k",         "Regen.Magicka",  0.5f   },
+### Regen.Magicka (RegenParams)
+  fMagickaRegenMult_LowStamina / fMagickaRegenMult_HighStamina
+  fMagickaRegenCurve_k
 
-// Section: Actions.Attack
-{ "fAttackCostBase",              "Actions.Attack", 0.05f  },
-{ "fAttackCostWeightMult",        "Actions.Attack", 0.03f  },
-{ "fAttackCostSkillDivisor",      "Actions.Attack", 200.0f },
-{ "fAttackCostBurdenPenalty",     "Actions.Attack", 0.5f   },
-{ "fActionLockCostFraction",      "Actions.Attack", 0.2f   },
+### Regen.Penalties (RegenPenalties)
+  fRegenMult_static / fRegenMult_walking / fRegenMult_running / fRegenMult_sprinting / fRegenMult_swimming / fRegenMult_blocking
 
-// Section: Actions.Movement
-{ "fMovementCostBurdenPenalty",   "Actions.Movement", 0.3f },
-{ "fJumpCostBase",                "Actions.Movement", 0.02f },
-{ "fSprintCostBase",              "Actions.Movement", 0.01f },
-{ "fSwimCostBase",                "Actions.Movement", 0.015f},
-{ "fRunCostBase",                 "Actions.Movement", 0.005f},
-
-// Section: Blocking
-{ "fBlockStaminaSplit_Weapon",    "Blocking",       0.70f  },
-{ "fBlockStaminaSplit_Shield",    "Blocking",       0.90f  },
-{ "fBlockBurdenPenalty",          "Blocking",       0.3f   },
-{ "fBlockSkillEfficiencyDivisor", "Blocking",       200.0f },
-
-// Section: Exhaustion
-{ "fExhaustedRegenMult",          "Exhaustion",     0.5f   },
-{ "fExhaustedDamageMult",         "Exhaustion",     0.6f   },
-{ "fExhaustionDuration",          "Exhaustion",     7.0f   },
-
-// Section: Combat
-{ "fAttackDmgMult_LowStamina",    "Combat",         0.5f   },
-{ "fAttackDmgMult_HighStamina",   "Combat",         1.0f   },
-{ "fAttackDmgCurve_k",            "Combat",         0.5f   },
-```
+### Overrides.GameSettings (ParameterOverrides)
+  fCombatStaminaRegenRateMult / fCombatHealthRegenRateMult / fCombatMagickaRegenRateMult
+  fDamagedStaminaRegenDelay / fDamagedHealthRegenDelay / fDamagedMagickaRegenDelay
 
 ---
 
 ## 9. Implementation Phases
 
-### Phase 1 — Burden Foundation
+### Phase 1 — Burden Foundation ✅
 
 | Task                                                                     | Files                                                  |
 |--------------------------------------------------------------------------+--------------------------------------------------------|
@@ -597,7 +550,7 @@ Default values embedded in C++ code. No shipped INI file.
 | Add `BurdenParams` singleton with typed `ForEach` export                  | `src/Settings/Params/BurdenParams.h`                  |
 | Verify burden values in-game before proceeding                            | *(manual test)*                                        |
 
-### Phase 1b — Weighted Burden
+### Phase 1b — Weighted Burden ✅
 
 | Task                                                 | Files                             |
 |------------------------------------------------------+-----------------------------------|
@@ -605,31 +558,23 @@ Default values embedded in C++ code. No shipped INI file.
 | Update `sb_getburden` to show weighted vs unweighted | `src/Console/ConsoleCommands.cpp` |
 | Verify weighted burden in-game                       | *(manual test)*                   |
 
-### Phase 1c — HUD Burden Widget
+### Phase 2 — Regen (Complete)
 
-| Task | Files |
-|---|---|
-| Vendor `TrueHUDAPI.h` into project | `src/HUD/TrueHUDAPI.h` |
-| Implement `BurdenWidget` (API detection + registration) | `src/HUD/BurdenWidget.h/.cpp` |
-| Wire into startup messaging listener | `src/Export/SKSEPlugin.cpp` |
-| Expose burden data access from Tracker | `src/Burden/BurdenTracker.h/.cpp` |
+| Task                                                                         | Files                           |
+|------------------------------------------------------------------------------+---------------------------------|
+| Implement `RegenManager` (formulas, queries `Parameter<T>` structs for values) | `src/Regen/RegenManager.h/.cpp` |
+| Hook AVRegen rate function at `38452 + 0x2B6` (`write_call<5>`)               | `src/Hooks/RegenHooks.h/.cpp`   |
+| Wire burden ratios + cross-AV + movement/action penalties into formula       | `src/Regen/RegenManager.cpp`    |
+| Full-stamina monitor heartbeat (100ms) kickoff from `OnGameLoad`             | `src/Hooks/RegenHooks.cpp`      |
+| *(not yet implemented: weather, exhaustion factors in formula)*              |                                 |
 
-### Phase 2 — Runtime Configuration
+### Phase 3 — Runtime Configuration
 
 | Task                                                         | Files                                            |
 |--------------------------------------------------------------+--------------------------------------------------|
 | Add `sb_get`/`sb_set`/`sb_list`/`sb_reset` console commands  | `src/Console/ConsoleCommands.cpp`, `Papyrus.cpp` |
 | Wire `SettingsRegistry::LoadFromINI()` into startup sequence | `src/Export/SKSEPlugin.cpp`                      |
 | Wire `SettingsRegistry::SaveToINI()` into every `Set()`      | `src/Config/SettingsRegistry.cpp`                |
-
-### Phase 3 — Regen
-
-| Task                                                                         | Files                           |
-|------------------------------------------------------------------------------+---------------------------------|
-| Implement `RegenManager` (formulas, queries SettingsRegistry for all values) | `src/Regen/RegenManager.h/.cpp` |
-| Hook `Actor::RestoreActorValue`                                              | `src/Hooks/Hooks.cpp`           |
-| Hook regen condition function (`38452`)                                      | `src/Hooks/Hooks.cpp`           |
-| Wire burden ratios + cross-AV + weather + exhaustion into regen mult         | `src/Regen/RegenManager.cpp`    |
 
 ### Phase 4 — Attack Costs
 
@@ -663,8 +608,7 @@ Default values embedded in C++ code. No shipped INI file.
 | Implement `CombatManager` (stamina-conditional + exhaustion dmg scaling) | `src/Combat/CombatManager.h/.cpp` |
 | Hook stamina-conditional damage scaling into `38627` (all hits)          | `src/Hooks/Hooks.cpp`             |
 | Implement exhaustion state machine (timed duration)                      | `src/Blocking/BlockManager.cpp`   |
-| Cross-AV regen wiring (already in `RegenManager`)                        | *(reuse Phase 3)*                 |
-|                                                                          |                                   |
+| Cross-AV regen wiring (already in Phase 2)                              | *(reuse)*                         |
 
 ### Phase 8 — WeatherManager
 
@@ -673,7 +617,16 @@ Default values embedded in C++ code. No shipped INI file.
 | Implement `WeatherManager` (precipitation check, player-only) | `src/Weather/WeatherManager.h/.cpp` |
 | Wire into `RegenManager`                                      | `src/Regen/RegenManager.cpp`        |
 
-### Phase 9 — Papyrus + Polish
+### Phase 9 — HUD Burden Widget (was Phase 1c)
+
+| Task | Files |
+|---|---|
+| Vendor `TrueHUDAPI.h` into project | `src/HUD/TrueHUDAPI.h` |
+| Implement `BurdenWidget` (API detection + registration) | `src/HUD/BurdenWidget.h/.cpp` |
+| Wire into startup messaging listener | `src/Export/SKSEPlugin.cpp` |
+| Expose burden data access from Tracker | `src/Burden/BurdenTracker.h/.cpp` |
+
+### Phase 10 — Papyrus + Polish
 
 | Task                                                                | Files                                         |
 |---------------------------------------------------------------------+-----------------------------------------------|
@@ -681,10 +634,10 @@ Default values embedded in C++ code. No shipped INI file.
 | Update `.psc` script                                                | `Data/Source/Scripts/EC_StaminaAndBurden.psc` |
 | Remove stale `UnitTest_Serialization` declarations                  | `.psc` + `Papyrus.cpp`                        |
 | Fix `TestCommands.yaml` (SEA_TemplateProject → EC_StaminaAndBurden) | `TestCommands.yaml`                           |
-| Implement `BurdenSerde` serialization (placeholder)                 | `src/Serialization/Serde.h/.cpp`              |
+| Remove unreferenced `TaskUpdatePlayerBurdenLog`                     | `src/Burden/BurdenManager.h/.cpp`             |
 | Clean up old `Settings::INI` files                                  | `src/Settings/INI/`                           |
 | Remove `StaminaAndBurden.ini` shipped file                          | `Data/SKSE/Plugins/StaminaAndBurden.ini`      |
-| Final settings tuning pass                                          | `SettingsRegistry` defaults                   |
+| Final settings tuning pass                                          | C++ defaults in `Parameter<T>` structs        |
 
 ---
 
