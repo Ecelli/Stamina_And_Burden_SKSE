@@ -1,5 +1,6 @@
 #include "BurdenTracker.h"
 #include "Common/Utils.h"
+#include "Hooks/RegenHooks.h"
 
 // Tier 1: tracked actors (event-driven, persistent for the session)
 // Tier 2: transient NPC cache — grows freely within a worldspace,
@@ -126,6 +127,7 @@ namespace Burden::Tracker
 		if (!heartbeatStarted) {
 			heartbeatStarted = true;
 			Common::make_heartbeat(std::chrono::milliseconds(200), TaskTrackBurdenParams);
+			Common::make_heartbeat(std::chrono::milliseconds(200), Hooks::TaskPlayerFullStaminaMonitor);
 		}
 	}
 

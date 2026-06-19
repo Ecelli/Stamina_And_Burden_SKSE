@@ -82,4 +82,36 @@ namespace Hooks
 
 		logger::info("  >Installed regen hook (ID 38452 + 0x2B6)");
 	}
+
+	// ---------------------------------------------------------------
+	// Full-stamina monitor (heartbeat)
+	//
+	// The regen function doesn't fire when AV is at 100%, so our
+	// Thunk can't drain. This heartbeat (100ms ~ 10fps) checks if
+	// the player is at full stamina with a negative multiplier and
+	// drains a tiny amount (0.1) to push below 100%. The next regen
+	// tick will then fire normally and the Thunk handles the rest.
+	//
+	// Started from BurdenTracker::OnGameLoad() alongside the burden
+	// parameter tracking heartbeat.
+	// ---------------------------------------------------------------
+	void TaskPlayerFullStaminaMonitor()
+	{
+		SKSE::GetTaskInterface()->AddTask([]() {
+			auto* player = RE::PlayerCharacter::GetSingleton();
+			if (!player)
+				return;
+
+			const auto av = RE::ActorValue::kStamina;
+			const float cur = player->GetActorValue(av);
+			const float max = player->GetActorValueMax(av);
+			if (max > 0.0f && cur >= max) {
+				float mult = Regen::ComputeStaminaRegenMult(player);
+				if (mult < 0.0f) {
+					player->DamageActorValue(av, 0.1f);
+					Regen::RegenLog("StaminaMonitor: drained 0.1 at full stamina (mult={:.3f})", mult);
+				}
+			}
+		});
+	}
 }

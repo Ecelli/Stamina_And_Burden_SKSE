@@ -47,7 +47,7 @@ namespace Regen
         auto* params = RegenParams::GetSingleton();
 
 		// 1. Health 
-		float maxHealth = actor->GetPermanentActorValue(RE::ActorValue::kHealth);
+		float maxHealth = actor->GetActorValueMax(RE::ActorValue::kHealth);
 		if (maxHealth > 0.0f) {
 			healthPct = Math::Clamp01(actor->GetActorValue(RE::ActorValue::kHealth) / maxHealth);
 		}
@@ -58,7 +58,7 @@ namespace Regen
 			params->StaminaRegenCurve_kHealth.Get());
 
 		// 2. Stamina 
-        float maxStamina = actor->GetPermanentActorValue(RE::ActorValue::kStamina);
+        float maxStamina = actor->GetActorValueMax(RE::ActorValue::kStamina);
 		if (maxStamina > 0.0f) {
 			staminaPct = Math::Clamp01(actor->GetActorValue(RE::ActorValue::kStamina) / maxStamina);
 		}
@@ -69,7 +69,7 @@ namespace Regen
 			params->StaminaRegenCurve_kStamina.Get());
 
 		// 3. Magicka 
-		float maxMagicka = actor->GetPermanentActorValue(RE::ActorValue::kMagicka);
+		float maxMagicka = actor->GetActorValueMax(RE::ActorValue::kMagicka);
 		if (maxMagicka > 0.0f) {
 			magickaPct = Math::Clamp01(actor->GetActorValue(RE::ActorValue::kMagicka) / maxMagicka);
 		}
@@ -132,11 +132,9 @@ namespace Regen
 
 	float ComputeStaminaRegenMult(RE::Actor* actor)
 	{
-        RegenLog("ComputeStaminaRegenMult: Entry");
 		if (!actor)
 			return 1.0f;
 
-        RegenLog("ComputeStaminaRegenMult: got actor");
 		auto& burdenData = Burden::Tracker::GetOrComputeBurden(actor);
 
         float regenBonus = 0.0f;
@@ -161,7 +159,7 @@ namespace Regen
 	{
 		if (!actor)
 			return 1.0f;
-        float maxStamina = actor->GetPermanentActorValue(RE::ActorValue::kStamina);
+        float maxStamina = actor->GetActorValueMax(RE::ActorValue::kStamina);
 		if (maxStamina <= 0.0f) {
             return 1.0f;
 		}
@@ -180,7 +178,7 @@ namespace Regen
 	{
 		if (!actor)
 			return 1.0f;
-        float maxStamina = actor->GetPermanentActorValue(RE::ActorValue::kStamina);
+        float maxStamina = actor->GetActorValueMax(RE::ActorValue::kStamina);
 		if (maxStamina <= 0.0f) {
             return 1.0f;
 		}

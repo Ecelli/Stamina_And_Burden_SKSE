@@ -23,4 +23,6 @@ namespace Hooks
 
 		static __m128 Thunk(RE::Actor* a_actor, std::uint32_t a_av);
 	};
+
+	void TaskPlayerFullStaminaMonitor();
 }
