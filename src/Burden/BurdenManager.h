@@ -19,5 +19,4 @@ namespace Burden
 	float ComputeEquipmentBurden(RE::Actor* actor);
 	ActorBurdenData UpdateBurden(RE::Actor* actor);
 	ActorBurdenData UpdateBurdenLog(RE::Actor* actor);
-	void TaskUpdatePlayerBurdenLog();
 }

@@ -71,8 +71,7 @@ namespace Burden::Tracker
 				return;
 			}
 
-			it->second = UpdateBurden(actor);
-			UpdateBurdenLog(actor);
+			it->second = UpdateBurdenLog(actor);
 		});
 	}
 
