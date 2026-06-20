@@ -29,5 +29,6 @@ namespace Regen
 		overrideFloat("fDamagedStaminaRegenDelay", params->DamagedStaminaRegenDelay.Get());
 		overrideFloat("fDamagedHealthRegenDelay", params->DamagedHealthRegenDelay.Get());
 		overrideFloat("fDamagedMagickaRegenDelay", params->DamagedMagickaRegenDelay.Get());
+		overrideFloat("fSprintStaminaDrainMult", params->SprintStaminaDrainMult.Get());
 	}
 }

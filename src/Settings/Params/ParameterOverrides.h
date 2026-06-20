@@ -16,6 +16,9 @@ namespace Regen
 		Parameter<float> DamagedHealthRegenDelay{ 0.5f, 0.0f, 60.0f };
 		Parameter<float> DamagedMagickaRegenDelay{ 0.5f, 0.0f, 60.0f };
 
+		// Sprint stamina drain
+		Parameter<float> SprintStaminaDrainMult{ 1.0f, 0.0f, 10.0f };
+
 		template <typename F>
 		static void ForEach(F&& a_fn)
 		{
@@ -26,6 +29,7 @@ namespace Regen
 			a_fn("fDamagedStaminaRegenDelay"sv, s.DamagedStaminaRegenDelay);
 			a_fn("fDamagedHealthRegenDelay"sv, s.DamagedHealthRegenDelay);
 			a_fn("fDamagedMagickaRegenDelay"sv, s.DamagedMagickaRegenDelay);
+			a_fn("fSprintStaminaDrainMult"sv, s.SprintStaminaDrainMult);
 		}
 	};
 }
