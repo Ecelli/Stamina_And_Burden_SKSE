@@ -1,6 +1,7 @@
 #include "Hooks/hooks.h"
 #include "Hooks/BurdenEventHandlers.h"
 #include "Hooks/RegenHooks.h"
+#include "Hooks/SprintDrainHook.h"
 
 namespace Hooks {
 	bool Install() {
@@ -22,7 +23,7 @@ namespace Hooks {
 		logger::info("  >Registered burden event handlers"sv);
 
 		RegenHook::Install();
-
+		SprintDrainHook::Install();
 
 		return true;
 	}
