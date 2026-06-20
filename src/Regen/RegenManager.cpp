@@ -4,47 +4,75 @@
 
 namespace Regen
 {
-    // Returns false for any action that does prevents stamina regeneration
-    bool GetCanRegenStamina(RE::Actor* actor) {
-        // For now only attacking can do this
-        bool result = actor->GetAttackState() == RE::ATTACK_STATE_ENUM::kNone;
-        RegenLog("GetCanRegenStamina: attackState={} -> {}", (int)actor->GetAttackState(), result);
-        return result;
-    }
+	bool GetCanRegenStamina(RE::Actor* actor)
+	{
+		bool result = actor->GetAttackState() == RE::ATTACK_STATE_ENUM::kNone;
+		RegenLog("GetCanRegenStamina: attackState={} -> {}", (int)actor->GetAttackState(), result);
+		return result;
+	}
 
-    float GetBurdenStaminaMult(RE::Actor*, const Burden::ActorBurdenData& burdenData)
-    {
-		auto* params = RegenParams::GetSingleton();
-		float burdenRatio = burdenData.burden;
-		float carryBurdenRatio = burdenData.carryBurden;
-        if (burdenRatio >= 1 || carryBurdenRatio >= 1) {
-            RegenLog("GetBurdenStaminaMult: burden={:.3f} carry={:.3f} -> HighBurden={:.3f} (clamped)", burdenRatio, carryBurdenRatio, params->StaminaRegenMult_HighBurden.Get());
-            return params->StaminaRegenMult_HighBurden.Get();
-        }
-		float burdenFactor = Math::Interpolate(
-			params->StaminaRegenMult_LowBurden.Get(),
-			params->StaminaRegenMult_HighBurden.Get(),
-			burdenRatio,
-			params->StaminaRegenCurve_kStamina.Get());
+	MovementState GetMovementState(RE::Actor* actor)
+	{
+		if (actor->IsSwimming())
+			return MovementState::kSwimming;
+		if (actor->IsRunning())
+			return MovementState::kRunning;
+		if (actor->IsSneaking())
+			return MovementState::kSneaking;
+		if (actor->IsWalking())
+			return MovementState::kWalking;
+		return MovementState::kStatic;
+	}
 
-		float carryBurdenFactor = Math::Interpolate(
-			params->StaminaRegenMult_LowBurden.Get(),
-			params->StaminaRegenMult_HighBurden.Get(),
-			carryBurdenRatio,
-			params->StaminaRegenCurve_kStamina.Get());
+	float ComputeStateRegenFactor(const Burden::ActorBurdenData& data, MovementState state, float HMS)
+	{
+		auto* params = RegenMovementParams::GetSingleton();
+		float maxVal, minVal;
 
-        float result = burdenFactor * carryBurdenFactor;
-        RegenLog("GetBurdenStaminaMult: burden={:.3f}->f={:.3f} carry={:.3f}->f={:.3f} -> product={:.3f}", burdenRatio, burdenFactor, carryBurdenRatio, carryBurdenFactor, result);
-        return result;
-    }
+		switch (state) {
+		case MovementState::kSwimming:
+			maxVal = params->RegenSwimming_max.Get();
+			minVal = params->RegenSwimming_min.Get();
+			break;
+		case MovementState::kRunning:
+			maxVal = params->RegenRunning_max.Get();
+			minVal = params->RegenRunning_min.Get();
+			break;
+		case MovementState::kSneaking:
+			maxVal = params->RegenSneaking_max.Get();
+			minVal = params->RegenSneaking_min.Get();
+			break;
+		case MovementState::kWalking:
+			maxVal = params->RegenWalking_max.Get();
+			minVal = params->RegenWalking_min.Get();
+			break;
+		default:
+			maxVal = params->RegenStatic_max.Get();
+			minVal = params->RegenStatic_min.Get();
+			break;
+		}
 
-    float GetHMSStaminaMult(RE::Actor* actor, const Burden::ActorBurdenData&)
-    {
+		float k = params->MovementRegenCurve_k.Get();
+		float blend = data.burdenBlend;
+		float result = Math::Interpolate(maxVal * HMS, minVal, blend, k);
+		return result;
+	}
+
+	float ComputeBlockCost(const Burden::ActorBurdenData& data)
+	{
+		float perc = RegenMovementParams::GetSingleton()->BlockRegenCostBurdenPerc.Get();
+		float result = perc * data.burdenBlend;
+		RegenLog("ComputeBlockCost: perc={:.3f} blend={:.3f} -> {:.3f}", perc, data.burdenBlend, result);
+		return result;
+	}
+
+	float GetHMSStaminaMult(RE::Actor* actor)
+	{
 		float healthPct = 1.0f;
 		float staminaPct = 1.0f;
 		float magickaPct = 1.0f;
 
-        auto* params = RegenParams::GetSingleton();
+		auto* params = RegenParams::GetSingleton();
 
 		// 1. Health 
 		float maxHealth = actor->GetActorValueMax(RE::ActorValue::kHealth);
@@ -58,7 +86,7 @@ namespace Regen
 			params->StaminaRegenCurve_kHealth.Get());
 
 		// 2. Stamina 
-        float maxStamina = actor->GetActorValueMax(RE::ActorValue::kStamina);
+		float maxStamina = actor->GetActorValueMax(RE::ActorValue::kStamina);
 		if (maxStamina > 0.0f) {
 			staminaPct = Math::Clamp01(actor->GetActorValue(RE::ActorValue::kStamina) / maxStamina);
 		}
@@ -76,58 +104,13 @@ namespace Regen
 		float magickaFactor = Math::Interpolate(
 			params->StaminaRegenMult_LowMagicka.Get(),
 			params->StaminaRegenMult_HighMagicka.Get(),
-            magickaPct,
+			magickaPct,
 			params->StaminaRegenCurve_kMagicka.Get());
 
-        float result = healthFactor * staminaFactor * magickaFactor;
-        RegenLog("GetHMSStaminaMult: hPct={:.3f}->f={:.3f} sPct={:.3f}->f={:.3f} mPct={:.3f}->f={:.3f} -> {}", healthPct, healthFactor, staminaPct, staminaFactor, magickaPct, magickaFactor, result);
-        return result;
-    }
-
-    float GetBlockStaminaMult(RE::Actor*, const Burden::ActorBurdenData& burdenData)
-    {
-        // TODO: Still incomplete formula
-		auto* params = RegenPenalties::GetSingleton();
-		float burdenRatio = burdenData.burden;
-        float result = params->RegenMult_blocking.Get() * burdenRatio;
-        RegenLog("GetBlockStaminaMult: burdenRatio={:.3f} blockMult={:.3f} -> {}", burdenRatio, params->RegenMult_blocking.Get(), result);
-        return result;
-    }
-
-    float GetActionPenaltyMult(RE::Actor* actor, const Burden::ActorBurdenData& burdenData) {
-        // Incomplete, but for now is OK. We should use continued actions with
-        // Cost for maintaining like blocking and bows
-		if (actor->IsBlocking()) {
-            float result = GetBlockStaminaMult(actor, burdenData);
-            RegenLog("GetActionPenaltyMult: blocking=true -> {}", result);
-            return result;
-        }
-        return 1.0f;
-    }
-
-	float GetMovementPenaltyMult(RE::Actor* actor)
-	{
-		auto* params = RegenPenalties::GetSingleton();
-
-		if (actor->IsSprinting()) {
-            RegenLog("GetMovementPenaltyMult: sprinting -> {}", params->RegenMult_sprinting.Get());
-			return params->RegenMult_sprinting.Get();
-		}
-		if (actor->IsSwimming()) {
-            RegenLog("GetMovementPenaltyMult: swimming -> {}", params->RegenMult_swimming.Get());
-			return params->RegenMult_swimming.Get();
-		}
-		if (actor->IsRunning()) {
-            RegenLog("GetMovementPenaltyMult: running -> {}", params->RegenMult_running.Get());
-			return params->RegenMult_running.Get();
-		}
-		if (actor->IsWalking()) {
-            RegenLog("GetMovementPenaltyMult: walking -> {}", params->RegenMult_walking.Get());
-			return params->RegenMult_walking.Get();
-		}
-
-        RegenLog("GetMovementPenaltyMult: static -> {}", params->RegenMult_static.Get());
-		return params->RegenMult_static.Get();
+		float result = healthFactor * staminaFactor * magickaFactor;
+		RegenLog("GetHMSStaminaMult: hPct={:.3f}->f={:.3f} sPct={:.3f}->f={:.3f} mPct={:.3f}->f={:.3f} -> {}",
+			healthPct, healthFactor, staminaPct, staminaFactor, magickaPct, magickaFactor, result);
+		return result;
 	}
 
 	float ComputeStaminaRegenMult(RE::Actor* actor)
@@ -136,60 +119,62 @@ namespace Regen
 			return 1.0f;
 
 		auto& burdenData = Burden::Tracker::GetOrComputeBurden(actor);
+		float regenBonus = 0.0f;
 
-        float regenBonus = 0.0f;
+		float HMS = GetHMSStaminaMult(actor);
+		if (GetCanRegenStamina(actor)) {
+			MovementState state = GetMovementState(actor);
+			regenBonus = ComputeStateRegenFactor(burdenData, state, HMS);
+		}
 
-        if (GetCanRegenStamina(actor)) {
-            float burdenStaminaMult = GetBurdenStaminaMult(actor, burdenData);
-            float HMS_factor = GetHMSStaminaMult(actor, burdenData);
-            float gassedOutFactor = 1.0f; // Placeholder for now
-            regenBonus = burdenStaminaMult * HMS_factor * gassedOutFactor;
-        }
+		float blockCost = actor->IsBlocking() ? ComputeBlockCost(burdenData) : 0.0f;
+		float weatherPenalty = 0.0f;
 
-        // Penalties
-		float movementPenalty = GetMovementPenaltyMult(actor);
-		float actionPenalty = GetActionPenaltyMult(actor, burdenData);
-        float weatherPenalty = 0.0f;
-        float result = regenBonus - weatherPenalty - movementPenalty - actionPenalty;
-        RegenLog("ComputeStaminaRegenMult: bonus={:.3f} movePen={:.3f} actPen={:.3f} weatherPen={:.3f} -> {}", regenBonus, movementPenalty, actionPenalty, weatherPenalty, result);
-        return result;
+		float result = regenBonus - blockCost - weatherPenalty;
+		RegenLog("ComputeStaminaRegenMult: MovementFactor={:.3f} HMS={:.3f} block={:.3f} weather={:.3f} -> {}",
+			regenBonus, HMS, blockCost, weatherPenalty, result);
+		return result;
 	}
 
 	float ComputeHealthRegenMult(RE::Actor* actor)
 	{
 		if (!actor)
 			return 1.0f;
-        float maxStamina = actor->GetActorValueMax(RE::ActorValue::kStamina);
+		float maxStamina = actor->GetActorValueMax(RE::ActorValue::kStamina);
 		if (maxStamina <= 0.0f) {
-            return 1.0f;
-		}
-        auto* params = RegenParams::GetSingleton();
-        float staminaPct = Math::Clamp01(actor->GetActorValue(RE::ActorValue::kStamina) / maxStamina);
-        float result = Math::Interpolate(
+			return 1.0f;
+        }
+		auto* params = RegenParams::GetSingleton();
+		float staminaPct = Math::Clamp01(actor->GetActorValue(RE::ActorValue::kStamina) / maxStamina);
+		float result = Math::Interpolate(
 			params->HealthRegenMult_LowStamina.Get(),
 			params->HealthRegenMult_HighStamina.Get(),
-            staminaPct,
+			staminaPct,
 			params->HealthRegenCurve_k.Get());
-        RegenLog("ComputeHealthRegenMult: staminaPct={:.3f} low={:.3f} high={:.3f} k={:.3f} -> {}", staminaPct, params->HealthRegenMult_LowStamina.Get(), params->HealthRegenMult_HighStamina.Get(), params->HealthRegenCurve_k.Get(), result);
-        return result;
+		RegenLog("ComputeHealthRegenMult: staminaPct={:.3f} low={:.3f} high={:.3f} k={:.3f} -> {}",
+			staminaPct, params->HealthRegenMult_LowStamina.Get(), params->HealthRegenMult_HighStamina.Get(),
+			params->HealthRegenCurve_k.Get(), result);
+		return result;
 	}
 
 	float ComputeMagickaRegenMult(RE::Actor* actor)
 	{
 		if (!actor)
 			return 1.0f;
-        float maxStamina = actor->GetActorValueMax(RE::ActorValue::kStamina);
+		float maxStamina = actor->GetActorValueMax(RE::ActorValue::kStamina);
 		if (maxStamina <= 0.0f) {
-            return 1.0f;
-		}
-        auto* params = RegenParams::GetSingleton();
-        float staminaPct = Math::Clamp01(actor->GetActorValue(RE::ActorValue::kStamina) / maxStamina);
-        float result = Math::Interpolate(
+			return 1.0f;
+        }
+		auto* params = RegenParams::GetSingleton();
+		float staminaPct = Math::Clamp01(actor->GetActorValue(RE::ActorValue::kStamina) / maxStamina);
+		float result = Math::Interpolate(
 			params->MagickaRegenMult_LowStamina.Get(),
 			params->MagickaRegenMult_HighStamina.Get(),
-            staminaPct,
+			staminaPct,
 			params->MagickaRegenCurve_k.Get());
-        RegenLog("ComputeMagickaRegenMult: staminaPct={:.3f} low={:.3f} high={:.3f} k={:.3f} -> {}", staminaPct, params->MagickaRegenMult_LowStamina.Get(), params->MagickaRegenMult_HighStamina.Get(), params->MagickaRegenCurve_k.Get(), result);
-        return result;
+		RegenLog("ComputeMagickaRegenMult: staminaPct={:.3f} low={:.3f} high={:.3f} k={:.3f} -> {}",
+			staminaPct, params->MagickaRegenMult_LowStamina.Get(), params->MagickaRegenMult_HighStamina.Get(),
+			params->MagickaRegenCurve_k.Get(), result);
+		return result;
 	}
 }
