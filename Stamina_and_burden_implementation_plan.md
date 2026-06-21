@@ -18,6 +18,7 @@ An SKSE plugin for Skyrim AE that overhauls stamina into a burden- and weight-dr
 ```
 src/
 ├── Common/           # (existing) PCH, Utils.h
+│   └── Print/         # (existing) debug output helpers
 ├── Data/             # (existing) ModObjectManager, Lookup.h
 ├── Export/           # (existing) SKSEPlugin.cpp — entrypoint
 ├── Hooks/            # (existing) Hooks.h/.cpp — hook install
@@ -26,7 +27,8 @@ src/
 ├── Serialization/    # (existing) Serde.h/.cpp — serializable base
 ├── Settings/
 │   ├── INI/          # (existing) — will be replaced by SettingsRegistry
-│   └── JSON/         # (existing) JSON settings reader
+│   ├── JSON/         # (existing) JSON settings reader
+│   └── Params/       # (existing) Parameter<T> + typed structs
 │
 ├── Config/           # NEW — replaces INI settings module
 │   ├── SettingsRegistry.h
@@ -34,24 +36,23 @@ src/
 ├── Console/          # NEW — runtime debug/query commands
 │   ├── ConsoleCommands.h
 │   └── ConsoleCommands.cpp
-├── Burden/           # NEW
+├── Burden/           # (existing) burden computation + tracker
 │   ├── BurdenManager.h
 │   └── BurdenManager.cpp
-├── Regen/            # NEW
+├── Regen/            # (existing) regen formulas + costs
 │   ├── RegenManager.h
-│   └── RegenManager.cpp
+│   ├── RegenManager.cpp
+│   ├── CostsManager.h
+│   └── CostsManager.cpp
 ├── Actions/          # NEW
 │   ├── ActionManager.h
 │   └── ActionManager.cpp
 ├── Blocking/         # NEW
 │   ├── BlockManager.h
 │   └── BlockManager.cpp
-├── Combat/           # NEW
-│   ├── CombatManager.h
-│   └── CombatManager.cpp
-└── Weather/          # NEW
-    ├── WeatherManager.h
-    └── WeatherManager.cpp
+└── Combat/           # NEW
+    ├── CombatManager.h
+    └── CombatManager.cpp
 ```
 
 ---
@@ -227,22 +228,26 @@ struct ActorBurdenData {
 
 **Purpose:** Modifies stamina/health/magicka regeneration rates based on burden, cross-AV levels, weather, and exhaustion.
 
-**Formulas:**
+**Stamina regen formula (per-movement-state curves):**
 
 ```
-regenBonus     = burdenMult × crossAVmult × gassedOutFactor (placeholder 1.0)
-penalties      = movementPenalty + actionPenalty + weatherPenalty (placeholder 0.0)
-result         = regenBonus - penalties
+burdenBlend      = 1 - sqrt((1 - burden) × (1 - carryBurden))      [cached in ActorBurdenData]
+stateFactor      = Interpolate(maxState × HMS, minState, burdenBlend, k_movement)
+blockCost        = fBlockRegenCostBurdenPerc × burdenBlend
+weatherPenalty   = ComputeWeatherPenalty(actor)                      [player-only, exterior-only]
 
-Movement penalty by actor state: static / walking / running / sprinting / swimming (RegenPenalties).
-Action penalty: blockingPenalty × burdenRatio (RegenPenalties).
-
-Cross-AV stamina: burden(%) × health(%) × stamina(%) × magicka(%)
-  Each factor via Math::Interpolate(Low, High, ratio, k).
-
-Health regen:  staminaRatio → HealthRegenMult_{Low,High}Stamina via Interpolate
-Magicka regen: staminaRatio → MagickaRegenMult_{Low,High}Stamina via Interpolate
+result           = stateFactor - blockCost - weatherPenalty
 ```
+
+Movement states (each with configurable `min`/`max`, shared curve `k`): static, walking, sneaking, running, swimming. Sprinting returns 0.0 — cost handled by SprintDrainHook.
+
+HMS scales only the **ceiling** (maxState). Low cross-AV stats never drag the floor lower.
+
+**Blocking** is a compound penalty (orthogonal axis — can block while walking).
+
+**Weather** is a flat penalty, applied consistently to regen and sprint cost via `engineRate × weatherPenalty` (where `engineRate` is a clone of the game's stamina regen function).
+
+**Health/Magicka regen:** Each depends on stamina % only (cross-AV from stamina → health/magicka), via `Interpolate(Low, High, staminaPct, k)`.
 
 **Hook strategy:** `write_call<5>` on `REL::ID(38452) + 0x2B6` intercepts the engine's internal AVRegen rate function. The Thunk calls the original to get the base regen rate, multiplies by our formula, and returns the modified `__m128`. If the formula returns a negative rate, `DamageActorValue()` drains the actor directly and the returned rate is 0.0. A 100ms heartbeat (started in `BurdenTracker::OnGameLoad`) detects full-stamina + negative-multiplier and drains 0.1 to push below 100%, allowing regen ticks to fire.
 
@@ -261,17 +266,13 @@ attackCost = maxStamina
 
 Where `relevantSkill` is the governing skill for the equipped weapon type (OneHanded, TwoHanded, Marksman, etc.). Unarmed uses a configured default.
 
-**Movement stamina costs:** Via game-setting manipulation (Approach B). On burden change events, recalculate and write to the relevant game settings:
+**Movement stamina costs:**
 
-```
-fJumpStaminaCost         = base × (1 + burdenPenalty × ratio)
-fSprintStaminaDrainMult  = base × (1 + burdenPenalty × ratio)
-fSwimStaminaCost         = base × (1 + burdenPenalty × ratio)
-```
-
-Recalculation happens only on burden change events, not per frame.
-
-*(Flagged for potential migration to per-actor hooks if game-setting approach has limitations.)*
+| Type | Mechanism | Status |
+|------|-----------|--------|
+| Sprint | SprintDrainHook (ID 38022 + 0xC1/0xC9, `write_call<5>`) | ✅ Implemented |
+| Run/walk/sneak/swim continuous drain | Encoded in regen curves (negative stateFactor = drain) | ✅ Implemented |
+| Jump | Game-setting manipulation on burden change | ❌ Future |
 
 **Action lockout:** Before any action (attack, jump, block), check:
 
@@ -282,7 +283,7 @@ if currentStamina < fActionLockCostFraction × actionCost → prevent action
 **Hook points:**
 - `Character::sub_140627930` (REL::ID `38603`) — zero vanilla cost, inject own
 - `AttackAction` (REL::ID `49170`) — prevent attack when exhausted/locked
-- Game settings `fJumpStaminaCost`, `fSprintStaminaDrainMult`, etc. — update on burden change
+- Game settings `fJumpStaminaCost` — update on burden change
 
 ### 3.4 BlockManager
 
@@ -337,16 +338,17 @@ finalDamage = baseDamage × dmgMult × (isExhausted ? ExhaustedDamageMult : 1.0)
 
 **Purpose:** Detects if the current weather qualifies as "bad" for regen penalty purposes.
 
-**Implementation:** Queries `RE::Sky::GetSingleton()->GetCurrentWeather()` and checks the precipitation type (rain, snow, etc.).
+**Implementation:** Inline free function in `RegenManager.cpp`. Queries `RE::Sky::GetSingleton()->IsRaining()` / `IsSnowing()`. Parameters in `WeatherParams` struct (`WeatherRainPenalty`, `WeatherSnowPenalty`, `WeatherEnabled` toggle).
 
-**Scope:** Player only (NPCs skip this check per §4).
+**Scope:** Player only, exteriors only (NPCs + interiors skip the check).
 
-```cpp
-class WeatherManager : public REX::Singleton<WeatherManager> {
-public:
-    bool IsBadWeather(RE::Actor* actor) const;
-    // Player-only: checks local weather
-};
+```
+ComputeWeatherPenalty(actor):
+  if not player or interior → return 0
+  if !WeatherEnabled → return 0
+  if snow → return WeatherSnowPenalty
+  if rain → return WeatherRainPenalty
+  else → 0
 ```
 
 ### 3.7 Exhaustion System
@@ -384,10 +386,11 @@ Normal ──(stamina = 0)──▶ Exhausted ──(duration expires)──▶ 
 | *(heartbeat)*     | `TaskTrackBurdenParams`        | BurdenManager        | 200ms poll       | Detect carry weight + skill changes from any source|
 | *(completed)*     | `38452 + 0x2B6`                | RegenManager         | `write_call<5>`  | Intercept AVRegen rate function × formula          |
 | *(completed)*     | `TaskPlayerFullStaminaMonitor` | RegenManager         | 100ms poll       | Drain 0.1 stamina when full + negative mult        |
+| *(completed)*     | `38022 + 0xC1/0xC9`            | CostsManager         | `write_call<5>` ×2| Sprint stamina drain (burden + weather)            |
 | *(future)*        | `38603`                        | ActionManager        | `write_call<5>`  | Attack stamina cost → override                     |
 | *(future)*        | `38627`                        | Block/Combat Manager | `write_call<5>`  | Hit processing → stamina redirect + dmg scaling     |
 | *(future)*        | `49170`                        | ActionManager        | `write_call<5>`  | Prevent action when locked                          |
-| *(future)*        | game settings                  | ActionManager        | Direct write     | Movement costs on burden change                     |
+| *(future)*        | game settings (jump only)      | ActionManager        | Direct write     | Jump cost on burden change                          |
 
 ---
 
@@ -398,14 +401,18 @@ Game Event (equip / container change)
     │
     ▼
 BurdenManager::UpdateBurden(actor)
+    │  └── caches burdenBlend = 1 - sqrt((1-burden)*(1-carryBurden))
     │
     ├──► RegenManager: modify regen at next tick
-    │       └── hook: RestoreActorValue + regen condition
+    │       └── read burdenBlend → stateFactor × HMS - block - weather
     │
-    ├──► ActionManager: recalc attack/movement costs
+    ├──► SprintDrainHook: sprint stamina cost
+    │       └── Costs::CalculateSprintDrain
+    │           └── burden + weather × engineRate
+    │
+    ├──► ActionManager: recalc attack + jump costs
     │       ├── hook 38603: attack stamina cost
-    │       ├── hook 49170: lock exhausted actions
-    │       └── direct write: movement game settings
+    │       └── direct write: fJumpStaminaCost
     │
     ├──► BlockManager: stamina redirect on blocked hits
     │       └── hook 38627 (blocked path)
@@ -511,14 +518,21 @@ Setting keys in `Parameter<T>` structs, organized by compile-time group. No ship
   fSkillBurdenMult_minHeavy / fSkillBurdenMult_maxHeavy / fSkillBurdenMult_minLight / fSkillBurdenMult_maxLight
   fSteedStoneBurdenMult
 
-### Regen.Stamina (RegenParams)
-  fStaminaRegenMult_LowBurden / fStaminaRegenMult_HighBurden
+### Regen.Cross-AV (RegenParams)
   fStaminaRegenMult_LowHealth / fStaminaRegenMult_HighHealth
   fStaminaRegenMult_LowStamina / fStaminaRegenMult_HighStamina
   fStaminaRegenMult_LowMagicka / fStaminaRegenMult_HighMagicka
   fStaminaRegenCurve_kStamina / fStaminaRegenCurve_kMagicka / fStaminaRegenCurve_kHealth
   bEnableDebugLogging
-  *(planned: fStaminaRegenMult_BadWeather)*
+
+### Regen.Movement (RegenMovementParams)
+  fRegenStatic_max / fRegenStatic_min
+  fRegenWalking_max / fRegenWalking_min
+  fRegenSneaking_max / fRegenSneaking_min
+  fRegenRunning_max / fRegenRunning_min
+  fRegenSwimming_max / fRegenSwimming_min
+  fMovementRegenCurve_k
+  fBlockRegenCostBurdenPerc
 
 ### Regen.Health (RegenParams)
   fHealthRegenMult_LowStamina / fHealthRegenMult_HighStamina
@@ -528,8 +542,13 @@ Setting keys in `Parameter<T>` structs, organized by compile-time group. No ship
   fMagickaRegenMult_LowStamina / fMagickaRegenMult_HighStamina
   fMagickaRegenCurve_k
 
-### Regen.Penalties (RegenPenalties)
-  fRegenMult_static / fRegenMult_walking / fRegenMult_running / fRegenMult_sprinting / fRegenMult_swimming / fRegenMult_blocking
+### Weather (WeatherParams)
+  fWeatherRainPenalty / fWeatherSnowPenalty / bWeatherEnabled
+
+### Sprint Drain (CostsParams)
+  fSprintDrainLowBurden / fSprintDrainHighBurden
+  fSprintDrainLowCarryBurdenPct / fSprintDrainHighCarryBurdenPct
+  fSprintDrainBurdenCurve_k / fSprintDrainCarryBurdenCurve_k
 
 ### Overrides.GameSettings (ParameterOverrides)
   fCombatStaminaRegenRateMult / fCombatHealthRegenRateMult / fCombatMagickaRegenRateMult
@@ -558,15 +577,18 @@ Setting keys in `Parameter<T>` structs, organized by compile-time group. No ship
 | Update `sb_getburden` to show weighted vs unweighted | `src/Console/ConsoleCommands.cpp` |
 | Verify weighted burden in-game                       | *(manual test)*                   |
 
-### Phase 2 — Regen (Complete)
+### Phase 2 — Regen ✅
 
 | Task                                                                         | Files                           |
 |------------------------------------------------------------------------------+---------------------------------|
-| Implement `RegenManager` (formulas, queries `Parameter<T>` structs for values) | `src/Regen/RegenManager.h/.cpp` |
+| Implement per-movement-state regen curves (static/walk/sneak/run/swim)       | `src/Regen/RegenManager.h/.cpp` |
+| Add burdenBlend to ActorBurdenData, compute once per UpdateBurden            | `src/Burden/BurdenManager.h/.cpp`|
+| Implement `RegenMovementParams` with per-state min/max + shared curve k      | `src/Settings/Params/RegenParams.h`|
+| Add weather penalty (player-only, exterior-only, rain/snow detection)        | `src/Regen/RegenManager.cpp`    |
+| Wire weather penalty into sprint cost (engineRate × penalty, flat additive) | `src/Regen/CostsManager.cpp`    |
 | Hook AVRegen rate function at `38452 + 0x2B6` (`write_call<5>`)               | `src/Hooks/RegenHooks.h/.cpp`   |
-| Wire burden ratios + cross-AV + movement/action penalties into formula       | `src/Regen/RegenManager.cpp`    |
 | Full-stamina monitor heartbeat (100ms) kickoff from `OnGameLoad`             | `src/Hooks/RegenHooks.cpp`      |
-| *(not yet implemented: weather, exhaustion factors in formula)*              |                                 |
+| Implement GetEngineStaminaRate (clone of game's regen function)              | `src/Regen/RegenManager.cpp`    |
 
 ### Phase 3 — Runtime Configuration
 
@@ -585,13 +607,14 @@ Setting keys in `Parameter<T>` structs, organized by compile-time group. No ship
 | Hook `49170` (action prevention at low stamina)  | `src/Hooks/Hooks.cpp`              |
 | Implement weapon weight + skill + burden formula | `src/Actions/ActionManager.cpp`    |
 
-### Phase 5 — Movement Costs
+### Phase 5 — Movement Costs ⚡ (partial)
 
-| Task                                              | Files                           |
-|---------------------------------------------------+---------------------------------|
-| Add movement cost calculation to `ActionManager`  | `src/Actions/ActionManager.cpp` |
-| Game-setting manipulation on burden change events | `src/Actions/ActionManager.cpp` |
-| *(Marked for potential hook migration later)*     |                                 |
+| Task                                                      | Files                               |
+|-----------------------------------------------------------+-------------------------------------|
+| Implement SprintDrainHook (burden + weather × engineRate) | `src/Hooks/SprintDrainHook.h/.cpp` |
+| Add CostsParams with sprint drain curve params            | `src/Settings/Params/CostsParams.h`|
+| Implement CalculateSprintDrain in CostsManager            | `src/Regen/CostsManager.cpp`       |
+| Jump cost via game-setting manipulation (remaining)       | `src/Actions/ActionManager.cpp`    |
 
 ### Phase 6 — Blocking
 
@@ -610,12 +633,13 @@ Setting keys in `Parameter<T>` structs, organized by compile-time group. No ship
 | Implement exhaustion state machine (timed duration)                      | `src/Blocking/BlockManager.cpp`   |
 | Cross-AV regen wiring (already in Phase 2)                              | *(reuse)*                         |
 
-### Phase 8 — WeatherManager
+### Phase 8 — Weather ✅
 
-| Task                                                          | Files                               |
-|---------------------------------------------------------------+-------------------------------------|
-| Implement `WeatherManager` (precipitation check, player-only) | `src/Weather/WeatherManager.h/.cpp` |
-| Wire into `RegenManager`                                      | `src/Regen/RegenManager.cpp`        |
+| Task                                                               | Files                                        |
+|--------------------------------------------------------------------+----------------------------------------------|
+| Implement ComputeWeatherPenalty (inline, Rain/Snow via Sky API)    | `src/Regen/RegenManager.cpp`                 |
+| Add WeatherParams struct with rain/snow penalty + toggle           | `src/Settings/Params/RegenParams.h`          |
+| Wire into regen formula and sprint cost (same engineRate × penalty)| `src/Regen/RegenManager.cpp`, `CostsManager.cpp` |
 
 ### Phase 9 — HUD Burden Widget (was Phase 1c)
 
@@ -649,7 +673,7 @@ Setting keys in `Parameter<T>` structs, organized by compile-time group. No ship
 | Regen modification     | ✓ (full formula)         | ✓ (no weather component) |
 | Weather penalty        | ✓                        | ✗                        |
 | Attack cost + lockout  | ✓                        | ✓                        |
-| Movement cost          | ✓ (via game settings)    | ✓ (via game settings)    |
+| Movement cost          | ✓ (regen curves + hook)  | ✓ (regen curves, no weather) |
 | Block stamina redirect | ✓                        | ✓                        |
 | Exhaustion             | ✓                        | ✓                        |
 | Attack damage scaling  | ✓                        | ✓                        |
