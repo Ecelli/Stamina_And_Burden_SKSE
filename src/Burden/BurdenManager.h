@@ -11,6 +11,7 @@ namespace Burden
 		float maxEquippedWeight{ 0.0f };  //  Max Weighted equipped weight/ max carry weight
 		float carryBurden{ 0.0f };        //  Carry weight/Max Carry Weight
 		float burden{ 0.0f };             //  weighted equipped weight/max equiped weight
+		float burdenBlend{ 0.0f };        //  1 - sqrt((1-burden)*(1-carryBurden))
 		int lightSkill{ -1 };    //  cached for heartbeat comparison
 		int heavySkill{ -1 };    //  cached for heartbeat comparison
 	};

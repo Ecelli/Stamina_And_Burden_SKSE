@@ -160,6 +160,7 @@ namespace Burden
 
 		data.carryBurden = std::clamp(data.carryWeight / data.maxCarryWeight, 0.0f, 1.0f);
 		data.burden = std::clamp(data.equippedWeight / data.maxEquippedWeight, 0.0f, 1.0f);
+		data.burdenBlend = 1.0f - std::sqrt((1.0f - data.burden) * (1.0f - data.carryBurden));
 
 		data.lightSkill = static_cast<int>(actor->GetActorValue(RE::ActorValue::kLightArmor));
 		data.heavySkill = static_cast<int>(actor->GetActorValue(RE::ActorValue::kHeavyArmor));

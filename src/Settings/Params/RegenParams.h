@@ -6,10 +6,6 @@ namespace Regen
 {
 	struct RegenParams : REX::Singleton<RegenParams>
 	{
-		// Burden regen curves
-		Parameter<float> StaminaRegenMult_LowBurden{ 2.0f, 0.0f, 10.0f };
-		Parameter<float> StaminaRegenMult_HighBurden{ 0.0f, -1.0f, 5.0f };
-
 		// Cross-AV: health → stamina, stamina → stamina, magicka → stamina
 		Parameter<float> StaminaRegenMult_LowHealth{ 0.6f, 0.0f, 10.0f };
 		Parameter<float> StaminaRegenMult_HighHealth{ 1.3f, 0.0f, 10.0f };
@@ -38,8 +34,6 @@ namespace Regen
 		static void ForEach(F&& a_fn)
 		{
 			auto& s = GetSingleton();
-			a_fn("fStaminaRegenMult_LowBurden"sv, s.StaminaRegenMult_LowBurden);
-			a_fn("fStaminaRegenMult_HighBurden"sv, s.StaminaRegenMult_HighBurden);
 			a_fn("fStaminaRegenMult_LowHealth"sv, s.StaminaRegenMult_LowHealth);
 			a_fn("fStaminaRegenMult_HighHealth"sv, s.StaminaRegenMult_HighHealth);
 			a_fn("fStaminaRegenMult_LowStamina"sv, s.StaminaRegenMult_LowStamina);
@@ -59,26 +53,45 @@ namespace Regen
 		}
 	};
 
-	struct RegenPenalties : REX::Singleton<RegenPenalties>
+	struct RegenMovementParams : REX::Singleton<RegenMovementParams>
 	{
-		// Movement state multipliers
-		Parameter<float> RegenMult_static{ 0.0f, 0.0f, 10.0f };
-		Parameter<float> RegenMult_walking{ 0.3f, 0.0f, 10.0f };
-		Parameter<float> RegenMult_running{ 0.7f, 0.0f, 10.0f };
-		Parameter<float> RegenMult_sprinting{ 1.0f, 0.0f, 10.0f };
-		Parameter<float> RegenMult_swimming{ 1.5f, 0.0f, 10.0f };
-		Parameter<float> RegenMult_blocking{ 0.5f, 0.0f, 10.0f };
+		// Movement state curves — each has max (low burden / best regen) and min (high burden / worst regen)
+		// Static
+		Parameter<float> RegenStatic_max{ 2.0f, 0.0f, 5.0f };
+		Parameter<float> RegenStatic_min{ 0.0f, -5.0f, 5.0f };
+		// Walking
+		Parameter<float> RegenWalking_max{ 1.2f, 0.0f, 5.0f };
+		Parameter<float> RegenWalking_min{ -0.2f, -2.0f, 5.0f };
+		// Sneaking
+		Parameter<float> RegenSneaking_max{ 1.4f, 0.0f, 5.0f };
+		Parameter<float> RegenSneaking_min{ -0.3f, -2.0f, 5.0f };
+		// Running
+		Parameter<float> RegenRunning_max{ 0.6f, 0.0f, 5.0f };
+		Parameter<float> RegenRunning_min{ -0.8f, -2.0f, 5.0f };
+		// Swimming
+		Parameter<float> RegenSwimming_max{ 0.2f, 0.0f, 5.0f };
+		Parameter<float> RegenSwimming_min{ -1.5f, -2.0f, 5.0f };
+		// Shared curve shape for all states
+		Parameter<float> MovementRegenCurve_k{ 0.8f, 0.0f, 1.0f };
+		// Blocking cost (compound penalty, applied alongside movement regen)
+		Parameter<float> BlockRegenCostBurdenPerc{ 0.5f, 0.0f, 5.0f };
 
 		template <typename F>
 		static void ForEach(F&& a_fn)
 		{
 			auto& s = GetSingleton();
-			a_fn("fRegenMult_static"sv, s.RegenMult_static);
-			a_fn("fRegenMult_walking"sv, s.RegenMult_walking);
-			a_fn("fRegenMult_running"sv, s.RegenMult_running);
-			a_fn("fRegenMult_sprinting"sv, s.RegenMult_sprinting);
-			a_fn("fRegenMult_swimming"sv, s.RegenMult_swimming);
-			a_fn("fRegenMult_blocking"sv, s.RegenMult_blocking);
+			a_fn("fRegenStatic_max"sv, s.RegenStatic_max);
+			a_fn("fRegenStatic_min"sv, s.RegenStatic_min);
+			a_fn("fRegenWalking_max"sv, s.RegenWalking_max);
+			a_fn("fRegenWalking_min"sv, s.RegenWalking_min);
+			a_fn("fRegenSneaking_max"sv, s.RegenSneaking_max);
+			a_fn("fRegenSneaking_min"sv, s.RegenSneaking_min);
+			a_fn("fRegenRunning_max"sv, s.RegenRunning_max);
+			a_fn("fRegenRunning_min"sv, s.RegenRunning_min);
+			a_fn("fRegenSwimming_max"sv, s.RegenSwimming_max);
+			a_fn("fRegenSwimming_min"sv, s.RegenSwimming_min);
+			a_fn("fMovementRegenCurve_k"sv, s.MovementRegenCurve_k);
+			a_fn("fBlockRegenCostBurdenPerc"sv, s.BlockRegenCostBurdenPerc);
 		}
 	};
 }
