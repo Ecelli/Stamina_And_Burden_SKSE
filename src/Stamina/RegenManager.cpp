@@ -1,4 +1,4 @@
-#include "Regen/RegenManager.h"
+#include "Stamina/RegenManager.h"
 #include "Burden/BurdenTracker.h"
 #include "Common/Utils.h"
 

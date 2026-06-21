@@ -1,5 +1,5 @@
 #include "SprintDrainHook.h"
-#include "Regen/CostsManager.h"
+#include "Stamina/CostsManager.h"
 #include "Common/Utils.h"
 
 namespace Hooks

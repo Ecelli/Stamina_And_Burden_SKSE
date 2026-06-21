@@ -1,5 +1,5 @@
-#include "Regen/CostsManager.h"
-#include "Regen/RegenManager.h"
+#include "Stamina/CostsManager.h"
+#include "Stamina/RegenManager.h"
 #include "Burden/BurdenTracker.h"
 #include "Common/Utils.h"
 #include "Settings/Params/CostsParams.h"
