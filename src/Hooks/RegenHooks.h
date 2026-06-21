@@ -21,7 +21,7 @@ namespace Hooks
 		using AVRegen_t = __m128 (*)(RE::Actor*, std::uint32_t);
 		static inline AVRegen_t _engineAVRegen = nullptr;
 
-		static __m128 Thunk(RE::Actor* a_actor, std::uint32_t a_av);
+		static __m128 InterceptAVRegen(RE::Actor* a_actor, std::uint32_t a_av);
 	};
 
 	void TaskPlayerFullStaminaMonitor();

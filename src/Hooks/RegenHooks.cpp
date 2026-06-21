@@ -21,18 +21,18 @@
  *
  *  How the hook works:
  *    1. Install() looks up ID 38452 + 0x2B6 (found via diagnostic scan)
- *    2. write_call<5> redirects that call to our Thunk
- *    3. Thunk calls the original _engineAVRegen to get the base rate
+ *    2. write_call<5> redirects that call to our InterceptAVRegen
+ *    3. InterceptAVRegen calls the original _engineAVRegen to get the base rate
  *    4. Extracts the float, multiplies it, repacks and returns it
  */
 
 #include "RegenHooks.h"
-#include "Regen/RegenManager.h"
+#include "Stamina/RegenManager.h"
 #include "Common/Utils.h"
 
 namespace Hooks
 {
-	__m128 RegenHook::Thunk(RE::Actor* a_actor, std::uint32_t a_av)
+	__m128 RegenHook::InterceptAVRegen(RE::Actor* a_actor, std::uint32_t a_av)
 	{
 		if (!a_actor || (a_av != 24 && a_av != 25 && a_av != 26)) {
 			return _engineAVRegen ? _engineAVRegen(a_actor, a_av) : _mm_setzero_ps();
@@ -46,15 +46,15 @@ namespace Hooks
 		switch (a_av) {
 		case 26:  // Stamina
 			rate *= Regen::ComputeStaminaRegenMult(a_actor);
-			Regen::RegenLog("Thunk: stamina rate -> {:.3f}", rate);
+			Regen::RegenLog("InterceptAVRegen: stamina rate -> {:.3f}", rate);
 			break;
 		case 24:  // Health
 			rate *= Regen::ComputeHealthRegenMult(a_actor);
-			Regen::RegenLog("Thunk: health rate -> {:.3f}", rate);
+			Regen::RegenLog("InterceptAVRegen: health rate -> {:.3f}", rate);
 			break;
 		case 25:  // Magicka
 			rate *= Regen::ComputeMagickaRegenMult(a_actor);
-			Regen::RegenLog("Thunk: magicka rate -> {:.3f}", rate);
+			Regen::RegenLog("InterceptAVRegen: magicka rate -> {:.3f}", rate);
 			break;
 		}
 
@@ -62,7 +62,7 @@ namespace Hooks
 		//    directly (RestoreActorValue won't accept negative heals)
 		if (rate < 0.0f) {
 			a_actor->DamageActorValue(static_cast<RE::ActorValue>(a_av), rate); // Internally it takes abs
-			Regen::RegenLog("Thunk: {} drain -> {:.3f}", a_av == 26 ? "stamina" : a_av == 24 ? "health" : "magicka", -rate);
+			Regen::RegenLog("InterceptAVRegen: {} drain -> {:.3f}", a_av == 26 ? "stamina" : a_av == 24 ? "health" : "magicka", -rate);
 			rate = 0.0f;
 		}
 
@@ -78,7 +78,7 @@ namespace Hooks
 		_engineAVRegen = reinterpret_cast<AVRegen_t>(
 			SKSE::GetTrampoline().write_call<5>(
 				callSite.address(),
-				reinterpret_cast<std::uintptr_t>(Thunk)));
+				reinterpret_cast<std::uintptr_t>(InterceptAVRegen)));
 
 		logger::info("  >Installed regen hook (ID 38452 + 0x2B6)");
 	}
@@ -87,10 +87,10 @@ namespace Hooks
 	// Full-stamina monitor (heartbeat)
 	//
 	// The regen function doesn't fire when AV is at 100%, so our
-	// Thunk can't drain. This heartbeat (100ms ~ 10fps) checks if
+	// InterceptAVRegen can't drain. This heartbeat (100ms ~ 10fps) checks if
 	// the player is at full stamina with a negative multiplier and
 	// drains a tiny amount (0.1) to push below 100%. The next regen
-	// tick will then fire normally and the Thunk handles the rest.
+	// tick will then fire normally and InterceptAVRegen handles the rest.
 	//
 	// Started from BurdenTracker::OnGameLoad() alongside the burden
 	// parameter tracking heartbeat.
