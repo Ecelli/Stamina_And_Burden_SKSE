@@ -94,4 +94,20 @@ namespace Regen
 			a_fn("fBlockRegenCostBurdenPerc"sv, s.BlockRegenCostBurdenPerc);
 		}
 	};
+
+	struct WeatherParams : REX::Singleton<WeatherParams>
+	{
+		Parameter<float> WeatherRainPenalty{ 0.5f, 0.0f, 10.0f };
+		Parameter<float> WeatherSnowPenalty{ 1.5f, 0.0f, 10.0f };
+		Parameter<bool>  WeatherEnabled{ true, false, true };
+
+		template <typename F>
+		static void ForEach(F&& a_fn)
+		{
+			auto& s = GetSingleton();
+			a_fn("fWeatherRainPenalty"sv, s.WeatherRainPenalty);
+			a_fn("fWeatherSnowPenalty"sv, s.WeatherSnowPenalty);
+			a_fn("bWeatherEnabled"sv, s.WeatherEnabled);
+		}
+	};
 }

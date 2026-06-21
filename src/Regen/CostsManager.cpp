@@ -1,7 +1,9 @@
 #include "Regen/CostsManager.h"
+#include "Regen/RegenManager.h"
 #include "Burden/BurdenTracker.h"
 #include "Common/Utils.h"
 #include "Settings/Params/CostsParams.h"
+#include "Settings/Params/RegenParams.h"
 
 namespace Costs
 {
@@ -26,6 +28,13 @@ namespace Costs
 			params->SprintDrainCarryBurdenCurve_k.Get());
 
         float TotalCost = SprintBurdenFlat + SprintBurdenMult* Stamina_1pctMax;
+
+		float weatherPenalty = Regen::ComputeWeatherPenalty(actor);
+		if (weatherPenalty > 0.0f) {
+			float engineRate = Regen::GetEngineStaminaRate(actor);
+			TotalCost += engineRate * weatherPenalty;
+		}
+
 		return TotalCost * RE::GetSecondsSinceLastFrame();
 	}
 }

@@ -108,6 +108,43 @@ namespace Regen
 		return healthFactor * staminaFactor * magickaFactor;
 	}
 
+	float GetEngineStaminaRate(RE::Actor* actor)
+	{
+		float rate = actor->GetActorValue(RE::ActorValue::kStaminaRate) * 0.01f;
+		if (rate <= 0.0f)
+			return 0.0f;
+
+		rate = rate * actor->GetActorValue(RE::ActorValue::kStamina);
+		if (rate > 0.0f) {
+			if (actor->IsInCombat()) {
+				rate *= RE::GameSettingCollection::GetSingleton()->GetSetting("fCombatStaminaRegenRateMult")->GetFloat();
+			}
+			rate *= actor->GetActorValue(RE::ActorValue::kStaminaRateMult) * 0.01f;
+		}
+		return rate;
+	}
+
+	float ComputeWeatherPenalty(RE::Actor* actor)
+	{
+		if (!actor || actor != RE::PlayerCharacter::GetSingleton())
+			return 0.0f;
+
+		auto* sky = RE::Sky::GetSingleton();
+		if (!sky || sky->mode == RE::Sky::Mode::kInterior)
+			return 0.0f;
+
+		auto* wParams = WeatherParams::GetSingleton();
+		if (!wParams->WeatherEnabled.Get())
+			return 0.0f;
+
+		if (sky->IsSnowing())
+			return wParams->WeatherSnowPenalty.Get();
+		if (sky->IsRaining())
+			return wParams->WeatherRainPenalty.Get();
+
+		return 0.0f;
+	}
+
 	float ComputeStaminaRegenMult(RE::Actor* actor)
 	{
 		if (!actor)
@@ -123,7 +160,7 @@ namespace Regen
 		}
 
 		float blockCost = actor->IsBlocking() ? ComputeBlockCost(burdenData) : 0.0f;
-		float weatherPenalty = 0.0f;
+		float weatherPenalty = ComputeWeatherPenalty(actor);
 
 		float result = regenBonus - blockCost - weatherPenalty;
 		RegenLog("ComputeStaminaRegenMult: MovementFactor={:.3f} HMS={:.3f} block={:.3f} weather={:.3f} -> {}",
