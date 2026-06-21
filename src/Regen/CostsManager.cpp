@@ -26,10 +26,6 @@ namespace Costs
 			params->SprintDrainCarryBurdenCurve_k.Get());
 
         float TotalCost = SprintBurdenFlat + SprintBurdenMult* Stamina_1pctMax;
-		float result = TotalCost * RE::GetSecondsSinceLastFrame();
-
-		Regen::RegenLog("CalculateSprintDrain: BurdenCost={:.3f} BurdenStamina pct={:.3f} drain/s={:.3f} delta={:.6f} -> {:.3f}",
-			SprintBurdenFlat, SprintBurdenMult, TotalCost, RE::GetSecondsSinceLastFrame(), result);
-		return result;
+		return TotalCost * RE::GetSecondsSinceLastFrame();
 	}
 }

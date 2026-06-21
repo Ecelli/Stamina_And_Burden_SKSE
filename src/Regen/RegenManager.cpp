@@ -6,9 +6,7 @@ namespace Regen
 {
 	bool GetCanRegenStamina(RE::Actor* actor)
 	{
-		bool result = actor->GetAttackState() == RE::ATTACK_STATE_ENUM::kNone;
-		RegenLog("GetCanRegenStamina: attackState={} -> {}", (int)actor->GetAttackState(), result);
-		return result;
+		return actor->GetAttackState() == RE::ATTACK_STATE_ENUM::kNone;
 	}
 
 	MovementState GetMovementState(RE::Actor* actor)
@@ -107,10 +105,7 @@ namespace Regen
 			magickaPct,
 			params->StaminaRegenCurve_kMagicka.Get());
 
-		float result = healthFactor * staminaFactor * magickaFactor;
-		RegenLog("GetHMSStaminaMult: hPct={:.3f}->f={:.3f} sPct={:.3f}->f={:.3f} mPct={:.3f}->f={:.3f} -> {}",
-			healthPct, healthFactor, staminaPct, staminaFactor, magickaPct, magickaFactor, result);
-		return result;
+		return healthFactor * staminaFactor * magickaFactor;
 	}
 
 	float ComputeStaminaRegenMult(RE::Actor* actor)
@@ -146,15 +141,11 @@ namespace Regen
         }
 		auto* params = RegenParams::GetSingleton();
 		float staminaPct = Math::Clamp01(actor->GetActorValue(RE::ActorValue::kStamina) / maxStamina);
-		float result = Math::Interpolate(
+		return Math::Interpolate(
 			params->HealthRegenMult_LowStamina.Get(),
 			params->HealthRegenMult_HighStamina.Get(),
 			staminaPct,
 			params->HealthRegenCurve_k.Get());
-		RegenLog("ComputeHealthRegenMult: staminaPct={:.3f} low={:.3f} high={:.3f} k={:.3f} -> {}",
-			staminaPct, params->HealthRegenMult_LowStamina.Get(), params->HealthRegenMult_HighStamina.Get(),
-			params->HealthRegenCurve_k.Get(), result);
-		return result;
 	}
 
 	float ComputeMagickaRegenMult(RE::Actor* actor)
@@ -167,14 +158,10 @@ namespace Regen
         }
 		auto* params = RegenParams::GetSingleton();
 		float staminaPct = Math::Clamp01(actor->GetActorValue(RE::ActorValue::kStamina) / maxStamina);
-		float result = Math::Interpolate(
+		return Math::Interpolate(
 			params->MagickaRegenMult_LowStamina.Get(),
 			params->MagickaRegenMult_HighStamina.Get(),
 			staminaPct,
 			params->MagickaRegenCurve_k.Get());
-		RegenLog("ComputeMagickaRegenMult: staminaPct={:.3f} low={:.3f} high={:.3f} k={:.3f} -> {}",
-			staminaPct, params->MagickaRegenMult_LowStamina.Get(), params->MagickaRegenMult_HighStamina.Get(),
-			params->MagickaRegenCurve_k.Get(), result);
-		return result;
 	}
 }
