@@ -1,6 +1,6 @@
 #include "Hooks/hooks.h"
 #include "Hooks/BurdenEventHandlers.h"
-#include "Hooks/JumpHook.h"
+#include "Hooks/ActionHook.h"
 #include "Hooks/RegenHooks.h"
 #include "Hooks/SprintDrainHook.h"
 
@@ -8,7 +8,7 @@ namespace Hooks {
 	bool Install() {
 		SECTION_SEPARATOR;
 		logger::info("Installing hooks..."sv);
-		SKSE::AllocTrampoline(64);
+		SKSE::AllocTrampoline(128);
 
 		auto* holder = RE::ScriptEventSourceHolder::GetSingleton();
 		if (!holder) {
@@ -25,7 +25,7 @@ namespace Hooks {
 
 		RegenHook::Install();
 		SprintDrainHook::Install();
-		JumpHook::Install();
+		ActionHook::Install();
 
 		return true;
 	}

@@ -1,10 +1,10 @@
-#include "JumpHook.h"
+#include "ActionHook.h"
 #include "Stamina/CostsManager.h"
 #include "Common/Utils.h"
 
 namespace Hooks
 {
-	void JumpHook::Install()
+	void ActionHook::Install()
 	{
 		// Denial hook — TBD
 		//   SSE ref: REL::ID(41349) + 0x114 (StaminaNPC)
@@ -15,22 +15,22 @@ namespace Hooks
 		//     - write_branch<5> at REL::ID(42423)+0x114 crashes on 1.6.1170
 		//   Needs pattern scan or Cheat Engine to find correct AE call site
 		// _Jump = SKSE::GetTrampoline().write_branch<5>(target.address(), JumpDetour);
-		logger::info("  >JumpHook: denial NOT INSTALLED (AE call site offset unknown)"sv);
+		logger::info("  >ActionHook: denial NOT INSTALLED (AE call site for jump entry unknown)"sv);
 
 		// Cost hook — GetScale call inside jump physics processing
-			REL::Relocation<std::uintptr_t> target{ REL::ID(37257), 0x17f };
-			_GetScale = SKSE::GetTrampoline().write_call<5>(target.address(), ApplyJumpCost);
-			logger::info("  >JumpHook: cost installed at REL::ID(37257) + 0x17F"sv);
+		REL::Relocation<std::uintptr_t> target{ REL::ID(37257), 0x17f };
+		_GetScale = SKSE::GetTrampoline().write_call<5>(target.address(), ApplyJumpCost);
+		logger::info("  >ActionHook: jump cost installed at REL::ID(37257) + 0x17F"sv);
 	}
 
-	void JumpHook::JumpDetour(RE::Actor* actor)
+	void ActionHook::JumpDetour(RE::Actor* actor)
 	{
 		float cost = Costs::CalculateJumpCost(actor);
 		if (Common::CanDoAction(actor, cost))
 			_Jump(actor);
 	}
 
-	float JumpHook::ApplyJumpCost(RE::Actor* actor)
+	float ActionHook::ApplyJumpCost(RE::Actor* actor)
 	{
 		if (actor)
 			Common::ApplyStaminaCost(actor, Costs::CalculateJumpCost(actor));
