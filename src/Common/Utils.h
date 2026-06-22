@@ -4,6 +4,7 @@
 #include <functional>
 #include <thread>
 #include "Settings/Params/RegenParams.h"
+#include "Settings/Params/CostsParams.h"
 
 namespace Common
 {
@@ -17,6 +18,9 @@ namespace Common
 			}
 		}).detach();
 	}
+
+	bool CanDoAction(RE::Actor* actor, float cost);
+	void ApplyStaminaCost(RE::Actor* actor, float cost);
 }
 
 namespace Regen
@@ -29,6 +33,18 @@ namespace Regen
         }
     }
 }
+
+namespace Costs
+{
+    template <typename... Args>
+    void CostLog(std::string_view a_fmt, Args&&... a_args)
+    {
+        if (CostsParams::GetSingleton()->EnableDebugLogging.Get()) {
+            logger::info(fmt::runtime(a_fmt), std::forward<Args>(a_args)...);
+        }
+    }
+}
+
 
 namespace Math
 {
