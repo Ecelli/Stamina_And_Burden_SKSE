@@ -6,15 +6,21 @@ namespace Hooks
 {
 	void JumpHook::Install()
 	{
-		// TODO: AE offsets TBD, Reference Fenix Stamina
-		//   Denial: SSR ref REL::ID(41349) + 0x114 → write_branch<5>
-		//   Cost:   SSR ref REL::ID(36271) + 0x190 → write_call<5>
-		// Once known:
-		//   REL::Relocation<std::uintptr_t> target1{ REL::ID(TBD), 0xTBD };
-		//   _Jump = SKSE::GetTrampoline().write_branch<5>(target1.address(), JumpDetour);
-		//   REL::Relocation<std::uintptr_t> target2{ REL::ID(TBD), 0xTBD };
-		//   _GetScale = SKSE::GetTrampoline().write_call<5>(target2.address(), ApplyJumpCost);
-		logger::info("  >JumpHook: NOT INSTALLED (AE offsets TBD)"sv);
+		// Denial hook — TBD
+		//   SSE ref: REL::ID(41349) + 0x114 (StaminaNPC)
+		//   AE candidate: REL::ID(42423) + 0x114
+		//   Discovered via: Address Library 1.6.318 offsets + cross-match table
+		//   Match score: 0.944, but offset NOT preserved on AE:
+		//     - Cost hook offset changed 0x190->0x17f between versions
+		//     - write_branch<5> at REL::ID(42423)+0x114 crashes on 1.6.1170
+		//   Needs pattern scan or Cheat Engine to find correct AE call site
+		// _Jump = SKSE::GetTrampoline().write_branch<5>(target.address(), JumpDetour);
+		logger::info("  >JumpHook: denial NOT INSTALLED (AE call site offset unknown)"sv);
+
+		// Cost hook — GetScale call inside jump physics processing
+			REL::Relocation<std::uintptr_t> target{ REL::ID(37257), 0x17f };
+			_GetScale = SKSE::GetTrampoline().write_call<5>(target.address(), ApplyJumpCost);
+			logger::info("  >JumpHook: cost installed at REL::ID(37257) + 0x17F"sv);
 	}
 
 	void JumpHook::JumpDetour(RE::Actor* actor)

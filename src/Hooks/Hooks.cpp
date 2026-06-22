@@ -1,5 +1,6 @@
 #include "Hooks/hooks.h"
 #include "Hooks/BurdenEventHandlers.h"
+#include "Hooks/JumpHook.h"
 #include "Hooks/RegenHooks.h"
 #include "Hooks/SprintDrainHook.h"
 
@@ -24,6 +25,7 @@ namespace Hooks {
 
 		RegenHook::Install();
 		SprintDrainHook::Install();
+		JumpHook::Install();
 
 		return true;
 	}
