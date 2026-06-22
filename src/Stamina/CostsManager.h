@@ -5,4 +5,5 @@
 namespace Costs
 {
 	float CalculateSprintDrain(RE::Actor* actor);
+	float CalculateJumpCost(RE::Actor* actor);
 }

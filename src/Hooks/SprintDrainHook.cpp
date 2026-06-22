@@ -31,7 +31,7 @@ namespace Hooks
 			return 0.0f;
 
 		float drain = Costs::CalculateSprintDrain(actor);
-		Regen::RegenLog("SprintDrain: {:.3f} for {:x}", drain, actor->GetFormID());
+		Costs::CostLog("SprintDrain: {:.3f} for {:x}", drain, actor->GetFormID());
 		return drain;
 	}
 

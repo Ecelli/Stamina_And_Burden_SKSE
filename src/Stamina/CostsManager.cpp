@@ -37,4 +37,32 @@ namespace Costs
 
 		return TotalCost * RE::GetSecondsSinceLastFrame();
 	}
+
+	float CalculateJumpCost(RE::Actor* actor)
+	{
+		if (!actor)
+			return 0.0f;
+
+		auto& burden = Burden::Tracker::GetOrComputeBurden(actor);
+		auto* params = CostsParams::GetSingleton();
+
+		float Stamina_1pctMax = 0.01f * actor->GetActorValueMax(RE::ActorValue::kStamina);
+		float JumpBurdenFlat = Math::Interpolate(
+			params->JumpCostLowBurden.Get(),
+			params->JumpCostHighBurden.Get(),
+			burden.burden,
+			params->JumpCostBurdenCurve_k.Get());
+		float JumpCarryPct = Math::Interpolate(
+			params->JumpCostLowCarryPct.Get(),
+			params->JumpCostHighCarryPct.Get(),
+			burden.carryBurden,
+			params->JumpCostCarryCurve_k.Get());
+
+		float TotalCost = JumpBurdenFlat + JumpCarryPct * Stamina_1pctMax;
+
+		Costs::CostLog("CalculateJumpCost: burden={:.3f} carry={:.3f} -> {:.3f} for {:x}",
+			burden.burden, burden.carryBurden, TotalCost, actor->GetFormID());
+
+		return TotalCost;
+	}
 }
