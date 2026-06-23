@@ -22,6 +22,8 @@ namespace Burden
 		float weaponBurden_1h{ 0.0f };
 		float weaponBurden_2h{ 0.0f };
 		float weaponBurden_left{ 0.0f };
+		float weaponBurden_ranged{ 0.0f };
+		float weaponBurden_block{ 0.0f };
 	};
 
 	float GetEquippedWeight(RE::Actor* actor);

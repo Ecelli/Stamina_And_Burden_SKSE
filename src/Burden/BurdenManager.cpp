@@ -130,6 +130,70 @@ namespace
 	};
 }
 
+namespace
+{
+	void ComputeRightHandBurden(RE::Actor* actor, Burden::ActorBurdenData& data)
+	{
+		auto* form = actor->GetEquippedObject(false);
+		auto* weap = (form && form->IsWeapon()) ? form->As<RE::TESObjectWEAP>() : nullptr;
+
+		if (!weap) {
+			data.weaponBurden_1h = 0.0f;
+			data.weaponBurden_2h = 0.0f;
+			data.weaponBurden_ranged = 0.0f;
+			return;
+		}
+
+		auto type = weap->GetWeaponType();
+		bool bound = weap->IsBound();
+		float w;
+
+		switch (type) {
+		case RE::WEAPON_TYPE::kTwoHandSword:
+		case RE::WEAPON_TYPE::kTwoHandAxe:
+			w = bound ? Burden::GetBoundWeaponWeight(data.conjurationSkill, true) : weap->GetWeight();
+			data.weaponBurden_2h = Burden::ComputeWeaponBurden(w, data.twoHandedSkill);
+			data.weaponBurden_1h = 0.0f;
+			data.weaponBurden_ranged = 0.0f;
+			break;
+
+		case RE::WEAPON_TYPE::kBow:
+		case RE::WEAPON_TYPE::kCrossbow:
+			w = bound ? Burden::GetBoundWeaponWeight(data.conjurationSkill, false) : weap->GetWeight();
+			data.weaponBurden_ranged = Burden::ComputeWeaponBurden(w, data.marksmanSkill);
+			data.weaponBurden_1h = 0.0f;
+			data.weaponBurden_2h = 0.0f;
+			break;
+
+		default:
+			w = bound ? Burden::GetBoundWeaponWeight(data.conjurationSkill, false) : weap->GetWeight();
+			data.weaponBurden_1h = Burden::ComputeWeaponBurden(w, data.oneHandedSkill);
+			data.weaponBurden_2h = 0.0f;
+			data.weaponBurden_ranged = 0.0f;
+			break;
+		}
+	}
+
+	void ComputeLeftHandBurden(RE::Actor* actor, Burden::ActorBurdenData& data)
+	{
+		auto* form = actor->GetEquippedObject(true);
+		auto* weap = (form && form->IsWeapon()) ? form->As<RE::TESObjectWEAP>() : nullptr;
+		auto* shield = (form && !weap) ? form->As<RE::TESObjectARMO>() : nullptr;
+
+		if (weap) {
+			float w = weap->IsBound() ? Burden::GetBoundWeaponWeight(data.conjurationSkill, false) : weap->GetWeight();
+			data.weaponBurden_left = Burden::ComputeWeaponBurden(w, data.oneHandedSkill);
+			data.weaponBurden_block = 0.0f;
+		} else if (shield && shield->IsShield()) {
+			data.weaponBurden_left = 0.0f;
+			data.weaponBurden_block = Burden::ComputeWeaponBurden(shield->GetWeight(), data.blockSkill);
+		} else {
+			data.weaponBurden_left = 0.0f;
+			data.weaponBurden_block = 0.0f;
+		}
+	}
+}
+
 namespace Burden
 {
 	float ComputeWeaponBurden(float weight, int skill)
@@ -193,6 +257,9 @@ namespace Burden
 		data.marksmanSkill = static_cast<int>(actor->GetActorValue(RE::ActorValue::kArchery));
 		data.blockSkill = static_cast<int>(actor->GetActorValue(RE::ActorValue::kBlock));
 		data.conjurationSkill = static_cast<int>(actor->GetActorValue(RE::ActorValue::kConjuration));
+
+		ComputeRightHandBurden(actor, data);
+		ComputeLeftHandBurden(actor, data);
 
 		return data;
 	}
