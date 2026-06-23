@@ -164,6 +164,10 @@ namespace Burden
 
 		data.lightSkill = static_cast<int>(actor->GetActorValue(RE::ActorValue::kLightArmor));
 		data.heavySkill = static_cast<int>(actor->GetActorValue(RE::ActorValue::kHeavyArmor));
+		data.oneHandedSkill = static_cast<int>(actor->GetActorValue(RE::ActorValue::kOneHanded));
+		data.twoHandedSkill = static_cast<int>(actor->GetActorValue(RE::ActorValue::kTwoHanded));
+		data.marksmanSkill = static_cast<int>(actor->GetActorValue(RE::ActorValue::kArchery));
+		data.blockSkill = static_cast<int>(actor->GetActorValue(RE::ActorValue::kBlock));
 
 		return data;
 	}

@@ -12,8 +12,12 @@ namespace Burden
 		float carryBurden{ 0.0f };        //  Carry weight/Max Carry Weight
 		float burden{ 0.0f };             //  weighted equipped weight/max equiped weight
 		float burdenBlend{ 0.0f };        //  1 - sqrt((1-burden)*(1-carryBurden))
-		int lightSkill{ -1 };    //  cached for heartbeat comparison
-		int heavySkill{ -1 };    //  cached for heartbeat comparison
+		int lightSkill{ -1 };
+		int heavySkill{ -1 };
+		int oneHandedSkill{ -1 };
+		int twoHandedSkill{ -1 };
+		int marksmanSkill{ -1 };
+		int blockSkill{ -1 };
 	};
 
 	float GetEquippedWeight(RE::Actor* actor);
