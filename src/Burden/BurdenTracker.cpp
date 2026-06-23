@@ -147,6 +147,7 @@ namespace Burden::Tracker
 					|| static_cast<int>(actor->GetActorValue(RE::ActorValue::kTwoHanded)) != data.twoHandedSkill
 					|| static_cast<int>(actor->GetActorValue(RE::ActorValue::kArchery)) != data.marksmanSkill
 					|| static_cast<int>(actor->GetActorValue(RE::ActorValue::kBlock)) != data.blockSkill
+					|| static_cast<int>(actor->GetActorValue(RE::ActorValue::kConjuration)) != data.conjurationSkill
 					|| std::abs(actor->GetActorValue(RE::ActorValue::kCarryWeight) - data.maxCarryWeight) > 0.001f) {
 
 					Burden::Tracker::Update(actor);

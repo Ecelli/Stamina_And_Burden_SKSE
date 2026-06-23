@@ -18,10 +18,16 @@ namespace Burden
 		int twoHandedSkill{ -1 };
 		int marksmanSkill{ -1 };
 		int blockSkill{ -1 };
+		int conjurationSkill{ -1 };
+		float weaponBurden_1h{ 0.0f };
+		float weaponBurden_2h{ 0.0f };
+		float weaponBurden_left{ 0.0f };
 	};
 
 	float GetEquippedWeight(RE::Actor* actor);
 	float ComputeEquipmentBurden(RE::Actor* actor);
+	float ComputeWeaponBurden(float weight, int skill);
+	float GetBoundWeaponWeight(int conjurationSkill, bool isTwoHanded);
 	ActorBurdenData UpdateBurden(RE::Actor* actor);
 	ActorBurdenData UpdateBurdenLog(RE::Actor* actor);
 }

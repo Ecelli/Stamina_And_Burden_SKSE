@@ -132,6 +132,30 @@ namespace
 
 namespace Burden
 {
+	float ComputeWeaponBurden(float weight, int skill)
+	{
+		auto* params = BurdenParams::GetSingleton();
+		float ratio = Math::Clamp01(static_cast<float>(skill) / params->PlayerMaxSkill.Get());
+		float mult = Math::Interpolate(
+			params->WeaponBurden_LowSkill.Get(),
+			params->WeaponBurden_HighSkill.Get(),
+			ratio,
+			params->WeaponSkillInterpolate.Get());
+		return weight * mult;
+	}
+
+	float GetBoundWeaponWeight(int conjurationSkill, bool isTwoHanded)
+	{
+		auto* params = BurdenParams::GetSingleton();
+		float ratio = Math::Clamp01(static_cast<float>(conjurationSkill) / params->PlayerMaxSkill.Get());
+		float weight = Math::Interpolate(
+			params->ConjuredWeightMin.Get(),
+			params->ConjuredWeightMax.Get(),
+			ratio,
+			params->ConjuredWeightCurve_k.Get());
+		return isTwoHanded ? weight * 2.0f : weight;
+	}
+
 	float GetEquippedWeight(RE::Actor* actor)
 	{
 		return actor->GetEquippedWeight();
@@ -168,6 +192,7 @@ namespace Burden
 		data.twoHandedSkill = static_cast<int>(actor->GetActorValue(RE::ActorValue::kTwoHanded));
 		data.marksmanSkill = static_cast<int>(actor->GetActorValue(RE::ActorValue::kArchery));
 		data.blockSkill = static_cast<int>(actor->GetActorValue(RE::ActorValue::kBlock));
+		data.conjurationSkill = static_cast<int>(actor->GetActorValue(RE::ActorValue::kConjuration));
 
 		return data;
 	}

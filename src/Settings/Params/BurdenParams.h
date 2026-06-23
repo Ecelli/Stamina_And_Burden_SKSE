@@ -20,6 +20,14 @@ struct BurdenParams : REX::Singleton<BurdenParams>
 	Parameter<float> SkillBurdenMult_maxLight{ 2.0f, 0.2f, 10.0f };
 	// Effect Burden 
 	Parameter<float>  SteedStoneBurdenMult{ 0.3f , 0.0f, 2.0f };
+	// Weapon Burden
+	Parameter<float> WeaponBurden_LowSkill{ 2.0f, 0.1f, 10.0f };
+	Parameter<float> WeaponBurden_HighSkill{ 0.3f, 0.1f, 10.0f };
+	Parameter<float> WeaponSkillInterpolate{ 0.5f, 0.0f, 1.0f };
+	// Conjured Weapon Weight
+	Parameter<float> ConjuredWeightMin{ 2.0f, 0.0f, 50.0f };
+	Parameter<float> ConjuredWeightMax{ 30.0f, 0.0f, 50.0f };
+	Parameter<float> ConjuredWeightCurve_k{ 0.8f, 0.0f, 1.0f };
 
 	template <typename F>
 	static void ForEach(F&& a_fn)
@@ -37,6 +45,12 @@ struct BurdenParams : REX::Singleton<BurdenParams>
 		a_fn("fSkillBurdenMult_maxHeavy"sv, s.SkillBurdenMult_maxHeavy);
 		a_fn("fSkillBurdenMult_minLight"sv, s.SkillBurdenMult_minLight);
 		a_fn("fSkillBurdenMult_maxLight"sv, s.SkillBurdenMult_maxLight);
-	a_fn("fSteedStoneBurdenMult"sv, s.SteedStoneBurdenMult);
+        a_fn("fSteedStoneBurdenMult"sv, s.SteedStoneBurdenMult);
+        a_fn("fWeaponBurden_LowSkill"sv, s.WeaponBurden_LowSkill);
+        a_fn("fWeaponBurden_HighSkill"sv, s.WeaponBurden_HighSkill);
+        a_fn("fWeaponSkillInterpolate"sv, s.WeaponSkillInterpolate);
+        a_fn("fConjuredWeightMin"sv, s.ConjuredWeightMin);
+        a_fn("fConjuredWeightMax"sv, s.ConjuredWeightMax);
+        a_fn("fConjuredWeightCurve_k"sv, s.ConjuredWeightCurve_k);
 	}
 };
