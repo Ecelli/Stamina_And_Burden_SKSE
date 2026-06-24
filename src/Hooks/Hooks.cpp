@@ -3,6 +3,7 @@
 #include "Hooks/ActionHook.h"
 #include "Hooks/RegenHooks.h"
 #include "Hooks/SprintDrainHook.h"
+#include "Hooks/AttackCostHook.h"
 
 namespace Hooks {
 	bool Install() {
@@ -26,6 +27,7 @@ namespace Hooks {
 		RegenHook::Install();
 		SprintDrainHook::Install();
 		ActionHook::Install();
+		AttackCostHook::Install();
 
 		return true;
 	}
