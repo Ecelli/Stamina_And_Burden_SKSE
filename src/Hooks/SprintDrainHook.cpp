@@ -30,7 +30,7 @@ namespace Hooks
 		if (!actor)
 			return 0.0f;
 
-		float drain = Costs::CalculateSprintDrain(actor);
+		float drain = Costs::ComputeSprintDrain(actor);
 		Costs::CostLog("SprintDrain: {:.3f} for {:x}", drain, actor->GetFormID());
 		return drain;
 	}

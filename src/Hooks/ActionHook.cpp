@@ -25,7 +25,7 @@ namespace Hooks
 
 	void ActionHook::JumpDetour(RE::Actor* actor)
 	{
-		float cost = Costs::CalculateJumpCost(actor);
+		float cost = Costs::ComputeJumpCost(actor);
 		if (Common::CanDoAction(actor, cost))
 			_Jump(actor);
 	}
@@ -33,7 +33,7 @@ namespace Hooks
 	float ActionHook::ApplyJumpCost(RE::Actor* actor)
 	{
 		if (actor)
-			Common::ApplyStaminaCost(actor, Costs::CalculateJumpCost(actor));
+			Common::ApplyStaminaCost(actor, Costs::ComputeJumpCost(actor));
 		return _GetScale(actor);
 	}
 }

@@ -1,13 +1,91 @@
 #include "Stamina/CostsManager.h"
 #include "Stamina/RegenManager.h"
+#include "Burden/BurdenManager.h"
 #include "Burden/BurdenTracker.h"
 #include "Common/Utils.h"
 #include "Settings/Params/CostsParams.h"
 #include "Settings/Params/RegenParams.h"
 
+#include <RE/B/BGSAttackData.h>
+#include <RE/T/TESObjectWEAP.h>
+
+namespace
+{
+    // Only used after discarding bow/block/bash attacks
+	enum class AttackHandType
+	{
+		Unarmed,
+		OneHanded,
+		TwoHanded
+	};
+
+	AttackHandType GetAttackHandType(RE::Actor* actor, bool left)
+	{
+		auto* obj = actor->GetEquippedObject(left);
+		if (!obj)
+			return AttackHandType::Unarmed;
+		auto* weap = obj->As<RE::TESObjectWEAP>();
+		if (!weap)
+			return AttackHandType::Unarmed;
+		auto type = weap->GetWeaponType();
+		if (type == RE::WEAPON_TYPE::kHandToHandMelee)
+			return AttackHandType::Unarmed;
+		if (!left && (type == RE::WEAPON_TYPE::kTwoHandSword || type == RE::WEAPON_TYPE::kTwoHandAxe))
+			return AttackHandType::TwoHanded;
+		return AttackHandType::OneHanded;
+	}
+
+	float ComputeCarryAttackCost(const Burden::ActorBurdenData& burden)
+	{
+		auto* params = Costs::AttackCostParams::GetSingleton();
+		return Math::Interpolate(
+			params->AttackLowCarryPct.Get(),
+			params->AttackHighCarryPct.Get(),
+			burden.carryBurden,
+			params->AttackCarryCurve_k.Get());
+	}
+
+	float Compute1hAttack(const Burden::ActorBurdenData& burden, float weaponBurden, bool power)
+	{
+		auto* params = Costs::AttackCostParams::GetSingleton();
+		float burdenTerm = Math::Interpolate(
+			params->Attack1hLowBurden.Get(),
+			params->Attack1hHighBurden.Get(),
+			weaponBurden,
+			params->Attack1hBurdenCurve_k.Get());
+		float cost = burdenTerm + ComputeCarryAttackCost(burden);
+		if (power)
+			cost *= params->Attack1hPowerMult.Get();
+		return cost;
+	}
+
+	float Compute2hAttack(const Burden::ActorBurdenData& burden, float weaponBurden, bool power)
+	{
+		auto* params = Costs::AttackCostParams::GetSingleton();
+		float burdenTerm = Math::Interpolate(
+			params->Attack2hLowBurden.Get(),
+			params->Attack2hHighBurden.Get(),
+			weaponBurden,
+			params->Attack2hBurdenCurve_k.Get());
+		float cost = burdenTerm + ComputeCarryAttackCost(burden);
+		if (power)
+			cost *= params->Attack2hPowerMult.Get();
+		return cost;
+	}
+
+	float ComputeUnarmedAttack(const Burden::ActorBurdenData& burden, bool power)
+	{
+		auto* params = Costs::AttackCostParams::GetSingleton();
+		float cost = params->UnarmedBaseFlat.Get() + ComputeCarryAttackCost(burden);
+		if (power)
+			cost *= params->UnarmedPowerMult.Get();
+		return cost;
+	}
+}
+
 namespace Costs
 {
-	float CalculateSprintDrain(RE::Actor* actor)
+	float ComputeSprintDrain(RE::Actor* actor)
 	{
 		if (!actor)
 			return 0.0f;
@@ -38,7 +116,7 @@ namespace Costs
 		return TotalCost * RE::GetSecondsSinceLastFrame();
 	}
 
-	float CalculateJumpCost(RE::Actor* actor)
+	float ComputeJumpCost(RE::Actor* actor)
 	{
 		if (!actor)
 			return 0.0f;
@@ -60,9 +138,38 @@ namespace Costs
 
 		float TotalCost = JumpBurdenFlat + JumpCarryPct * Stamina_1pctMax;
 
-		Costs::CostLog("CalculateJumpCost: burden={:.3f} carry={:.3f} -> {:.3f} for {:x}",
+		Costs::CostLog("ComputeJumpCost: burden={:.3f} carry={:.3f} -> {:.3f} for {:x}",
 			burden.burden, burden.carryBurden, TotalCost, actor->GetFormID());
 
 		return TotalCost;
+	}
+
+	float ComputeAttackCost(RE::Actor* actor, RE::BGSAttackData* attackData)
+	{
+		if (!actor || !attackData)
+			return 0.0f;
+
+		if (attackData->data.flags.any(RE::AttackData::AttackFlag::kBashAttack))
+			return 0.0f;
+
+		auto& burden = Burden::Tracker::GetOrComputeBurden(actor);
+		bool power = attackData->data.flags.any(RE::AttackData::AttackFlag::kPowerAttack);
+		bool left = attackData->IsLeftAttack();
+
+		if (GetAttackHandType(actor, left) != AttackHandType::OneHanded)
+			return 0.0f;
+
+		float baseCost = left ?
+			Compute1hAttack(burden, burden.weaponBurden_left, power) :
+			Compute1hAttack(burden, burden.weaponBurden_1h, power);
+
+        // Usually 1, according to fenix Stamina. 3 for werewolf, 0.5 for dual attack
+        // Which averages the stamina costs
+		baseCost *= attackData->data.staminaMult;
+
+		Costs::CostLog("ComputeAttackCost: power={} left={} staminaMult={:.2f} -> {:.3f} for {:x}",
+			power, left, attackData->data.staminaMult, baseCost, actor->GetFormID());
+
+		return baseCost;
 	}
 }
