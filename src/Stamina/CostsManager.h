@@ -4,7 +4,7 @@
 
 namespace RE
 {
-	struct BGSAttackData;
+	class BGSAttackData;
 }
 
 namespace Costs

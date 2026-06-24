@@ -11,16 +11,19 @@
 
 namespace
 {
-    // Only used after discarding bow/block/bash attacks
 	enum class AttackHandType
 	{
 		Unarmed,
 		OneHanded,
-		TwoHanded
+		TwoHanded,
+		Ranged,
+		Bash
 	};
 
-	AttackHandType GetAttackHandType(RE::Actor* actor, bool left)
+	AttackHandType GetAttackHandType(RE::Actor* actor, bool left, bool bash)
 	{
+		if (bash)
+			return AttackHandType::Bash;
 		auto* obj = actor->GetEquippedObject(left);
 		if (!obj)
 			return AttackHandType::Unarmed;
@@ -30,6 +33,8 @@ namespace
 		auto type = weap->GetWeaponType();
 		if (type == RE::WEAPON_TYPE::kHandToHandMelee)
 			return AttackHandType::Unarmed;
+		if (type == RE::WEAPON_TYPE::kBow || type == RE::WEAPON_TYPE::kCrossbow)
+			return AttackHandType::Ranged;
 		if (!left && (type == RE::WEAPON_TYPE::kTwoHandSword || type == RE::WEAPON_TYPE::kTwoHandAxe))
 			return AttackHandType::TwoHanded;
 		return AttackHandType::OneHanded;
@@ -149,22 +154,34 @@ namespace Costs
 		if (!actor || !attackData)
 			return 0.0f;
 
-		if (attackData->data.flags.any(RE::AttackData::AttackFlag::kBashAttack))
-			return 0.0f;
-
 		auto& burden = Burden::Tracker::GetOrComputeBurden(actor);
 		bool power = attackData->data.flags.any(RE::AttackData::AttackFlag::kPowerAttack);
 		bool left = attackData->IsLeftAttack();
+		bool bash = attackData->data.flags.any(RE::AttackData::AttackFlag::kBashAttack);
 
-		if (GetAttackHandType(actor, left) != AttackHandType::OneHanded)
-			return 0.0f;
+		float baseCost;
 
-		float baseCost = left ?
-			Compute1hAttack(burden, burden.weaponBurden_left, power) :
-			Compute1hAttack(burden, burden.weaponBurden_1h, power);
+		switch (GetAttackHandType(actor, left, bash)) {
+		case AttackHandType::Bash:
+			baseCost = 0.0f;
+			break;
+		case AttackHandType::Unarmed:
+			baseCost = ComputeUnarmedAttack(burden, power);
+			break;
+		case AttackHandType::TwoHanded:
+			baseCost = Compute2hAttack(burden, burden.weaponBurden_2h, power);
+			break;
+		case AttackHandType::OneHanded:
+			baseCost = left ?
+				Compute1hAttack(burden, burden.weaponBurden_left, power) :
+				Compute1hAttack(burden, burden.weaponBurden_1h, power);
+			break;
+		case AttackHandType::Ranged:
+		default:
+			baseCost = 0.0f;
+			break;
+		}
 
-        // Usually 1, according to fenix Stamina. 3 for werewolf, 0.5 for dual attack
-        // Which averages the stamina costs
 		baseCost *= attackData->data.staminaMult;
 
 		Costs::CostLog("ComputeAttackCost: power={} left={} staminaMult={:.2f} -> {:.3f} for {:x}",
