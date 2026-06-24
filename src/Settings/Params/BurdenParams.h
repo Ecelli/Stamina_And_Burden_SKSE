@@ -21,8 +21,8 @@ struct BurdenParams : REX::Singleton<BurdenParams>
 	// Effect Burden 
 	Parameter<float>  SteedStoneBurdenMult{ 0.3f , 0.0f, 2.0f };
 	// Weapon Burden
-	Parameter<float> WeaponBurden_LowSkill{ 2.0f, 0.1f, 10.0f };
-	Parameter<float> WeaponBurden_HighSkill{ 0.3f, 0.1f, 10.0f };
+	Parameter<float> WeaponBurden_LowSkill{ 3.0f, 0.1f, 10.0f };
+	Parameter<float> WeaponBurden_HighSkill{ 0.8f, 0.1f, 10.0f };
 	Parameter<float> WeaponSkillInterpolate{ 0.5f, 0.0f, 1.0f };
 	// Conjured Weapon Weight
 	Parameter<float> ConjuredWeightMin{ 2.0f, 0.0f, 50.0f };

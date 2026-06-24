@@ -46,24 +46,24 @@ namespace Costs
 	struct AttackCostParams : REX::Singleton<AttackCostParams>
 	{
 		// ---- Shared carry burden ----
-		Parameter<float> AttackLowCarryPct{ 0.2f, 0.0f, 60.0f };
-		Parameter<float> AttackHighCarryPct{ 3.0f, 0.0f, 60.0f };
+		Parameter<float> AttackLowCarryPct{ 1.0f, 0.0f, 60.0f };
+		Parameter<float> AttackHighCarryPct{ 10.0f, 0.0f, 60.0f };
 		Parameter<float> AttackCarryCurve_k{ 0.9f, 0.0f, 1.0f };
 
 		// ---- 1H attack ----
-		Parameter<float> Attack1hLowBurden{ 1.0f, 0.0f, 200.0f };
-		Parameter<float> Attack1hHighBurden{ 6.0f, 0.0f, 200.0f };
+		Parameter<float> Attack1hLowBurden{ 6.0f, 0.0f, 200.0f };
+		Parameter<float> Attack1hHighBurden{ 50.0f, 0.0f, 200.0f };
 		Parameter<float> Attack1hBurdenCurve_k{ 0.8f, 0.0f, 1.0f };
-		Parameter<float> Attack1hPowerMult{ 2.0f, 1.0f, 10.0f };
+		Parameter<float> Attack1hPowerMult{ 2.5f, 1.0f, 10.0f };
 
 		// ---- 2H attack ----
-		Parameter<float> Attack2hLowBurden{ 3.0f, 0.0f, 200.0f };
-		Parameter<float> Attack2hHighBurden{ 12.0f, 0.0f, 200.0f };
+		Parameter<float> Attack2hLowBurden{ 10.0f, 0.0f, 200.0f };
+		Parameter<float> Attack2hHighBurden{ 90.0f, 0.0f, 200.0f };
 		Parameter<float> Attack2hBurdenCurve_k{ 0.8f, 0.0f, 1.0f };
-		Parameter<float> Attack2hPowerMult{ 2.5f, 1.0f, 10.0f };
+		Parameter<float> Attack2hPowerMult{ 3.5f, 1.0f, 10.0f };
 
 		// ---- Unarmed ----
-		Parameter<float> UnarmedBaseFlat{ 1.0f, 0.0f, 50.0f };
+		Parameter<float> UnarmedBaseFlat{ 3.0f, 0.0f, 50.0f };
 		Parameter<float> UnarmedPowerMult{ 2.0f, 1.0f, 5.0f };
 
 		template <typename F>

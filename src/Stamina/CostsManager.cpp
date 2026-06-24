@@ -40,13 +40,13 @@ namespace
 		return AttackHandType::OneHanded;
 	}
 
-	float ComputeCarryAttackCost(const Burden::ActorBurdenData& burden)
+	float ComputeBurdenAttackCost(const Burden::ActorBurdenData& burden)
 	{
 		auto* params = Costs::AttackCostParams::GetSingleton();
 		return Math::Interpolate(
 			params->AttackLowCarryPct.Get(),
 			params->AttackHighCarryPct.Get(),
-			burden.carryBurden,
+			burden.burdenBlend,
 			params->AttackCarryCurve_k.Get());
 	}
 
@@ -58,7 +58,7 @@ namespace
 			params->Attack1hHighBurden.Get(),
 			weaponBurden,
 			params->Attack1hBurdenCurve_k.Get());
-		float cost = burdenTerm + ComputeCarryAttackCost(burden);
+		float cost = burdenTerm + ComputeBurdenAttackCost(burden);
 		if (power)
 			cost *= params->Attack1hPowerMult.Get();
 		return cost;
@@ -72,7 +72,7 @@ namespace
 			params->Attack2hHighBurden.Get(),
 			weaponBurden,
 			params->Attack2hBurdenCurve_k.Get());
-		float cost = burdenTerm + ComputeCarryAttackCost(burden);
+		float cost = burdenTerm + ComputeBurdenAttackCost(burden);
 		if (power)
 			cost *= params->Attack2hPowerMult.Get();
 		return cost;
@@ -81,7 +81,7 @@ namespace
 	float ComputeUnarmedAttack(const Burden::ActorBurdenData& burden, bool power)
 	{
 		auto* params = Costs::AttackCostParams::GetSingleton();
-		float cost = params->UnarmedBaseFlat.Get() + ComputeCarryAttackCost(burden);
+		float cost = params->UnarmedBaseFlat.Get() + ComputeBurdenAttackCost(burden);
 		if (power)
 			cost *= params->UnarmedPowerMult.Get();
 		return cost;
