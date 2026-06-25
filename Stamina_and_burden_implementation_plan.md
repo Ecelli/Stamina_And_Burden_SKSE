@@ -389,7 +389,7 @@ Normal ──(stamina = 0)──▶ Exhausted ──(duration expires)──▶ 
 | *(completed)*     | `38022 + 0xC1/0xC9`            | CostsManager         | `write_call<5>` ×2| Sprint stamina drain (burden + weather)            |
 | *(future)*        | `38603`                        | ActionManager        | `write_call<5>`  | Attack stamina cost → override                     |
 | *(future)*        | `38627`                        | Block/Combat Manager | `write_call<5>`  | Hit processing → stamina redirect + dmg scaling     |
-| *(future)*        | `49170`                        | ActionManager        | `write_call<5>`  | Prevent action when locked                          |
+| *(blocked)*       | `49170`                        | DenyHooks            | `write_call<5>`  | NPC attack denial (player needs vtable hook)         |
 | *(future)*        | game settings (jump only)      | ActionManager        | Direct write     | Jump cost on burden change                          |
 
 ---
@@ -411,8 +411,9 @@ BurdenManager::UpdateBurden(actor)
     │           └── burden + weather × engineRate
     │
     ├──► ActionManager: recalc attack + jump costs
-    │       ├── hook 38603: attack stamina cost
-    │       └── direct write: fJumpStaminaCost
+│       ├── hook 38603: attack stamina cost
+│       ├── [blocked] hook 49170: NPC attack denial (NpcAttackDenyHook)
+│       └── direct write: fJumpStaminaCost
     │
     ├──► BlockManager: stamina redirect on blocked hits
     │       └── hook 38627 (blocked path)
@@ -604,8 +605,20 @@ Setting keys in `Parameter<T>` structs, organized by compile-time group. No ship
 |--------------------------------------------------+------------------------------------|
 | Implement `ActionManager` for attacks            | `src/Actions/ActionManager.h/.cpp` |
 | Hook `38603` (attack stamina cost)               | `src/Hooks/Hooks.cpp`              |
-| Hook `49170` (action prevention at low stamina)  | `src/Hooks/Hooks.cpp`              |
+| Hook `49170` (NPC attack denial, disabled)       | `src/Hooks/DenyHooks.h/.cpp`       |
+| Player attack denial (vtable hook, TBD)          | `src/Hooks/DenyHooks.h/.cpp`       |
 | Implement weapon weight + skill + burden formula | `src/Actions/ActionManager.cpp`    |
+
+#### Findings — Attack Denial Hooks (2026-06-24)
+
+| Hook | Address | Behavior |
+|------|---------|----------|
+| `AttackCostHook` | `REL::ID(38603) + 0x171` | Fires for **all** actors — replaces engine stamina cost with our computed cost. ✅ |
+| `NpcAttackDenyHook` | `REL::ID(49170) + 0x28d` (`GetThisAttackChance`) | Fires for **NPCs only** (confirmed: formID 85452 fires, player formID 14 does NOT). ❌ Player |
+| StaminaNPC's player hook | `REL::ID(38047) + 0xBB` (SE) | Used by StaminaNPC for player melee+bash denial. AE equivalent unverified — offset may differ. ❌ Unverified |
+| Vtable hook on `AttackBlockHandler` | `ProcessButton` (vtable 04) | Version-stable, no offsets needed. Calls `CanDoAction` before attack starts; skipping the original cancels the attack. ✅ Recommended |
+
+**Recommended approach for player denial:** Hook `AttackBlockHandler::ProcessButton` (vtable index 04) via vtable replacement. At that point we know the attack input is happening but the attack hasn't started yet. Return early (don't call original) to silently deny. No `BGSAttackData` available — approximate cost from equipped weapon + attack type + held state.
 
 ### Phase 5 — Movement Costs ⚡ (partial)
 
