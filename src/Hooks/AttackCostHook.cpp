@@ -1,6 +1,5 @@
 #include "AttackCostHook.h"
 #include "Stamina/CostsManager.h"
-#include "Common/Utils.h"
 
 #include <RE/RTTI.h>
 
@@ -24,11 +23,5 @@ namespace Hooks
 			return _func(a_this, a_attack);
 
 		return Costs::ComputeAttackCost(actor, a_attack);
-	}
-
-	// Not installed yet — requires REL::ID(49170) + 0x28d registration
-	float AttackChanceHook::Call(RE::Actor* a_attacker, RE::Actor* a_victim, RE::BGSAttackData* a_attack)
-	{
-		return _func(a_attacker, a_victim, a_attack);
 	}
 }
