@@ -16,7 +16,8 @@ namespace Regen
 
 	MovementState GetMovementState(RE::Actor* actor);
 	float ComputeStateRegenFactor(const Burden::ActorBurdenData& data, MovementState state, float HMS);
-	float ComputeBlockCost(const Burden::ActorBurdenData& data);
+	float ComputeBlockHoldPenalty(RE::Actor* actor);
+	float ComputeBowDrawHoldPenalty(RE::Actor* actor);
 	float GetHMSStaminaMult(RE::Actor* actor);
 	float ComputeWeatherPenalty(RE::Actor* actor);
 	float GetEngineStaminaRate(RE::Actor* actor);

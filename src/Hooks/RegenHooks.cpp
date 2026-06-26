@@ -46,6 +46,8 @@ namespace Hooks
 		switch (a_av) {
 		case 26:  // Stamina
 			rate *= Regen::ComputeStaminaRegenMult(a_actor);
+			rate -= Regen::ComputeBlockHoldPenalty(a_actor);
+			rate -= Regen::ComputeBowDrawHoldPenalty(a_actor);
 			Regen::RegenLog("InterceptAVRegen: stamina rate -> {:.3f}", rate);
 			break;
 		case 24:  // Health
@@ -59,10 +61,15 @@ namespace Hooks
 		}
 
 		// 3. If the formula returned a negative rate, drain the actor
-		//    directly (RestoreActorValue won't accept negative heals)
+		//    directly (RestoreActorValue won't accept negative heals).
+		//    Multiply by dt because the engine multiplies its own rate by
+		//    dt before passing to RestoreActorValue — we must match that
+		//    per-frame conversion here since we bypass the engine's scaling.
 		if (rate < 0.0f) {
-			a_actor->DamageActorValue(static_cast<RE::ActorValue>(a_av), rate); // Internally it takes abs
-			Regen::RegenLog("InterceptAVRegen: {} drain -> {:.3f}", a_av == 26 ? "stamina" : a_av == 24 ? "health" : "magicka", -rate);
+			float dt = RE::GetSecondsSinceLastFrame();
+			if (dt <= 0.0f) dt = 1.0f / 60.0f;
+			a_actor->DamageActorValue(static_cast<RE::ActorValue>(a_av), rate * dt);
+			Regen::RegenLog("InterceptAVRegen: {} drain -> {:.3f} (dt={:.4f})", a_av == 26 ? "stamina" : a_av == 24 ? "health" : "magicka", -(rate * dt), dt);
 			rate = 0.0f;
 		}
 
