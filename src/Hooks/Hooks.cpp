@@ -26,6 +26,7 @@ namespace Hooks {
 		logger::info("  >Registered burden event handlers"sv);
 
 		RegenHook::Install();
+		RegenDelayHook::Install();
 		SprintDrainHook::Install();
 		ActionHook::Install();
 		AttackCostHook::Install();

@@ -116,6 +116,7 @@ namespace Burden::Tracker
 	{
 		GetTrackedMap().clear();
 		ClearTransientCache();
+		Hooks::ClearRegenDrainCache();
 
 		auto* player = RE::PlayerCharacter::GetSingleton();
 		if (player) {
