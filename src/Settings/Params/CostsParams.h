@@ -23,6 +23,13 @@ namespace Costs
 		Parameter<float> JumpCostBurdenCurve_k{ 0.8f, 0.0f, 1.0f };
 		Parameter<float> JumpCostCarryCurve_k{ 0.9f, 0.0f, 1.0f };
 
+		Parameter<float> BowFireLowBurden{ 10.0f, 0.0f, 200.0f };
+		Parameter<float> BowFireHighBurden{ 60.0f, 0.0f, 200.0f };
+		Parameter<float> BowFireBurdenCurve_k{ 0.7f, 0.0f, 1.0f };
+		Parameter<float> BowFireLowCarryPct{ 2.0f, 0.0f, 60.0f };
+		Parameter<float> BowFireHighCarryPct{ 10.0f, 0.0f, 60.0f };
+		Parameter<float> BowFireCarryCurve_k{ 0.7f, 0.0f, 1.0f };
+
 		template <typename F>
 		static void ForEach(F&& a_fn)
 		{
@@ -40,6 +47,12 @@ namespace Costs
 			a_fn("fJumpCostHighCarryPct"sv, s.JumpCostHighCarryPct);
 			a_fn("fJumpCostBurdenCurve_k"sv, s.JumpCostBurdenCurve_k);
 			a_fn("fJumpCostCarryCurve_k"sv, s.JumpCostCarryCurve_k);
+			a_fn("fBowFireLowBurden"sv, s.BowFireLowBurden);
+			a_fn("fBowFireHighBurden"sv, s.BowFireHighBurden);
+			a_fn("fBowFireBurdenCurve_k"sv, s.BowFireBurdenCurve_k);
+			a_fn("fBowFireLowCarryPct"sv, s.BowFireLowCarryPct);
+			a_fn("fBowFireHighCarryPct"sv, s.BowFireHighCarryPct);
+			a_fn("fBowFireCarryCurve_k"sv, s.BowFireCarryCurve_k);
 		}
 	};
 
