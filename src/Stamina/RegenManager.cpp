@@ -71,10 +71,10 @@ namespace Regen
 		float penalty = Math::Interpolate(
 			params->BlockHoldLowBurden.Get(),
 			params->BlockHoldHighBurden.Get(),
-			data.burden, // not correct, but will fix it later
+			data.weaponBurden_block,
 			params->BlockHoldCurve_k.Get());
-		RegenLog("ComputeBlockHoldPenalty: burden={:.3f} penalty={:.3f}/s",
-			data.burden, penalty);
+		RegenLog("ComputeBlockHoldPenalty: blockBurden={:.3f} penalty={:.3f}/s",
+			data.weaponBurden_block, penalty);
 		return penalty;
 	}
 

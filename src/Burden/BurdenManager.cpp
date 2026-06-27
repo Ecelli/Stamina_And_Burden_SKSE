@@ -178,19 +178,90 @@ namespace
 	{
 		auto* form = actor->GetEquippedObject(true);
 		auto* weap = (form && form->IsWeapon()) ? form->As<RE::TESObjectWEAP>() : nullptr;
-		auto* shield = (form && !weap) ? form->As<RE::TESObjectARMO>() : nullptr;
 
 		if (weap) {
 			float w = weap->IsBound() ? Burden::GetBoundWeaponWeight(data.conjurationSkill, false) : weap->GetWeight();
 			data.weaponBurden_left = Burden::ComputeWeaponBurden(w, data.oneHandedSkill) / data.maxEquippedWeight;
-			data.weaponBurden_block = 0.0f;
-		} else if (shield && shield->IsShield()) {
+		} else if (form) {
 			data.weaponBurden_left = 0.0f;
-			data.weaponBurden_block = Burden::ComputeWeaponBurden(shield->GetWeight(), data.blockSkill) / data.maxEquippedWeight;
 		} else {
-			data.weaponBurden_left = 0.0f;
-			data.weaponBurden_block = 0.0f;
+			data.weaponBurden_left = BurdenParams::GetSingleton()->UnarmedBlockBurden.Get() / data.maxEquippedWeight;
 		}
+	}
+	
+	float ComputeBlendedBlockSkill(int weaponSkill, int blockSkill)
+	{
+		auto* params = BurdenParams::GetSingleton();
+		float weaponRatio = Math::Clamp01(static_cast<float>(weaponSkill) / params->PlayerMaxSkill.Get());
+		float blockRatio = Math::Clamp01(static_cast<float>(blockSkill) / params->PlayerMaxSkill.Get());
+		float blend = params->BlockSkillBlendFactor.Get();
+		return std::pow(weaponRatio, 1.0f - blend) * std::pow(blockRatio, blend);
+	}
+
+	float ComputeBlockBurden(RE::Actor* actor, Burden::ActorBurdenData& data)
+	{
+		auto* leftForm = actor->GetEquippedObject(true);
+		auto* leftWeap = (leftForm && leftForm->IsWeapon()) ? leftForm->As<RE::TESObjectWEAP>() : nullptr;
+		auto* shield = (leftForm && !leftWeap) ? leftForm->As<RE::TESObjectARMO>() : nullptr;
+		if (shield && shield->IsShield()) {
+			return Burden::ComputeWeaponBurden(shield->GetWeight(), data.blockSkill) / data.maxEquippedWeight;
+		}
+
+		auto* params = BurdenParams::GetSingleton();
+		auto blockMult = [&](int skill) {
+			float blockBurden = ComputeBlendedBlockSkill(skill, data.blockSkill);
+			return Math::Interpolate(
+				params->BlockBurden_LowSkill.Get(),
+				params->BlockBurden_HighSkill.Get(),
+				blockBurden,
+				params->BlockBurden_Curve_k.Get());
+		};
+
+        // Block for DW or only left weapon. 
+		if (leftWeap) {
+			auto* rightForm = actor->GetEquippedObject(false);
+			auto* rightWeap = (rightForm && rightForm->IsWeapon()) ? rightForm->As<RE::TESObjectWEAP>() : nullptr;
+
+			if (rightWeap) {
+				float dwPenalty = params->DualWieldBlockPenalty.Get();
+				return dwPenalty * 0.5f
+					* (data.weaponBurden_left + data.weaponBurden_1h)
+					* blockMult(data.oneHandedSkill);
+			} else {
+				return data.weaponBurden_left * blockMult(data.oneHandedSkill);
+			}
+		}
+
+        // Block unarmored
+		auto* rightForm = actor->GetEquippedObject(false);
+		auto* rightWeap = (rightForm && rightForm->IsWeapon()) ? rightForm->As<RE::TESObjectWEAP>() : nullptr;
+		if (!rightWeap) {
+			return params->UnarmedBlockBurden.Get() / data.maxEquippedWeight
+				* blockMult(data.blockSkill);
+		}
+
+        // Block for 2h weapons or 1h weapon
+        // TODO: Figure out if 2h weapon is using 1h grip on modded setup. (but not with shield/dw)
+		float rightBurden;
+		int weaponSkill;
+		auto type = rightWeap->GetWeaponType();
+		switch (type) {
+		case RE::WEAPON_TYPE::kTwoHandSword:
+		case RE::WEAPON_TYPE::kTwoHandAxe:
+			rightBurden = data.weaponBurden_2h;
+			weaponSkill = data.twoHandedSkill;
+			break;
+		case RE::WEAPON_TYPE::kBow:
+		case RE::WEAPON_TYPE::kCrossbow:
+			rightBurden = data.weaponBurden_ranged;
+			weaponSkill = data.marksmanSkill;
+			break;
+		default:
+			rightBurden = data.weaponBurden_1h;
+			weaponSkill = data.oneHandedSkill;
+			break;
+		}
+		return rightBurden * blockMult(weaponSkill);
 	}
 }
 
@@ -260,6 +331,7 @@ namespace Burden
 
 		ComputeRightHandBurden(actor, data);
 		ComputeLeftHandBurden(actor, data);
+		data.weaponBurden_block = std::clamp(ComputeBlockBurden(actor, data), 0.0f, 1.0f);
 
 		return data;
 	}

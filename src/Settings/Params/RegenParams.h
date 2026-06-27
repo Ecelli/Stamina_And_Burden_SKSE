@@ -81,7 +81,7 @@ namespace Regen
 
 		// Block-hold penalty (flat stamina/sec, burden-scaled)
 		Parameter<float> BlockHoldLowBurden{ 2.0f, 0.0f, 50.0f };
-		Parameter<float> BlockHoldHighBurden{ 20.0f, 0.0f, 50.0f };
+		Parameter<float> BlockHoldHighBurden{ 30.0f, 0.0f, 50.0f };
 		Parameter<float> BlockHoldCurve_k{ 0.8f, 0.0f, 1.0f };
 
 		template <typename F>
