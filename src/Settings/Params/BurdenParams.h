@@ -28,6 +28,13 @@ struct BurdenParams : REX::Singleton<BurdenParams>
 	Parameter<float> ConjuredWeightMin{ 2.0f, 0.0f, 50.0f };
 	Parameter<float> ConjuredWeightMax{ 30.0f, 0.0f, 50.0f };
 	Parameter<float> ConjuredWeightCurve_k{ 0.8f, 0.0f, 1.0f };
+	// Block Burden
+	Parameter<float> BlockSkillBlendFactor{ 0.5f, 0.0f, 1.0f };
+	Parameter<float> BlockBurden_LowSkill{ 2.0f, 0.1f, 10.0f };
+	Parameter<float> BlockBurden_HighSkill{ 0.5f, 0.1f, 10.0f };
+	Parameter<float> BlockBurden_Curve_k{ 0.5f, 0.0f, 1.0f };
+	Parameter<float> DualWieldBlockPenalty{ 1.5f, 1.0f, 3.0f };
+	Parameter<float> UnarmedBlockBurden{ 3.0f, 0.0f, 50.0f };
 
 	template <typename F>
 	static void ForEach(F&& a_fn)
@@ -52,5 +59,11 @@ struct BurdenParams : REX::Singleton<BurdenParams>
         a_fn("fConjuredWeightMin"sv, s.ConjuredWeightMin);
         a_fn("fConjuredWeightMax"sv, s.ConjuredWeightMax);
         a_fn("fConjuredWeightCurve_k"sv, s.ConjuredWeightCurve_k);
+        a_fn("fBlockSkillBlendFactor"sv, s.BlockSkillBlendFactor);
+        a_fn("fBlockBurden_LowSkill"sv, s.BlockBurden_LowSkill);
+        a_fn("fBlockBurden_HighSkill"sv, s.BlockBurden_HighSkill);
+        a_fn("fBlockBurden_Curve_k"sv, s.BlockBurden_Curve_k);
+        a_fn("fDualWieldBlockPenalty"sv, s.DualWieldBlockPenalty);
+        a_fn("fUnarmedBlockBurden"sv, s.UnarmedBlockBurden);
 	}
 };
