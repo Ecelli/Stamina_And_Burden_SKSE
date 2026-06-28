@@ -51,6 +51,7 @@ namespace Burden
 
 	struct ActorBurdenData
 	{
+		RE::Actor* actor{ nullptr };
 		float maxCarryWeight{ 0.0f };
 		float carryWeight{ 0.0f };
 		float equippedWeight{ 0.0f };     //  Weighted

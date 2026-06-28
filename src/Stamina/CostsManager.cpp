@@ -51,7 +51,8 @@ namespace
 	float ComputeBurdenAttackCost(const Burden::ActorBurdenData& burden)
 	{
 		auto* params = Costs::AttackCostParams::GetSingleton();
-		return Math::Interpolate(
+		float maxStamina = burden.actor ? burden.actor->GetActorValueMax(RE::ActorValue::kStamina) : 100.0f;
+		return maxStamina * 0.01f * Math::Interpolate(
 			params->AttackLowCarryPct.Get(),
 			params->AttackHighCarryPct.Get(),
 			burden.burdenBlend,

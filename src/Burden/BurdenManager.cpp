@@ -348,6 +348,7 @@ namespace Burden
 	ActorBurdenData UpdateBurden(RE::Actor* actor)
 	{
 		ActorBurdenData data{};
+		data.actor = actor;
 
 		auto* params = BurdenParams::GetSingleton();
 		data.maxCarryWeight = std::max(actor->GetActorValue(RE::ActorValue::kCarryWeight), 0.1f);
