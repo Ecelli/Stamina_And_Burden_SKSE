@@ -189,4 +189,32 @@ namespace Costs
 
 		return baseCost;
 	}
+
+	float ComputeBowFireCost(RE::Actor* actor)
+	{
+		if (!actor)
+			return 0.0f;
+
+		auto& burden = Burden::Tracker::GetOrComputeBurden(actor);
+		auto* params = CostsParams::GetSingleton();
+
+		float Stamina_1pctMax = 0.01f * actor->GetActorValueMax(RE::ActorValue::kStamina);
+		float BowFireBurdenFlat = Math::Interpolate(
+			params->BowFireLowBurden.Get(),
+			params->BowFireHighBurden.Get(),
+			burden.weaponBurden_ranged,
+			params->BowFireBurdenCurve_k.Get());
+		float BowFireCarryPct = Math::Interpolate(
+			params->BowFireLowCarryPct.Get(),
+			params->BowFireHighCarryPct.Get(),
+			burden.carryBurden,
+			params->BowFireCarryCurve_k.Get());
+
+		float TotalCost = BowFireBurdenFlat + BowFireCarryPct * Stamina_1pctMax;
+
+		Costs::CostLog("ComputeBowFireCost: burden={:.3f} carry={:.3f} -> {:.3f} for {:x}",
+			burden.burden, burden.carryBurden, TotalCost, actor->GetFormID());
+
+		return TotalCost;
+	}
 }

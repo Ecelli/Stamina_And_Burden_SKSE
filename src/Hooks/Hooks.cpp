@@ -4,6 +4,7 @@
 #include "Hooks/RegenHooks.h"
 #include "Hooks/SprintDrainHook.h"
 #include "Hooks/AttackCostHook.h"
+#include "Hooks/BowFireHook.h"
 #include "Hooks/DenyHooks.h"
 
 namespace Hooks {
@@ -30,7 +31,8 @@ namespace Hooks {
 		SprintDrainHook::Install();
 		ActionHook::Install();
 		AttackCostHook::Install();
-		// NpcAttackDenyHook::Install();  // NPC-only (49170), disabled — player denial TBD via vtable hook
+		BowFireHook::Install();
+		// AttackDenyHook::Install();  // Seems to be NPC-only (49170), Deferred until a solution is found
 
 		return true;
 	}

@@ -19,7 +19,7 @@ namespace Common
 		}).detach();
 	}
 
-	bool CanDoAction(RE::Actor* actor, float cost);
+	bool CanDoStaminaAction(RE::Actor* actor, float cost);
 	void ApplyStaminaCost(RE::Actor* actor, float cost);
 }
 
