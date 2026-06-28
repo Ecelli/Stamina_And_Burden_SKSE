@@ -12,7 +12,7 @@ namespace Hooks
 	 *   0xC9: drain  = getSprintStaminaDrain(weight, deltaTime)
 	 *   engine: stamina -= drain
 	 *
-	 * We hook 0xC1 to calculate our burden-based drain (using CalculateSprintDrain
+	 * We hook 0xC1 to calculate our burden-based drain (using ComputeSprintDrain
 	 * which includes GetSecondsSinceLastFrame()). The 0xC9 hook is a straight
 	 * passthrough that returns the value as-is.
 	 *

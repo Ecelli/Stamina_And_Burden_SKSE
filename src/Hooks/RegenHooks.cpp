@@ -29,6 +29,12 @@
 #include "RegenHooks.h"
 #include "Stamina/RegenManager.h"
 #include "Common/Utils.h"
+#include <unordered_map>
+
+namespace
+{
+	std::unordered_map<RE::Actor*, float> s_cachedDrainRate;
+}
 
 namespace Hooks
 {
@@ -44,26 +50,25 @@ namespace Hooks
 
 		// 2. Multiply by our formula
 		switch (a_av) {
-		case 26:  // Stamina
-			rate *= Regen::ComputeStaminaRegenMult(a_actor);
-			Regen::RegenLog("InterceptAVRegen: stamina rate -> {:.3f}", rate);
+		case 26: // Stamina
+			rate = Regen::ComputeBurdenStaminaRegenRate(a_actor);
 			break;
 		case 24:  // Health
 			rate *= Regen::ComputeHealthRegenMult(a_actor);
-			Regen::RegenLog("InterceptAVRegen: health rate -> {:.3f}", rate);
 			break;
 		case 25:  // Magicka
 			rate *= Regen::ComputeMagickaRegenMult(a_actor);
-			Regen::RegenLog("InterceptAVRegen: magicka rate -> {:.3f}", rate);
 			break;
 		}
 
-		// 3. If the formula returned a negative rate, drain the actor
-		//    directly (RestoreActorValue won't accept negative heals)
+		// 3. If negative, cache for RegenDelayHook's bypass check
+		//    and return 0 (engine ignores negative rates at +0xE1).
 		if (rate < 0.0f) {
-			a_actor->DamageActorValue(static_cast<RE::ActorValue>(a_av), rate); // Internally it takes abs
-			Regen::RegenLog("InterceptAVRegen: {} drain -> {:.3f}", a_av == 26 ? "stamina" : a_av == 24 ? "health" : "magicka", -rate);
+			s_cachedDrainRate[a_actor] = rate;
 			rate = 0.0f;
+		}
+		else if (a_av == 26) {
+			s_cachedDrainRate.erase(a_actor);
 		}
 
 		// 4. Return the modified rate
@@ -83,14 +88,46 @@ namespace Hooks
 		logger::info("  >Installed regen hook (ID 38452 + 0x2B6)");
 	}
 
+	bool RegenDelayHook::InterceptUpdateRegenDelay(
+		RE::Actor* a_actor, RE::ActorValue a_av, float a_passedTime)
+	{
+		if (a_av == RE::ActorValue::kStamina) {
+			auto it = s_cachedDrainRate.find(a_actor);
+			if (it != s_cachedDrainRate.end() && it->second < 0.0f) {
+				// Bypass the regen delay check — drain stamina
+				// directly and return false so the engine proceeds
+				// to +0x2B6 (rate recomputation and cache update).
+				float drain = -it->second * a_passedTime;
+				a_actor->DamageActorValue(a_av, drain);
+				return false;
+			}
+		}
+		return _original(a_actor, a_av, a_passedTime);
+	}
+
+	void RegenDelayHook::Install()
+	{
+		REL::Relocation<std::uintptr_t> callSite{ REL::ID(38452), 0x02C };
+		_original = reinterpret_cast<UpdateRegenDelay_t>(
+			SKSE::GetTrampoline().write_call<5>(
+				callSite.address(),
+				reinterpret_cast<std::uintptr_t>(InterceptUpdateRegenDelay)));
+		logger::info("  >Installed regen delay hook (ID 38452 + 0x02C) — bypass on negative rate");
+	}
+
+	void ClearRegenDrainCache()
+	{
+		s_cachedDrainRate.clear();
+	}
+
 	// ---------------------------------------------------------------
 	// Full-stamina monitor (heartbeat)
 	//
 	// The regen function doesn't fire when AV is at 100%, so our
-	// InterceptAVRegen can't drain. This heartbeat (100ms ~ 10fps) checks if
-	// the player is at full stamina with a negative multiplier and
-	// drains a tiny amount (0.1) to push below 100%. The next regen
-	// tick will then fire normally and InterceptAVRegen handles the rest.
+	// InterceptAVRegen can't drain. This heartbeat computes what the
+	// effective regen rate *would* be via ComputeBurdenStaminaRegenRate
+	// and drains 0.1 if negative, pushing stamina below 100% so the
+	// next regen tick fires normally.
 	//
 	// Started from BurdenTracker::OnGameLoad() alongside the burden
 	// parameter tracking heartbeat.
@@ -106,10 +143,10 @@ namespace Hooks
 			const float cur = player->GetActorValue(av);
 			const float max = player->GetActorValueMax(av);
 			if (max > 0.0f && cur >= max) {
-				float mult = Regen::ComputeStaminaRegenMult(player);
-				if (mult < 0.0f) {
+				float rate = Regen::ComputeBurdenStaminaRegenRate(player);
+				if (rate < 0.0f) {
 					player->DamageActorValue(av, 0.1f);
-					Regen::RegenLog("StaminaMonitor: drained 0.1 at full stamina (mult={:.3f})", mult);
+					Regen::RegenLog("StaminaMonitor: drained 0.1 at full stamina (rate={:.3f}/s)", rate);
 				}
 			}
 		});

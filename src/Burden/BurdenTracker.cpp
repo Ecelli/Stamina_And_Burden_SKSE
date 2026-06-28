@@ -116,6 +116,7 @@ namespace Burden::Tracker
 	{
 		GetTrackedMap().clear();
 		ClearTransientCache();
+		Hooks::ClearRegenDrainCache();
 
 		auto* player = RE::PlayerCharacter::GetSingleton();
 		if (player) {
@@ -143,6 +144,11 @@ namespace Burden::Tracker
 
 				if (static_cast<int>(actor->GetActorValue(RE::ActorValue::kLightArmor)) != data.lightSkill
 					|| static_cast<int>(actor->GetActorValue(RE::ActorValue::kHeavyArmor)) != data.heavySkill
+					|| static_cast<int>(actor->GetActorValue(RE::ActorValue::kOneHanded)) != data.oneHandedSkill
+					|| static_cast<int>(actor->GetActorValue(RE::ActorValue::kTwoHanded)) != data.twoHandedSkill
+					|| static_cast<int>(actor->GetActorValue(RE::ActorValue::kArchery)) != data.marksmanSkill
+					|| static_cast<int>(actor->GetActorValue(RE::ActorValue::kBlock)) != data.blockSkill
+					|| static_cast<int>(actor->GetActorValue(RE::ActorValue::kConjuration)) != data.conjurationSkill
 					|| std::abs(actor->GetActorValue(RE::ActorValue::kCarryWeight) - data.maxCarryWeight) > 0.001f) {
 
 					Burden::Tracker::Update(actor);
