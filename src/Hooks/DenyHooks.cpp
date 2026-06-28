@@ -15,7 +15,7 @@ namespace Hooks
 	void JumpDenyHook::JumpDetour(RE::Actor* actor)
 	{
 		float cost = Costs::ComputeJumpCost(actor);
-		if (Common::CanDoAction(actor, cost))
+		if (Common::CanDoStaminaAction(actor, cost))
 			_Jump(actor);
 	}
 
@@ -40,7 +40,7 @@ namespace Hooks
 
 		float cost = Costs::ComputeAttackCost(a_attacker, a_attack);
 
-		if (a_attacker->GetActorValue(RE::ActorValue::kStamina) < cost) {
+		if (!Common::CanDoStaminaAction(a_attacker, cost)) {
 			Costs::CostLog("AttackDenyHook: suppressed for {:x}, stamina={:.1f} < cost={:.1f}",
 				a_attacker->GetFormID(),
 				a_attacker->GetActorValue(RE::ActorValue::kStamina), cost);
