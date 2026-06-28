@@ -151,17 +151,23 @@ namespace Regen
 
 	float GetEngineStaminaRate(RE::Actor* actor)
 	{
-		float rate = actor->GetActorValue(RE::ActorValue::kStaminaRate) * 0.01f;
-		if (rate <= 0.0f)
-			return 0.0f;
-
-		rate = rate * actor->GetActorValue(RE::ActorValue::kStamina);
+		float rate = GetBaseStaminaRate(actor);
 		if (rate > 0.0f) {
 			if (actor->IsInCombat()) {
 				rate *= RE::GameSettingCollection::GetSingleton()->GetSetting("fCombatStaminaRegenRateMult")->GetFloat();
 			}
 			rate *= actor->GetActorValue(RE::ActorValue::kStaminaRateMult) * 0.01f;
 		}
+		return rate;
+	}
+
+	float GetBaseStaminaRate(RE::Actor* actor)
+	{
+		float rate = actor->GetActorValue(RE::ActorValue::kStaminaRate) * 0.01f;
+		if (rate <= 0.0f)
+			return 0.0f;
+
+		rate = rate * actor->GetActorValue(RE::ActorValue::kStamina);
 		return rate;
 	}
 
@@ -186,6 +192,31 @@ namespace Regen
 		return 0.0f;
 	}
 
+	float ComputeBurnScaler(RE::Actor* actor)
+	{
+		if (!actor)
+			return 1.0f;
+
+		auto* params = NegativeRegen::GetSingleton();
+		float rateMult = actor->GetActorValue(RE::ActorValue::kStaminaRateMult);
+		float lowBound = params->BurnRate_LowBound.Get();
+		float highBound = params->BurnRate_HighBound.Get();
+		float range = highBound - lowBound;
+		if (range <= 0.0f)
+			return 1.0f;
+
+		float t = (rateMult - lowBound) / range;
+		t = Math::Clamp01(t);
+
+		float low = params->BurnRate_LowBonus.Get();
+		float high = params->BurnRate_HighBonus.Get();
+		float k = params->BurnRate_Curve_k.Get();
+
+		float scaler = Math::Interpolate(low, high, t, k);
+		RegenLog("ComputeBurnScaler: kStaminaRateMult={:.0f} t={:.3f} scaler={:.3f}", rateMult, t, scaler);
+		return scaler;
+	}
+
 	float ComputeStaminaRegenMult(RE::Actor* actor)
 	{
 		if (!actor)
@@ -206,6 +237,32 @@ namespace Regen
 		RegenLog("ComputeStaminaRegenMult: MovementFactor={:.3f} HMS={:.3f} weather={:.3f} -> {}",
 			regenBonus, HMS, weatherPenalty, result);
 		return result;
+	}
+
+	float ComputeBurdenStaminaRegenRate(RE::Actor* actor)
+	{
+		if (!actor)
+			return 0.0f;
+
+		float mult = ComputeStaminaRegenMult(actor);
+		float regenMult = mult >= 0.0f ? mult : 0.0f;
+		float drainMult = mult < 0.0f ? -mult : 0.0f;
+
+		float engineRate = GetEngineStaminaRate(actor);
+		if (engineRate < 0.0f)
+			engineRate = 0.0f;
+
+		float rate = engineRate * regenMult;
+		if (drainMult > 0.0f) {
+			float burnBase = GetBaseStaminaRate(actor);
+			float scaler = ComputeBurnScaler(actor);
+			rate -= burnBase * drainMult * scaler;
+		}
+		rate -= ComputeBlockHoldPenalty(actor);
+		rate -= ComputeBowDrawHoldPenalty(actor);
+
+		RegenLog("ComputeBurdenStaminaRegenRate: engineRate={:.3f} mult={:.3f} -> rate={:.3f}/s", engineRate, mult, rate);
+		return rate;
 	}
 
 	float ComputeHealthRegenMult(RE::Actor* actor)

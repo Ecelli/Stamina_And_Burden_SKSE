@@ -108,6 +108,30 @@ namespace Regen
 		}
 	};
 
+	struct NegativeRegen : REX::Singleton<NegativeRegen>
+	{
+		// Burn rate scaler: rescales the drain portion when our regen multiplier is
+		// negative. Maps kStaminaRateMult from [LowBound, HighBound] onto [0, 1]
+		// and interpolates between LowBonus (weak regen → amplified drain) and
+		// HighBonus (strong regen → reduced drain).
+		Parameter<float> BurnRate_LowBonus{ 2.0f, 0.0f, 10.0f };
+		Parameter<float> BurnRate_HighBonus{ 0.2f, 0.0f, 10.0f };
+		Parameter<float> BurnRate_Curve_k{ 0.5f, 0.0f, 1.0f };
+		Parameter<float> BurnRate_LowBound{ -200.0f, -1000.0f, 0.0f };
+		Parameter<float> BurnRate_HighBound{ 500.0f, 100.0f, 1000.0f };
+
+		template <typename F>
+		static void ForEach(F&& a_fn)
+		{
+			auto& s = GetSingleton();
+			a_fn("fBurnRate_LowBonus"sv, s.BurnRate_LowBonus);
+			a_fn("fBurnRate_HighBonus"sv, s.BurnRate_HighBonus);
+			a_fn("fBurnRate_Curve_k"sv, s.BurnRate_Curve_k);
+			a_fn("fBurnRate_LowBound"sv, s.BurnRate_LowBound);
+			a_fn("fBurnRate_HighBound"sv, s.BurnRate_HighBound);
+		}
+	};
+
 	struct WeatherParams : REX::Singleton<WeatherParams>
 	{
 		Parameter<float> WeatherRainPenalty{ 0.5f, 0.0f, 10.0f };

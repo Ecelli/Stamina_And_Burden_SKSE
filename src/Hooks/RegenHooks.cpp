@@ -50,10 +50,8 @@ namespace Hooks
 
 		// 2. Multiply by our formula
 		switch (a_av) {
-		case 26:  // Stamina
-			rate *= Regen::ComputeStaminaRegenMult(a_actor);
-			rate -= Regen::ComputeBlockHoldPenalty(a_actor);
-			rate -= Regen::ComputeBowDrawHoldPenalty(a_actor);
+		case 26: // Stamina
+			rate = Regen::ComputeBurdenStaminaRegenRate(a_actor);
 			break;
 		case 24:  // Health
 			rate *= Regen::ComputeHealthRegenMult(a_actor);
@@ -126,10 +124,10 @@ namespace Hooks
 	// Full-stamina monitor (heartbeat)
 	//
 	// The regen function doesn't fire when AV is at 100%, so our
-	// InterceptAVRegen can't drain. This heartbeat (100ms ~ 10fps)
-	// computes what the effective regen rate *would* be (including
-	// block/bow hold penalties) and drains 0.1 if negative, pushing
-	// stamina below 100% so the next regen tick fires normally.
+	// InterceptAVRegen can't drain. This heartbeat computes what the
+	// effective regen rate *would* be via ComputeBurdenStaminaRegenRate
+	// and drains 0.1 if negative, pushing stamina below 100% so the
+	// next regen tick fires normally.
 	//
 	// Started from BurdenTracker::OnGameLoad() alongside the burden
 	// parameter tracking heartbeat.
@@ -145,14 +143,10 @@ namespace Hooks
 			const float cur = player->GetActorValue(av);
 			const float max = player->GetActorValueMax(av);
 			if (max > 0.0f && cur >= max) {
-				float mult = Regen::ComputeStaminaRegenMult(player);
-				float blockPenalty = Regen::ComputeBlockHoldPenalty(player);
-				float bowPenalty = Regen::ComputeBowDrawHoldPenalty(player);
-				float rate = Regen::GetEngineStaminaRate(player) * mult - blockPenalty - bowPenalty;
+				float rate = Regen::ComputeBurdenStaminaRegenRate(player);
 				if (rate < 0.0f) {
 					player->DamageActorValue(av, 0.1f);
-					Regen::RegenLog("StaminaMonitor: drained 0.1 at full stamina (rate={:.3f}, mult={:.3f}, block={:.3f}, bow={:.3f})",
-						rate, mult, blockPenalty, bowPenalty);
+					Regen::RegenLog("StaminaMonitor: drained 0.1 at full stamina (rate={:.3f}/s)", rate);
 				}
 			}
 		});

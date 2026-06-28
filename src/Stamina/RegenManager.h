@@ -22,7 +22,10 @@ namespace Regen
 	float ComputeWeatherPenalty(RE::Actor* actor);
 	float GetEngineStaminaRate(RE::Actor* actor);
 
+	float GetBaseStaminaRate(RE::Actor* actor);
 	float ComputeStaminaRegenMult(RE::Actor* actor);
+	float ComputeBurdenStaminaRegenRate(RE::Actor* actor);
+	float ComputeBurnScaler(RE::Actor* actor);
 	float ComputeHealthRegenMult(RE::Actor* actor);
 	float ComputeMagickaRegenMult(RE::Actor* actor);
 }
