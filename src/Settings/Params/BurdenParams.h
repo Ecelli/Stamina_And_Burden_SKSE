@@ -21,20 +21,20 @@ struct BurdenParams : REX::Singleton<BurdenParams>
 	// Effect Burden 
 	Parameter<float>  SteedStoneBurdenMult{ 0.3f , 0.0f, 2.0f };
 	// Weapon Burden
-	Parameter<float> WeaponBurden_LowSkill{ 3.0f, 0.1f, 10.0f };
-	Parameter<float> WeaponBurden_HighSkill{ 0.8f, 0.1f, 10.0f };
-	Parameter<float> WeaponSkillInterpolate{ 0.5f, 0.0f, 1.0f };
+	Parameter<float> WeaponWeightMult_LowSkill{ 3.0f, 0.1f, 10.0f };
+	Parameter<float> WeaponWeightMult_HighSkill{ 0.8f, 0.1f, 10.0f };
+	Parameter<float> WeaponWeightMult_Curve_k{ 0.5f, 0.0f, 1.0f };
 	// Conjured Weapon Weight
 	Parameter<float> ConjuredWeightMin{ 2.0f, 0.0f, 50.0f };
 	Parameter<float> ConjuredWeightMax{ 30.0f, 0.0f, 50.0f };
 	Parameter<float> ConjuredWeightCurve_k{ 0.8f, 0.0f, 1.0f };
 	// Block Burden
 	Parameter<float> BlockSkillBlendFactor{ 0.5f, 0.0f, 1.0f };
-	Parameter<float> BlockBurden_LowSkill{ 2.0f, 0.1f, 10.0f };
-	Parameter<float> BlockBurden_HighSkill{ 0.5f, 0.1f, 10.0f };
-	Parameter<float> BlockBurden_Curve_k{ 0.5f, 0.0f, 1.0f };
+	Parameter<float> BlockWeightMult_LowSkill{ 2.0f, 0.1f, 10.0f };
+	Parameter<float> BlockWeightMult_HighSkill{ 0.5f, 0.1f, 10.0f };
+	Parameter<float> BlockWeightMult_Curve_k{ 0.5f, 0.0f, 1.0f };
 	Parameter<float> DualWieldBlockPenalty{ 1.5f, 1.0f, 3.0f };
-	Parameter<float> UnarmedBlockBurden{ 3.0f, 0.0f, 50.0f };
+	Parameter<float> UnarmedWeight{ 3.0f, 0.0f, 50.0f };
 
 	template <typename F>
 	static void ForEach(F&& a_fn)
@@ -53,17 +53,17 @@ struct BurdenParams : REX::Singleton<BurdenParams>
 		a_fn("fSkillBurdenMult_minLight"sv, s.SkillBurdenMult_minLight);
 		a_fn("fSkillBurdenMult_maxLight"sv, s.SkillBurdenMult_maxLight);
         a_fn("fSteedStoneBurdenMult"sv, s.SteedStoneBurdenMult);
-        a_fn("fWeaponBurden_LowSkill"sv, s.WeaponBurden_LowSkill);
-        a_fn("fWeaponBurden_HighSkill"sv, s.WeaponBurden_HighSkill);
-        a_fn("fWeaponSkillInterpolate"sv, s.WeaponSkillInterpolate);
+        a_fn("fWeaponWeightMult_LowSkill"sv, s.WeaponWeightMult_LowSkill);
+        a_fn("fWeaponWeightMult_HighSkill"sv, s.WeaponWeightMult_HighSkill);
+        a_fn("fWeaponWeightMult_Curve_k"sv, s.WeaponWeightMult_Curve_k);
         a_fn("fConjuredWeightMin"sv, s.ConjuredWeightMin);
         a_fn("fConjuredWeightMax"sv, s.ConjuredWeightMax);
         a_fn("fConjuredWeightCurve_k"sv, s.ConjuredWeightCurve_k);
         a_fn("fBlockSkillBlendFactor"sv, s.BlockSkillBlendFactor);
-        a_fn("fBlockBurden_LowSkill"sv, s.BlockBurden_LowSkill);
-        a_fn("fBlockBurden_HighSkill"sv, s.BlockBurden_HighSkill);
-        a_fn("fBlockBurden_Curve_k"sv, s.BlockBurden_Curve_k);
+        a_fn("fBlockWeightMult_LowSkill"sv, s.BlockWeightMult_LowSkill);
+        a_fn("fBlockWeightMult_HighSkill"sv, s.BlockWeightMult_HighSkill);
+        a_fn("fBlockWeightMult_Curve_k"sv, s.BlockWeightMult_Curve_k);
         a_fn("fDualWieldBlockPenalty"sv, s.DualWieldBlockPenalty);
-        a_fn("fUnarmedBlockBurden"sv, s.UnarmedBlockBurden);
+        a_fn("fUnarmedWeight"sv, s.UnarmedWeight);
 	}
 };

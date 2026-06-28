@@ -134,61 +134,58 @@ namespace
 {
 	void ComputeRightHandBurden(RE::Actor* actor, Burden::ActorBurdenData& data)
 	{
-		auto* form = actor->GetEquippedObject(false);
-		auto* weap = (form && form->IsWeapon()) ? form->As<RE::TESObjectWEAP>() : nullptr;
+		auto info = Burden::GetRightHandInfo(actor);
+		data.weaponBurden_rh = 0.0f;
+		data.weaponBurden_2h = 0.0f;
+		data.weaponBurden_ranged = 0.0f;
 
-		if (!weap) {
-			data.weaponBurden_1h = 0.0f;
-			data.weaponBurden_2h = 0.0f;
-			data.weaponBurden_ranged = 0.0f;
-			return;
-		}
-
-		auto type = weap->GetWeaponType();
-		bool bound = weap->IsBound();
-		float w;
-
-		switch (type) {
-		case RE::WEAPON_TYPE::kTwoHandSword:
-		case RE::WEAPON_TYPE::kTwoHandAxe:
-			w = bound ? Burden::GetBoundWeaponWeight(data.conjurationSkill, true) : weap->GetWeight();
-			data.weaponBurden_2h = Burden::ComputeWeaponBurden(w, data.twoHandedSkill) / data.maxEquippedWeight;
-			data.weaponBurden_1h = 0.0f;
-			data.weaponBurden_ranged = 0.0f;
+		switch (info.type) {
+		case Burden::RightHandType::kTwoHanded:
+			{
+				float w = Burden::ResolveWeaponWeight(info.weapon, data.conjurationSkill);
+				data.weaponBurden_2h = Math::Clamp01(Burden::ScaleWeaponWeight(w, data.twoHandedSkill) / data.maxEquippedWeight);
+				break;
+			}
+		case Burden::RightHandType::kBow:
+			{
+				float w = Burden::ResolveWeaponWeight(info.weapon, data.conjurationSkill);
+				data.weaponBurden_ranged = Math::Clamp01(Burden::ScaleWeaponWeight(w, data.marksmanSkill) / data.maxEquippedWeight);
+				break;
+			}
+		case Burden::RightHandType::kOneHanded:
+			{
+				float w = Burden::ResolveWeaponWeight(info.weapon, data.conjurationSkill);
+				data.weaponBurden_rh = Math::Clamp01(Burden::ScaleWeaponWeight(w, data.oneHandedSkill) / data.maxEquippedWeight);
+				break;
+			}
+		case Burden::RightHandType::kHandToHand:
+			data.weaponBurden_rh = Math::Clamp01(BurdenParams::GetSingleton()->UnarmedWeight.Get()
+				/ data.maxEquippedWeight);
 			break;
-
-		case RE::WEAPON_TYPE::kBow:
-		case RE::WEAPON_TYPE::kCrossbow:
-			w = bound ? Burden::GetBoundWeaponWeight(data.conjurationSkill, false) : weap->GetWeight();
-			data.weaponBurden_ranged = Burden::ComputeWeaponBurden(w, data.marksmanSkill) / data.maxEquippedWeight;
-			data.weaponBurden_1h = 0.0f;
-			data.weaponBurden_2h = 0.0f;
-			break;
-
 		default:
-			w = bound ? Burden::GetBoundWeaponWeight(data.conjurationSkill, false) : weap->GetWeight();
-			data.weaponBurden_1h = Burden::ComputeWeaponBurden(w, data.oneHandedSkill) / data.maxEquippedWeight;
-			data.weaponBurden_2h = 0.0f;
-			data.weaponBurden_ranged = 0.0f;
 			break;
 		}
 	}
 
 	void ComputeLeftHandBurden(RE::Actor* actor, Burden::ActorBurdenData& data)
 	{
-		auto* form = actor->GetEquippedObject(true);
-		auto* weap = (form && form->IsWeapon()) ? form->As<RE::TESObjectWEAP>() : nullptr;
-
-		if (weap) {
-			float w = weap->IsBound() ? Burden::GetBoundWeaponWeight(data.conjurationSkill, false) : weap->GetWeight();
-			data.weaponBurden_left = Burden::ComputeWeaponBurden(w, data.oneHandedSkill) / data.maxEquippedWeight;
-		} else if (form) {
-			data.weaponBurden_left = 0.0f;
-		} else {
-			data.weaponBurden_left = BurdenParams::GetSingleton()->UnarmedBlockBurden.Get() / data.maxEquippedWeight;
+		auto info = Burden::GetLeftHandInfo(actor);
+		switch (info.type) {
+		case Burden::LeftHandType::kWeapon:
+			data.weaponBurden_lh = Math::Clamp01(Burden::ScaleWeaponWeight(
+				Burden::ResolveWeaponWeight(info.weapon, data.conjurationSkill),
+				data.oneHandedSkill) / data.maxEquippedWeight);
+			break;
+		case Burden::LeftHandType::kShield:
+			data.weaponBurden_lh = 0.0f;
+			break;
+		default:
+			data.weaponBurden_lh = Math::Clamp01(BurdenParams::GetSingleton()->UnarmedWeight.Get()
+				/ data.maxEquippedWeight);
+			break;
 		}
 	}
-	
+
 	float ComputeBlendedBlockSkill(int weaponSkill, int blockSkill)
 	{
 		auto* params = BurdenParams::GetSingleton();
@@ -200,82 +197,114 @@ namespace
 
 	float ComputeBlockBurden(RE::Actor* actor, Burden::ActorBurdenData& data)
 	{
-		auto* leftForm = actor->GetEquippedObject(true);
-		auto* leftWeap = (leftForm && leftForm->IsWeapon()) ? leftForm->As<RE::TESObjectWEAP>() : nullptr;
-		auto* shield = (leftForm && !leftWeap) ? leftForm->As<RE::TESObjectARMO>() : nullptr;
-		if (shield && shield->IsShield()) {
-			return Burden::ComputeWeaponBurden(shield->GetWeight(), data.blockSkill) / data.maxEquippedWeight;
+		auto leftInfo = Burden::GetLeftHandInfo(actor);
+		auto* params = BurdenParams::GetSingleton();
+
+		// Shield block
+		if (leftInfo.HasShield()) {
+			return Math::Clamp01(Burden::ScaleWeaponWeight(leftInfo.shield->GetWeight(), data.blockSkill) / data.maxEquippedWeight);
 		}
 
-		auto* params = BurdenParams::GetSingleton();
 		auto blockMult = [&](int skill) {
 			float blockBurden = ComputeBlendedBlockSkill(skill, data.blockSkill);
 			return Math::Interpolate(
-				params->BlockBurden_LowSkill.Get(),
-				params->BlockBurden_HighSkill.Get(),
+				params->BlockWeightMult_LowSkill.Get(),
+				params->BlockWeightMult_HighSkill.Get(),
 				blockBurden,
-				params->BlockBurden_Curve_k.Get());
+				params->BlockWeightMult_Curve_k.Get());
 		};
 
-        // Block for DW or only left weapon. 
-		if (leftWeap) {
-			auto* rightForm = actor->GetEquippedObject(false);
-			auto* rightWeap = (rightForm && rightForm->IsWeapon()) ? rightForm->As<RE::TESObjectWEAP>() : nullptr;
-
-			if (rightWeap) {
+		// Block for DW or only left weapon.
+		if (leftInfo.HasWeapon()) {
+			auto rightInfo = Burden::GetRightHandInfo(actor);
+			if (rightInfo.HasWeapon()) {
 				float dwPenalty = params->DualWieldBlockPenalty.Get();
-				return dwPenalty * 0.5f
-					* (data.weaponBurden_left + data.weaponBurden_1h)
-					* blockMult(data.oneHandedSkill);
+				return Math::Clamp01(dwPenalty * 0.5f
+					* (data.weaponBurden_lh + data.weaponBurden_rh)
+					* blockMult(data.oneHandedSkill));
 			} else {
-				return data.weaponBurden_left * blockMult(data.oneHandedSkill);
+				return Math::Clamp01(data.weaponBurden_lh * blockMult(data.oneHandedSkill));
 			}
 		}
 
-        // Block unarmored
-		auto* rightForm = actor->GetEquippedObject(false);
-		auto* rightWeap = (rightForm && rightForm->IsWeapon()) ? rightForm->As<RE::TESObjectWEAP>() : nullptr;
-		if (!rightWeap) {
-			return params->UnarmedBlockBurden.Get() / data.maxEquippedWeight
-				* blockMult(data.blockSkill);
+		// Block unarmored
+		auto rightInfo = Burden::GetRightHandInfo(actor);
+		if (!rightInfo.HasWeapon()) {
+			return Math::Clamp01(params->UnarmedWeight.Get() / data.maxEquippedWeight
+				* blockMult(data.blockSkill));
 		}
 
-        // Block for 2h weapons or 1h weapon
-        // TODO: Figure out if 2h weapon is using 1h grip on modded setup. (but not with shield/dw)
-		float rightBurden;
-		int weaponSkill;
-		auto type = rightWeap->GetWeaponType();
-		switch (type) {
-		case RE::WEAPON_TYPE::kTwoHandSword:
-		case RE::WEAPON_TYPE::kTwoHandAxe:
-			rightBurden = data.weaponBurden_2h;
-			weaponSkill = data.twoHandedSkill;
-			break;
-		case RE::WEAPON_TYPE::kBow:
-		case RE::WEAPON_TYPE::kCrossbow:
-			rightBurden = data.weaponBurden_ranged;
-			weaponSkill = data.marksmanSkill;
-			break;
-		default:
-			rightBurden = data.weaponBurden_1h;
-			weaponSkill = data.oneHandedSkill;
-			break;
-		}
-		return rightBurden * blockMult(weaponSkill);
+		// Block for 2h weapons or 1h weapon
+		auto h = Burden::GetWeaponHandlingInfo(data, rightInfo.type);
+		return Math::Clamp01(h.weaponBurden * blockMult(h.weaponSkill));
 	}
 }
 
 namespace Burden
 {
-	float ComputeWeaponBurden(float weight, int skill)
+	LeftHandInfo GetLeftHandInfo(RE::Actor* actor)
+	{
+		LeftHandInfo info;
+		auto* form = actor->GetEquippedObject(true);
+		if (!form)
+			return info;
+		if (auto* weap = form->As<RE::TESObjectWEAP>()) {
+			info.type = LeftHandType::kWeapon;
+			info.weapon = weap;
+		} else if (auto* shield = form->As<RE::TESObjectARMO>(); shield && shield->IsShield()) {
+			info.type = LeftHandType::kShield;
+			info.shield = shield;
+		}
+		return info;
+	}
+
+	RightHandInfo GetRightHandInfo(RE::Actor* actor)
+	{
+		RightHandInfo info;
+		auto* form = actor->GetEquippedObject(false);
+		if (!form)
+			return info;
+		auto* weap = form->As<RE::TESObjectWEAP>();
+		if (!weap)
+			return info;
+		auto type = weap->GetWeaponType();
+		if (type == RE::WEAPON_TYPE::kHandToHandMelee)
+			info.type = RightHandType::kHandToHand;
+		else if (type == RE::WEAPON_TYPE::kBow || type == RE::WEAPON_TYPE::kCrossbow)
+			info.type = RightHandType::kBow;
+		else if (type == RE::WEAPON_TYPE::kTwoHandSword || type == RE::WEAPON_TYPE::kTwoHandAxe)
+			info.type = RightHandType::kTwoHanded;
+		else
+			info.type = RightHandType::kOneHanded;
+		info.weapon = weap;
+		return info;
+	}
+
+	WeaponHandlingInfo GetWeaponHandlingInfo(const ActorBurdenData& d, RightHandType t)
+	{
+		switch (t) {
+		case RightHandType::kTwoHanded:
+			return { d.weaponBurden_2h, d.twoHandedSkill };
+		case RightHandType::kBow:
+			return { d.weaponBurden_ranged, d.marksmanSkill };
+		case RightHandType::kOneHanded:
+			return { d.weaponBurden_rh, d.oneHandedSkill };
+		case RightHandType::kHandToHand:
+			return { d.weaponBurden_rh, d.blockSkill };
+		default:
+			return { d.weaponBurden_rh, 0 };
+		}
+	}
+
+	float ScaleWeaponWeight(float weight, int skill)
 	{
 		auto* params = BurdenParams::GetSingleton();
 		float ratio = Math::Clamp01(static_cast<float>(skill) / params->PlayerMaxSkill.Get());
 		float mult = Math::Interpolate(
-			params->WeaponBurden_LowSkill.Get(),
-			params->WeaponBurden_HighSkill.Get(),
+			params->WeaponWeightMult_LowSkill.Get(),
+			params->WeaponWeightMult_HighSkill.Get(),
 			ratio,
-			params->WeaponSkillInterpolate.Get());
+			params->WeaponWeightMult_Curve_k.Get());
 		return weight * mult;
 	}
 
@@ -289,6 +318,15 @@ namespace Burden
 			ratio,
 			params->ConjuredWeightCurve_k.Get());
 		return isTwoHanded ? weight * 2.0f : weight;
+	}
+
+	float ResolveWeaponWeight(RE::TESObjectWEAP* weapon, int conjurationSkill)
+	{
+		if (!weapon->IsBound())
+			return weapon->GetWeight();
+		auto type = weapon->GetWeaponType();
+		bool isTwoHanded = (type == RE::WEAPON_TYPE::kTwoHandSword || type == RE::WEAPON_TYPE::kTwoHandAxe);
+		return GetBoundWeaponWeight(conjurationSkill, isTwoHanded);
 	}
 
 	float GetEquippedWeight(RE::Actor* actor)
@@ -331,7 +369,7 @@ namespace Burden
 
 		ComputeRightHandBurden(actor, data);
 		ComputeLeftHandBurden(actor, data);
-		data.weaponBurden_block = std::clamp(ComputeBlockBurden(actor, data), 0.0f, 1.0f);
+		data.weaponBurden_block = ComputeBlockBurden(actor, data);
 
 		return data;
 	}
