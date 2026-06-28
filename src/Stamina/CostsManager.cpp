@@ -173,8 +173,8 @@ namespace Costs
 			break;
 		case AttackHandType::OneHanded:
 			baseCost = left ?
-				Compute1hAttack(burden, burden.weaponBurden_left, power) :
-				Compute1hAttack(burden, burden.weaponBurden_1h, power);
+				Compute1hAttack(burden, burden.weaponBurden_lh, power) :
+				Compute1hAttack(burden, burden.weaponBurden_rh, power);
 			break;
 		case AttackHandType::Ranged:
 		default:

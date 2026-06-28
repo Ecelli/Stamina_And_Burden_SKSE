@@ -1,7 +1,53 @@
 #pragma once
 
+namespace RE
+{
+	class TESObjectARMO;
+	class TESObjectWEAP;
+}
+
 namespace Burden
 {
+
+	enum class LeftHandType
+	{
+		kEmpty,
+		kWeapon,
+		kShield
+	};
+
+	enum class RightHandType
+	{
+		kEmpty,
+		kOneHanded,
+		kTwoHanded,
+		kBow,
+		kHandToHand
+	};
+
+	struct LeftHandInfo
+	{
+		LeftHandType type{ LeftHandType::kEmpty };
+		RE::TESObjectWEAP* weapon{ nullptr };
+		RE::TESObjectARMO* shield{ nullptr };
+
+		bool HasWeapon() const { return weapon != nullptr; }
+		bool HasShield() const { return shield != nullptr; }
+	};
+
+	struct RightHandInfo
+	{
+		RightHandType type{ RightHandType::kEmpty };
+		RE::TESObjectWEAP* weapon{ nullptr };
+
+		bool HasWeapon() const { return weapon != nullptr; }
+	};
+
+	struct WeaponHandlingInfo
+	{
+		float weaponBurden{ 0.0f };
+		int   weaponSkill{ 0 };
+	};
 
 	struct ActorBurdenData
 	{
@@ -19,17 +65,22 @@ namespace Burden
 		int marksmanSkill{ -1 };
 		int blockSkill{ -1 };
 		int conjurationSkill{ -1 };
-		float weaponBurden_1h{ 0.0f };
+		float weaponBurden_rh{ 0.0f };
+		float weaponBurden_lh{ 0.0f };
 		float weaponBurden_2h{ 0.0f };
-		float weaponBurden_left{ 0.0f };
 		float weaponBurden_ranged{ 0.0f };
 		float weaponBurden_block{ 0.0f };
 	};
+
+	LeftHandInfo    GetLeftHandInfo(RE::Actor* actor);
+	RightHandInfo   GetRightHandInfo(RE::Actor* actor);
+	WeaponHandlingInfo GetWeaponHandlingInfo(const ActorBurdenData& data, RightHandType type);
 
 	float GetEquippedWeight(RE::Actor* actor);
 	float ComputeEquipmentBurden(RE::Actor* actor);
 	float ComputeWeaponBurden(float weight, int skill);
 	float GetBoundWeaponWeight(int conjurationSkill, bool isTwoHanded);
+	float ResolveWeaponWeight(RE::TESObjectWEAP* weapon, int conjurationSkill);
 	ActorBurdenData UpdateBurden(RE::Actor* actor);
 	ActorBurdenData UpdateBurdenLog(RE::Actor* actor);
 }
