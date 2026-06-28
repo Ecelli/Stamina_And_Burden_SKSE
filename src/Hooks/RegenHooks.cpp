@@ -126,10 +126,10 @@ namespace Hooks
 	// Full-stamina monitor (heartbeat)
 	//
 	// The regen function doesn't fire when AV is at 100%, so our
-	// InterceptAVRegen can't drain. This heartbeat (100ms ~ 10fps) checks if
-	// the player is at full stamina with a negative multiplier and
-	// drains a tiny amount (0.1) to push below 100%. The next regen
-	// tick will then fire normally and InterceptAVRegen handles the rest.
+	// InterceptAVRegen can't drain. This heartbeat (100ms ~ 10fps)
+	// computes what the effective regen rate *would* be (including
+	// block/bow hold penalties) and drains 0.1 if negative, pushing
+	// stamina below 100% so the next regen tick fires normally.
 	//
 	// Started from BurdenTracker::OnGameLoad() alongside the burden
 	// parameter tracking heartbeat.
@@ -146,9 +146,13 @@ namespace Hooks
 			const float max = player->GetActorValueMax(av);
 			if (max > 0.0f && cur >= max) {
 				float mult = Regen::ComputeStaminaRegenMult(player);
-				if (mult < 0.0f) {
+				float blockPenalty = Regen::ComputeBlockHoldPenalty(player);
+				float bowPenalty = Regen::ComputeBowDrawHoldPenalty(player);
+				float rate = Regen::GetEngineStaminaRate(player) * mult - blockPenalty - bowPenalty;
+				if (rate < 0.0f) {
 					player->DamageActorValue(av, 0.1f);
-					Regen::RegenLog("StaminaMonitor: drained 0.1 at full stamina (mult={:.3f})", mult);
+					Regen::RegenLog("StaminaMonitor: drained 0.1 at full stamina (rate={:.3f}, mult={:.3f}, block={:.3f}, bow={:.3f})",
+						rate, mult, blockPenalty, bowPenalty);
 				}
 			}
 		});
