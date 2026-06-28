@@ -78,7 +78,7 @@ namespace Burden
 
 	float GetEquippedWeight(RE::Actor* actor);
 	float ComputeEquipmentBurden(RE::Actor* actor);
-	float ComputeWeaponBurden(float weight, int skill);
+	float ScaleWeaponWeight(float weight, int skill);
 	float GetBoundWeaponWeight(int conjurationSkill, bool isTwoHanded);
 	float ResolveWeaponWeight(RE::TESObjectWEAP* weapon, int conjurationSkill);
 	ActorBurdenData UpdateBurden(RE::Actor* actor);
