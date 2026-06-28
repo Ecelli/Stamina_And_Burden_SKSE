@@ -32,7 +32,7 @@ namespace Hooks {
 		ActionHook::Install();
 		AttackCostHook::Install();
 		BowFireHook::Install();
-		// NpcAttackDenyHook::Install();  // NPC-only (49170), disabled — player denial TBD via vtable hook
+		// AttackDenyHook::Install();  // Seems to be NPC-only (49170), Deferred until a solution is found
 
 		return true;
 	}

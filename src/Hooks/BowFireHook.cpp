@@ -25,9 +25,9 @@ namespace Hooks
 			return _func(a_weapon, a_source, a_overwriteAmmo, a_ammoEnch, a_poison);
 
 		float cost = Costs::ComputeBowFireCost(actor);
-		float stamina = actor->GetActorValue(RE::ActorValue::kStamina);
+		auto stamina = actor->GetActorValue(RE::ActorValue::kStamina);
 
-		if (stamina < cost) {
+		if (!Common::CanDoAction(actor, cost)) {
 			Costs::CostLog("BowFireHook: suppressed shot for {:x}, stamina={:.1f} < cost={:.1f}",
 				actor->GetFormID(), stamina, cost);
 			return;

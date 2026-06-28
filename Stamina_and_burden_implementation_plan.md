@@ -609,16 +609,13 @@ Setting keys in `Parameter<T>` structs, organized by compile-time group. No ship
 | Player attack denial (vtable hook, TBD)          | `src/Hooks/DenyHooks.h/.cpp`       |
 | Implement weapon weight + skill + burden formula | `src/Actions/ActionManager.cpp`    |
 
-#### Findings — Attack Denial Hooks (2026-06-24)
+#### Deferred — Player Action Denial
 
-| Hook | Address | Behavior |
-|------|---------|----------|
-| `AttackCostHook` | `REL::ID(38603) + 0x171` | Fires for **all** actors — replaces engine stamina cost with our computed cost. ✅ |
-| `NpcAttackDenyHook` | `REL::ID(49170) + 0x28d` (`GetThisAttackChance`) | Fires for **NPCs only** (confirmed: formID 85452 fires, player formID 14 does NOT). ❌ Player |
-| StaminaNPC's player hook | `REL::ID(38047) + 0xBB` (SE) | Used by StaminaNPC for player melee+bash denial. AE equivalent unverified — offset may differ. ❌ Unverified |
-| Vtable hook on `AttackBlockHandler` | `ProcessButton` (vtable 04) | Version-stable, no offsets needed. Calls `CanDoAction` before attack starts; skipping the original cancels the attack. ✅ Recommended |
+`AttackDenyHook` (`REL::ID(49170) + 0x28d`) confirmed NPC-only — player never fires.  
+Two alternative approaches documented in `.opencode/plans/player-action-denial.md`:
 
-**Recommended approach for player denial:** Hook `AttackBlockHandler::ProcessButton` (vtable index 04) via vtable replacement. At that point we know the attack input is happening but the attack hasn't started yet. Return early (don't call original) to silently deny. No `BGSAttackData` available — approximate cost from equipped weapon + attack type + held state.
+- **A) Code hook** — Find AE equivalent of StaminaNPC's `REL::ID(38047) + 0xBB/+0xC8`. Needs Address Library database for target AE version. Modifies cost rather than outright denial.
+- **B) Hybrid ESP+DLL** — Animation conditions reading `TESGlobal`s written by DLL on `UpdateBurden`. Version-stable, no offsets needed, covers all actions. Preferred long-term.
 
 ### Phase 5 — Movement Costs ⚡ (partial)
 
