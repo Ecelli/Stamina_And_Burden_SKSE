@@ -79,6 +79,24 @@ namespace Costs
 		Parameter<float> UnarmedBaseFlat{ 3.0f, 0.0f, 50.0f };
 		Parameter<float> UnarmedPowerMult{ 2.0f, 1.0f, 5.0f };
 
+		// ---- Shield bash ----
+		Parameter<float> BashShieldLowBurden{ 5.0f, 0.0f, 200.0f };
+		Parameter<float> BashShieldHighBurden{ 30.0f, 0.0f, 200.0f };
+		Parameter<float> BashShieldBurdenCurve_k{ 0.8f, 0.0f, 1.0f };
+		Parameter<float> BashShieldPowerMult{ 2.0f, 1.0f, 10.0f };
+
+		// ---- Bow bash ----
+		Parameter<float> BashBowLowBurden{ 3.0f, 0.0f, 200.0f };
+		Parameter<float> BashBowHighBurden{ 20.0f, 0.0f, 200.0f };
+		Parameter<float> BashBowBurdenCurve_k{ 0.8f, 0.0f, 1.0f };
+		Parameter<float> BashBowPowerMult{ 2.0f, 1.0f, 10.0f };
+
+		// ---- Weapon bash (1H/2H/left-weapon/unarmed) ----
+		Parameter<float> BashWeaponLowBurden{ 5.0f, 0.0f, 200.0f };
+		Parameter<float> BashWeaponHighBurden{ 40.0f, 0.0f, 200.0f };
+		Parameter<float> BashWeaponBurdenCurve_k{ 0.8f, 0.0f, 1.0f };
+		Parameter<float> BashWeaponPowerMult{ 2.0f, 1.0f, 10.0f };
+
 		template <typename F>
 		static void ForEach(F&& a_fn)
 		{
@@ -96,6 +114,18 @@ namespace Costs
 			a_fn("fAttack2hPowerMult"sv, s.Attack2hPowerMult);
 			a_fn("fUnarmedBaseFlat"sv, s.UnarmedBaseFlat);
 			a_fn("fUnarmedPowerMult"sv, s.UnarmedPowerMult);
+			a_fn("fBashShieldLowBurden"sv, s.BashShieldLowBurden);
+			a_fn("fBashShieldHighBurden"sv, s.BashShieldHighBurden);
+			a_fn("fBashShieldBurdenCurve_k"sv, s.BashShieldBurdenCurve_k);
+			a_fn("fBashShieldPowerMult"sv, s.BashShieldPowerMult);
+			a_fn("fBashBowLowBurden"sv, s.BashBowLowBurden);
+			a_fn("fBashBowHighBurden"sv, s.BashBowHighBurden);
+			a_fn("fBashBowBurdenCurve_k"sv, s.BashBowBurdenCurve_k);
+			a_fn("fBashBowPowerMult"sv, s.BashBowPowerMult);
+			a_fn("fBashWeaponLowBurden"sv, s.BashWeaponLowBurden);
+			a_fn("fBashWeaponHighBurden"sv, s.BashWeaponHighBurden);
+			a_fn("fBashWeaponBurdenCurve_k"sv, s.BashWeaponBurdenCurve_k);
+			a_fn("fBashWeaponPowerMult"sv, s.BashWeaponPowerMult);
 		}
 	};
 }

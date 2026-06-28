@@ -17,13 +17,21 @@ namespace
 		OneHanded,
 		TwoHanded,
 		Ranged,
-		Bash
+		BashShield,
+		BashBow,
+		BashWeapon
 	};
 
 	AttackHandType GetAttackHandType(RE::Actor* actor, bool left, bool bash)
 	{
-		if (bash)
-			return AttackHandType::Bash;
+		if (bash) {
+			auto leftInfo = Burden::GetLeftHandInfo(actor);
+			if (leftInfo.HasShield())
+				return AttackHandType::BashShield;
+			if (Burden::GetRightHandInfo(actor).type == Burden::RightHandType::kBow)
+				return AttackHandType::BashBow;
+			return AttackHandType::BashWeapon;
+		}
 		auto* obj = actor->GetEquippedObject(left);
 		if (!obj)
 			return AttackHandType::Unarmed;
@@ -84,6 +92,48 @@ namespace
 		float cost = params->UnarmedBaseFlat.Get() + ComputeBurdenAttackCost(burden);
 		if (power)
 			cost *= params->UnarmedPowerMult.Get();
+		return cost;
+	}
+
+	float ComputeWeaponBash(const Burden::ActorBurdenData& burden, float weight, bool power)
+	{
+		auto* params = Costs::AttackCostParams::GetSingleton();
+		float burdenTerm = Math::Interpolate(
+			params->BashWeaponLowBurden.Get(),
+			params->BashWeaponHighBurden.Get(),
+			weight,
+			params->BashWeaponBurdenCurve_k.Get());
+		float cost = burdenTerm + ComputeBurdenAttackCost(burden);
+		if (power)
+			cost *= params->BashWeaponPowerMult.Get();
+		return cost;
+	}
+
+	float ComputeBowBash(const Burden::ActorBurdenData& burden, float weight, bool power)
+	{
+		auto* params = Costs::AttackCostParams::GetSingleton();
+		float burdenTerm = Math::Interpolate(
+			params->BashBowLowBurden.Get(),
+			params->BashBowHighBurden.Get(),
+			weight,
+			params->BashBowBurdenCurve_k.Get());
+		float cost = burdenTerm + ComputeBurdenAttackCost(burden);
+		if (power)
+			cost *= params->BashBowPowerMult.Get();
+		return cost;
+	}
+
+	float ComputeShieldBash(const Burden::ActorBurdenData& burden, float weight, bool power)
+	{
+		auto* params = Costs::AttackCostParams::GetSingleton();
+		float burdenTerm = Math::Interpolate(
+			params->BashShieldLowBurden.Get(),
+			params->BashShieldHighBurden.Get(),
+			weight,
+			params->BashShieldBurdenCurve_k.Get());
+		float cost = burdenTerm + ComputeBurdenAttackCost(burden);
+		if (power)
+			cost *= params->BashShieldPowerMult.Get();
 		return cost;
 	}
 }
@@ -159,12 +209,29 @@ namespace Costs
 		bool left = attackData->IsLeftAttack();
 		bool bash = attackData->data.flags.any(RE::AttackData::AttackFlag::kBashAttack);
 
-		float baseCost;
+		float baseCost = 0;
 
 		switch (GetAttackHandType(actor, left, bash)) {
-		case AttackHandType::Bash:
-			baseCost = 0.0f;
+		case AttackHandType::BashShield:
+			baseCost = ComputeShieldBash(burden, burden.weaponBurden_block, power);
 			break;
+		case AttackHandType::BashBow:
+			baseCost = ComputeBowBash(burden, burden.weaponBurden_ranged, power);
+			break;
+		case AttackHandType::BashWeapon:
+			{
+				if (Burden::GetLeftHandInfo(actor).HasWeapon()) {
+                    baseCost += ComputeWeaponBash(burden, burden.weaponBurden_lh, power);
+                    if (Burden::GetRightHandInfo(actor).type != Burden::RightHandType::kHandToHand) {
+                        baseCost += ComputeWeaponBash(burden, burden.weaponBurden_rh, power);
+                    }
+                }
+				else if (Burden::GetRightHandInfo(actor).type == Burden::RightHandType::kTwoHanded)
+                    baseCost = ComputeWeaponBash(burden, burden.weaponBurden_2h, power);
+				else
+                    baseCost += ComputeWeaponBash(burden, burden.weaponBurden_rh, power);
+				break;
+			}
 		case AttackHandType::Unarmed:
 			baseCost = ComputeUnarmedAttack(burden, power);
 			break;
@@ -184,8 +251,8 @@ namespace Costs
 
 		baseCost *= attackData->data.staminaMult;
 
-		Costs::CostLog("ComputeAttackCost: power={} left={} staminaMult={:.2f} -> {:.3f} for {:x}",
-			power, left, attackData->data.staminaMult, baseCost, actor->GetFormID());
+		Costs::CostLog("ComputeAttackCost: power={} left={} bash={} staminaMult={:.2f} -> {:.3f} for {:x}",
+			power, left, bash, attackData->data.staminaMult, baseCost, actor->GetFormID());
 
 		return baseCost;
 	}
