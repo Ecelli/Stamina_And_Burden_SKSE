@@ -73,8 +73,16 @@ namespace Regen
 		Parameter<float> RegenSwimming_min{ -1.5f, -2.0f, 5.0f };
 		// Shared curve shape for all states
 		Parameter<float> MovementRegenCurve_k{ 0.8f, 0.0f, 1.0f };
-		// Blocking cost (compound penalty, applied alongside movement regen)
-		Parameter<float> BlockRegenCostBurdenPerc{ 0.5f, 0.0f, 5.0f };
+
+		// Bow-draw hold penalty (flat stamina/sec, weapon burden-scaled)
+		Parameter<float> BowDrawLowBurden{ 1.0f, 0.0f, 50.0f };
+		Parameter<float> BowDrawHighBurden{ 10.0f, 0.0f, 50.0f };
+		Parameter<float> BowDrawCurve_k{ 0.8f, 0.0f, 1.0f };
+
+		// Block-hold penalty (flat stamina/sec, burden-scaled)
+		Parameter<float> BlockHoldLowBurden{ 2.0f, 0.0f, 50.0f };
+		Parameter<float> BlockHoldHighBurden{ 30.0f, 0.0f, 50.0f };
+		Parameter<float> BlockHoldCurve_k{ 0.8f, 0.0f, 1.0f };
 
 		template <typename F>
 		static void ForEach(F&& a_fn)
@@ -91,7 +99,12 @@ namespace Regen
 			a_fn("fRegenSwimming_max"sv, s.RegenSwimming_max);
 			a_fn("fRegenSwimming_min"sv, s.RegenSwimming_min);
 			a_fn("fMovementRegenCurve_k"sv, s.MovementRegenCurve_k);
-			a_fn("fBlockRegenCostBurdenPerc"sv, s.BlockRegenCostBurdenPerc);
+			a_fn("fBowDrawLowBurden"sv, s.BowDrawLowBurden);
+			a_fn("fBowDrawHighBurden"sv, s.BowDrawHighBurden);
+			a_fn("fBowDrawCurve_k"sv, s.BowDrawCurve_k);
+			a_fn("fBlockHoldLowBurden"sv, s.BlockHoldLowBurden);
+			a_fn("fBlockHoldHighBurden"sv, s.BlockHoldHighBurden);
+			a_fn("fBlockHoldCurve_k"sv, s.BlockHoldCurve_k);
 		}
 	};
 

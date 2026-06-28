@@ -6,7 +6,13 @@ namespace Regen
 {
 	bool GetCanRegenStamina(RE::Actor* actor)
 	{
-		return actor->GetAttackState() == RE::ATTACK_STATE_ENUM::kNone;
+		if (actor->IsBlocking())
+			return false;
+		auto state = actor->GetAttackState();
+		if (state == RE::ATTACK_STATE_ENUM::kBowDrawn ||
+			state == RE::ATTACK_STATE_ENUM::kBowAttached)
+			return false;
+		return state == RE::ATTACK_STATE_ENUM::kNone;
 	}
 
 	MovementState GetMovementState(RE::Actor* actor)
@@ -56,12 +62,47 @@ namespace Regen
 		return result;
 	}
 
-	float ComputeBlockCost(const Burden::ActorBurdenData& data)
+	float ComputeBlockHoldPenalty(RE::Actor* actor)
 	{
-		float perc = RegenMovementParams::GetSingleton()->BlockRegenCostBurdenPerc.Get();
-		float result = perc * data.burdenBlend;
-		RegenLog("ComputeBlockCost: perc={:.3f} blend={:.3f} -> {:.3f}", perc, data.burdenBlend, result);
-		return result;
+		if (!actor || !actor->IsBlocking())
+			return 0.0f;
+		auto& data = Burden::Tracker::GetOrComputeBurden(actor);
+		auto* params = RegenMovementParams::GetSingleton();
+		float penalty = Math::Interpolate(
+			params->BlockHoldLowBurden.Get(),
+			params->BlockHoldHighBurden.Get(),
+			data.weaponBurden_block,
+			params->BlockHoldCurve_k.Get());
+		RegenLog("ComputeBlockHoldPenalty: blockBurden={:.3f} penalty={:.3f}/s",
+			data.weaponBurden_block, penalty);
+		return penalty;
+	}
+
+	float ComputeBowDrawHoldPenalty(RE::Actor* actor)
+	{
+		if (!actor)
+			return 0.0f;
+		auto state = actor->GetAttackState();
+		if (state != RE::ATTACK_STATE_ENUM::kBowDrawn &&
+			state != RE::ATTACK_STATE_ENUM::kBowAttached)
+			return 0.0f;
+		auto* obj = actor->GetEquippedObject(false);
+		auto* weap = obj ? obj->As<RE::TESObjectWEAP>() : nullptr;
+		if (!weap)
+			return 0.0f;
+		auto type = weap->GetWeaponType();
+		if (type != RE::WEAPON_TYPE::kBow && type != RE::WEAPON_TYPE::kCrossbow)
+			return 0.0f;
+		auto& data = Burden::Tracker::GetOrComputeBurden(actor);
+		auto* params = RegenMovementParams::GetSingleton();
+		float penalty = Math::Interpolate(
+			params->BowDrawLowBurden.Get(),
+			params->BowDrawHighBurden.Get(),
+			data.weaponBurden_ranged,
+			params->BowDrawCurve_k.Get());
+		RegenLog("ComputeBowDrawHoldPenalty: weapBurden={:.3f} penalty={:.3f}/s",
+			data.weaponBurden_ranged, penalty);
+		return penalty;
 	}
 
 	float GetHMSStaminaMult(RE::Actor* actor)
@@ -159,12 +200,11 @@ namespace Regen
 			regenBonus = ComputeStateRegenFactor(burdenData, state, HMS);
 		}
 
-		float blockCost = actor->IsBlocking() ? ComputeBlockCost(burdenData) : 0.0f;
 		float weatherPenalty = ComputeWeatherPenalty(actor);
 
-		float result = regenBonus - blockCost - weatherPenalty;
-		RegenLog("ComputeStaminaRegenMult: MovementFactor={:.3f} HMS={:.3f} block={:.3f} weather={:.3f} -> {}",
-			regenBonus, HMS, blockCost, weatherPenalty, result);
+		float result = regenBonus - weatherPenalty;
+		RegenLog("ComputeStaminaRegenMult: MovementFactor={:.3f} HMS={:.3f} weather={:.3f} -> {}",
+			regenBonus, HMS, weatherPenalty, result);
 		return result;
 	}
 

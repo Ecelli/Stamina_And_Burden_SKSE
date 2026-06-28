@@ -1,21 +1,32 @@
 #include "Common/Utils.h"
 #include "Stamina/RegenManager.h"
+#include "Settings/Params/DenyParams.h"
 
 namespace Common
 {
-	bool CanDoAction(RE::Actor* actor, float cost)
+	bool CanDoStaminaAction(RE::Actor* actor, float cost)
 	{
 		if (!actor || cost <= 0.0f) {
 			return true;
         }
-		if (!actor->IsPlayerRef() && actor->GetActorValue(RE::ActorValue::kStaminaRateMult) *
-									 actor->GetActorValue(RE::ActorValue::kStaminaRate) <
-                                     0.00001f){
+		auto* params = Deny::DenyParams::GetSingleton();
+		bool isPlayer = actor->IsPlayerRef();
+
+		if (isPlayer && params->bPlayerAlwaysCanDoAction.Get()) {
 			return true;
         }
-		auto curr_stamina = actor->GetActorValue(RE::ActorValue::kStamina);
+		if (!isPlayer && params->bNpcAlwaysCanDoAction.Get()) {
+			return true;
+        }
 
-		return curr_stamina > 0.3 * cost ;
+		float regenThreshold = params->fNpcRegenExemptionRate.Get();
+		if (!isPlayer && regenThreshold > 0.0f &&
+			actor->GetActorValue(RE::ActorValue::kStaminaRateMult) *
+				actor->GetActorValue(RE::ActorValue::kStaminaRate) < regenThreshold)
+			return true;
+
+		float threshold = params->fMinStaminaCostMult.Get() * cost;
+		return actor->GetActorValue(RE::ActorValue::kStamina) > threshold;
 	}
 
 	void ApplyStaminaCost(RE::Actor* actor, float cost)

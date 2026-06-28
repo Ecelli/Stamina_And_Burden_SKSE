@@ -3,6 +3,9 @@
 #include "Hooks/ActionHook.h"
 #include "Hooks/RegenHooks.h"
 #include "Hooks/SprintDrainHook.h"
+#include "Hooks/AttackCostHook.h"
+#include "Hooks/BowFireHook.h"
+#include "Hooks/DenyHooks.h"
 
 namespace Hooks {
 	bool Install() {
@@ -24,8 +27,12 @@ namespace Hooks {
 		logger::info("  >Registered burden event handlers"sv);
 
 		RegenHook::Install();
+		RegenDelayHook::Install();
 		SprintDrainHook::Install();
 		ActionHook::Install();
+		AttackCostHook::Install();
+		BowFireHook::Install();
+		// AttackDenyHook::Install();  // Seems to be NPC-only (49170), Deferred until a solution is found
 
 		return true;
 	}

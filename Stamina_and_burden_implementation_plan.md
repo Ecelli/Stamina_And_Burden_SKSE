@@ -389,7 +389,7 @@ Normal ──(stamina = 0)──▶ Exhausted ──(duration expires)──▶ 
 | *(completed)*     | `38022 + 0xC1/0xC9`            | CostsManager         | `write_call<5>` ×2| Sprint stamina drain (burden + weather)            |
 | *(future)*        | `38603`                        | ActionManager        | `write_call<5>`  | Attack stamina cost → override                     |
 | *(future)*        | `38627`                        | Block/Combat Manager | `write_call<5>`  | Hit processing → stamina redirect + dmg scaling     |
-| *(future)*        | `49170`                        | ActionManager        | `write_call<5>`  | Prevent action when locked                          |
+| *(blocked)*       | `49170`                        | DenyHooks            | `write_call<5>`  | NPC attack denial (player needs vtable hook)         |
 | *(future)*        | game settings (jump only)      | ActionManager        | Direct write     | Jump cost on burden change                          |
 
 ---
@@ -411,8 +411,9 @@ BurdenManager::UpdateBurden(actor)
     │           └── burden + weather × engineRate
     │
     ├──► ActionManager: recalc attack + jump costs
-    │       ├── hook 38603: attack stamina cost
-    │       └── direct write: fJumpStaminaCost
+│       ├── hook 38603: attack stamina cost
+│       ├── [blocked] hook 49170: NPC attack denial (NpcAttackDenyHook)
+│       └── direct write: fJumpStaminaCost
     │
     ├──► BlockManager: stamina redirect on blocked hits
     │       └── hook 38627 (blocked path)
@@ -590,33 +591,33 @@ Setting keys in `Parameter<T>` structs, organized by compile-time group. No ship
 | Full-stamina monitor heartbeat (100ms) kickoff from `OnGameLoad`             | `src/Hooks/RegenHooks.cpp`      |
 | Implement GetEngineStaminaRate (clone of game's regen function)              | `src/Regen/RegenManager.cpp`    |
 
-### Phase 3 — Runtime Configuration
+### Phase 3 — Attack Costs ✅
 
-| Task                                                         | Files                                            |
-|--------------------------------------------------------------+--------------------------------------------------|
-| Add `sb_get`/`sb_set`/`sb_list`/`sb_reset` console commands  | `src/Console/ConsoleCommands.cpp`, `Papyrus.cpp` |
-| Wire `SettingsRegistry::LoadFromINI()` into startup sequence | `src/Export/SKSEPlugin.cpp`                      |
-| Wire `SettingsRegistry::SaveToINI()` into every `Set()`      | `src/Config/SettingsRegistry.cpp`                |
+| Task                                                                  | Files                                             |
+|-----------------------------------------------------------------------+---------------------------------------------------|
+| Hook `38603` (attack stamina cost) — `AttackCostHook`                 | `src/Hooks/AttackCostHook.h/.cpp`                |
+| Implement 1H/2H/Unarmed attack cost formulas with burden + carry blend | `src/Stamina/CostsManager.cpp`                   |
+| Implement Bash costs (Shield, Bow, Weapon) — `Compute{Shield,Bow,Weapon}Bash` | `src/Stamina/CostsManager.cpp`             |
+| Implement `ComputeBowFireCost` (ranged attack cost)                    | `src/Stamina/CostsManager.cpp`                   |
+| Hook `49170` (NPC attack denial, disabled)                            | `src/Hooks/DenyHooks.h/.cpp`                     |
+| Add `AttackCostParams` with low/high/curve/power-mult for each type    | `src/Settings/Params/CostsParams.h`              |
 
-### Phase 4 — Attack Costs
+All cost formulas complete. Action denial extracted to Phase 7.
 
-| Task                                             | Files                              |
-|--------------------------------------------------+------------------------------------|
-| Implement `ActionManager` for attacks            | `src/Actions/ActionManager.h/.cpp` |
-| Hook `38603` (attack stamina cost)               | `src/Hooks/Hooks.cpp`              |
-| Hook `49170` (action prevention at low stamina)  | `src/Hooks/Hooks.cpp`              |
-| Implement weapon weight + skill + burden formula | `src/Actions/ActionManager.cpp`    |
+### Phase 4 — Movement Costs + Weather ✅
 
-### Phase 5 — Movement Costs ⚡ (partial)
+| Task                                                                 | Files                                          |
+|----------------------------------------------------------------------+------------------------------------------------|
+| Implement SprintDrainHook (burden + weather × engineRate)             | `src/Hooks/SprintDrainHook.h/.cpp`            |
+| Add `CostsParams` with sprint/jump drain curve params                 | `src/Settings/Params/CostsParams.h`           |
+| Implement `ComputeSprintDrain` in CostsManager                        | `src/Stamina/CostsManager.cpp`                |
+| Implement jump stamina cost via `ActionHook` (REL::ID(37257) + 0x17F) | `src/Hooks/ActionHook.h/.cpp`                |
+| Implement `ComputeJumpCost` in CostsManager                           | `src/Stamina/CostsManager.cpp`                |
+| Implement `ComputeWeatherPenalty` (Rain/Snow detection)               | `src/Regen/RegenManager.cpp`                  |
+| Add `WeatherParams` struct with rain/snow penalty + toggle            | `src/Settings/Params/RegenParams.h`           |
+| Wire weather into regen formula and sprint cost                       | `src/Regen/RegenManager.cpp`, `CostsManager.cpp` |
 
-| Task                                                      | Files                               |
-|-----------------------------------------------------------+-------------------------------------|
-| Implement SprintDrainHook (burden + weather × engineRate) | `src/Hooks/SprintDrainHook.h/.cpp` |
-| Add CostsParams with sprint drain curve params            | `src/Settings/Params/CostsParams.h`|
-| Implement CalculateSprintDrain in CostsManager            | `src/Regen/CostsManager.cpp`       |
-| Jump cost via game-setting manipulation (remaining)       | `src/Actions/ActionManager.cpp`    |
-
-### Phase 6 — Blocking
+### Phase 5 — Blocking ❌
 
 | Task                                                     | Files                              |
 |----------------------------------------------------------+------------------------------------|
@@ -624,7 +625,7 @@ Setting keys in `Parameter<T>` structs, organized by compile-time group. No ship
 | Hook `38627` (hit processing, blocked path)              | `src/Hooks/Hooks.cpp`              |
 | Wire exhaustion trigger on guard break                   | `src/Blocking/BlockManager.cpp`    |
 
-### Phase 7 — Cross-Effects + Exhaustion
+### Phase 6 — Exhaustion / Cross-Effects ❌
 
 | Task                                                                     | Files                             |
 |--------------------------------------------------------------------------+-----------------------------------|
@@ -633,15 +634,29 @@ Setting keys in `Parameter<T>` structs, organized by compile-time group. No ship
 | Implement exhaustion state machine (timed duration)                      | `src/Blocking/BlockManager.cpp`   |
 | Cross-AV regen wiring (already in Phase 2)                              | *(reuse)*                         |
 
-### Phase 8 — Weather ✅
+### Phase 7 — Action Denial ❌
 
-| Task                                                               | Files                                        |
-|--------------------------------------------------------------------+----------------------------------------------|
-| Implement ComputeWeatherPenalty (inline, Rain/Snow via Sky API)    | `src/Regen/RegenManager.cpp`                 |
-| Add WeatherParams struct with rain/snow penalty + toggle           | `src/Settings/Params/RegenParams.h`          |
-| Wire into regen formula and sprint cost (same engineRate × penalty)| `src/Regen/RegenManager.cpp`, `CostsManager.cpp` |
+| Task                                                                      | Files                                                  |
+|---------------------------------------------------------------------------+--------------------------------------------------------|
+| Research AE hook target for player stamina denial on attack/jump/sprint   | `src/Hooks/DenyHooks.h/.cpp`                           |
+| Implement code-hook solution (approach A in existing `.opencode/plans/`)  | `.opencode/plans/player-action-denial.md`              |
+| Alternative: hybrid ESP+DLL with TESGlobals (approach B)                  | *(same doc)*                                           |
+| Wire denial threshold to burden/exhaustion state                          | *(depends on Phase 6)*                                 |
 
-### Phase 9 — HUD Burden Widget (was Phase 1c)
+`AttackDenyHook` (`REL::ID(49170) + 0x28d`) confirmed NPC-only — player never fires.  
+Two approaches documented in `.opencode/plans/player-action-denial.md`:
+- **A) Code hook** — Find AE equivalent of StaminaNPC's `REL::ID(38047) + 0xBB/+0xC8`.
+- **B) Hybrid ESP+DLL** — Animation conditions reading `TESGlobal`s. Version-stable.
+
+### Phase 8 — Runtime Configuration ❌
+
+| Task                                                         | Files                                            |
+|--------------------------------------------------------------+--------------------------------------------------|
+| Add `sb_get`/`sb_set`/`sb_list`/`sb_reset` console commands  | `src/Console/ConsoleCommands.cpp`, `Papyrus.cpp` |
+| Wire `SettingsRegistry::LoadFromINI()` into startup sequence | `src/Export/SKSEPlugin.cpp`                      |
+| Wire `SettingsRegistry::SaveToINI()` into every `Set()`      | `src/Config/SettingsRegistry.cpp`                |
+
+### Phase 9 — HUD Burden Widget ❌
 
 | Task | Files |
 |---|---|
@@ -650,7 +665,7 @@ Setting keys in `Parameter<T>` structs, organized by compile-time group. No ship
 | Wire into startup messaging listener | `src/Export/SKSEPlugin.cpp` |
 | Expose burden data access from Tracker | `src/Burden/BurdenTracker.h/.cpp` |
 
-### Phase 10 — Papyrus + Polish
+### Phase 10 — Papyrus + Polish ❌
 
 | Task                                                                | Files                                         |
 |---------------------------------------------------------------------+-----------------------------------------------|
@@ -672,7 +687,8 @@ Setting keys in `Parameter<T>` structs, organized by compile-time group. No ship
 | Burden tracking        | ✓ (event-driven, cached) | ✓ (lazy per-hook)        |
 | Regen modification     | ✓ (full formula)         | ✓ (no weather component) |
 | Weather penalty        | ✓                        | ✗                        |
-| Attack cost + lockout  | ✓                        | ✓                        |
+| Attack cost              | ✓                        | ✓                        |
+| Action denial            | ⏳ (Phase 7)             | ⏳ (Phase 7)             |
 | Movement cost          | ✓ (regen curves + hook)  | ✓ (regen curves, no weather) |
 | Block stamina redirect | ✓                        | ✓                        |
 | Exhaustion             | ✓                        | ✓                        |
