@@ -17,695 +17,527 @@ An SKSE plugin for Skyrim AE that overhauls stamina into a burden- and weight-dr
 
 ```
 src/
-├── Common/           # (existing) PCH, Utils.h
-│   └── Print/         # (existing) debug output helpers
-├── Data/             # (existing) ModObjectManager, Lookup.h
-├── Export/           # (existing) SKSEPlugin.cpp — entrypoint
-├── Hooks/            # (existing) Hooks.h/.cpp — hook install
-├── Papyrus/          # (existing) Papyrus.h/.cpp — native bindings
-├── RE/               # (existing) Offset.h — REL::ID constants
-├── Serialization/    # (existing) Serde.h/.cpp — serializable base
+├── Burden/            # Burden computation + actor tracker (DONE)
+├── Common/            # PCH, Utils.h — heartbeat, CanDoStaminaAction, Interpolate (DONE)
+├── Data/              # ModObjectManager, Lookup.h (shell — EXPECTED_COUNT=0)
+├── Export/            # SKSEPlugin.cpp — entrypoint (DONE)
+├── Hooks/             # 6 code detours + 4 event sinks + 2 uninstalled denies (DONE)
+├── Papyrus/           # GetVersion only bound (MINIMAL)
+├── RE/                # Offset.h — placeholder; all REL::IDs inline (DONE)
+├── Serialization/     # Serde.h/.cpp — infrastructure ready, nothing registered (SHELL)
 ├── Settings/
-│   ├── INI/          # (existing) — will be replaced by SettingsRegistry
-│   ├── JSON/         # (existing) JSON settings reader
-│   └── Params/       # (existing) Parameter<T> + typed structs
-│
-├── Config/           # NEW — replaces INI settings module
-│   ├── SettingsRegistry.h
-│   └── SettingsRegistry.cpp
-├── Console/          # NEW — runtime debug/query commands
-│   ├── ConsoleCommands.h
-│   └── ConsoleCommands.cpp
-├── Burden/           # (existing) burden computation + tracker
-│   ├── BurdenManager.h
-│   └── BurdenManager.cpp
-├── Regen/            # (existing) regen formulas + costs
-│   ├── RegenManager.h
-│   ├── RegenManager.cpp
-│   ├── CostsManager.h
-│   └── CostsManager.cpp
-├── Actions/          # NEW
-│   ├── ActionManager.h
-│   └── ActionManager.cpp
-├── Blocking/         # NEW
-│   ├── BlockManager.h
-│   └── BlockManager.cpp
-└── Combat/           # NEW
-    ├── CombatManager.h
-    └── CombatManager.cpp
+│   ├── INI/           # SimpleIni reader with whitelist (shell — EXPECTED_COUNT=0)
+│   ├── JSON/          # JSON reader (DONE)
+│   └── Params/        # Parameter<T> singletons: BurdenParams, RegenParams,
+│                      #   RegenMovementParams, NegativeRegen, WeatherParams,
+│                      #   CostsParams, AttackCostParams, DenyParams,
+│                      #   ParameterOverrides (DONE)
+└── Stamina/
+    ├── RegenManager   # Regen formulas + single source of truth (DONE)
+    └── CostsManager   # Sprint/jump/attack/bow cost formulas (DONE)
 ```
+
+**Not created (future):**
+- `src/Blocking/` — stamina redirect on blocked hits, guard break
+- `src/Combat/` — stamina-conditional damage scaling
+- `src/Console/` — runtime debug/query commands
+- `src/HUD/` — TrueHUD burden widget
 
 ---
 
 ## 2. Configuration Architecture
 
-### 2.1 Design
+**Current system:** `Parameter<T>` singletons (REX::Singleton) with typed `ForEach(F&&)` export. INI values are read by `Settings::INI::Read()` (SimpleIni with strict whitelist). Overrides via `_Custom.ini` (same stem, same dir).
 
-Single source of truth at all times. No dual-file ambiguity.
-
-```
-C++ hardcoded defaults (static constexpr)
-    │
-    ▼
-SettingsRegistry (in-memory, queried by all modules)
-    │                        ▲
-    │                        │
-    ▼                        │
-User INI (read at startup ───┘
-          written on each Set())
-```
-
-- **Defaults** are `static constexpr` arrays in `SettingsRegistry.h` — never shipped as a file
-- **Single INI** `Data/SKSE/Plugins/StaminaAndBurden_Settings.ini` — created/updated on first runtime change, read at startup
-- **Console commands** and **future ImGui menu** both go through `SettingsRegistry::Set()`, which writes to INI synchronously
-- **No `StaminaAndBurden.ini` file** — deleted. No `StaminaAndBurden_Custom.ini` — unnecessary. One file, one purpose.
-- **Reset:** delete the INI file → next startup loads pure C++ defaults
-
-### 2.2 SettingsRegistry class
-
-```cpp
-class SettingsRegistry : public REX::Singleton<SettingsRegistry> {
-public:
-    float Get(std::string_view key) const;
-    void  Set(std::string_view key, float value);  // runtime + persist
-
-    void LoadFromINI();  // called at startup
-    void DumpAll() const;   // for sb_list / debug
-
-private:
-    struct Setting {
-        std::string key;
-        std::string section;
-        float defaultValue;
-        float currentValue;
-    };
-
-    std::vector<Setting> settings;
-};
-```
-
-`Set()` calls `SaveToINI()` which writes only the user-changed values (sparse). The INI path is relative: `Data/SKSE/Plugins/StaminaAndBurden_Settings.ini`.
-
-### 2.3 Console Commands (Papyrus-backed)
-
-Add to the existing `TestCommands.yaml` infrastructure:
-
-| Command        | Args            | Effect                                                                     |
-|----------------+-----------------+----------------------------------------------------------------------------|
-| `sb_get`       | `<key>`         | Prints current runtime value                                               |
-| `sb_set`       | `<key> <value>` | Updates runtime + persists to INI                                          |
-| `sb_list`      | —               | Dumps all settings with (default / current)                                |
-| `sb_reset`     | —               | Deletes INI, resets all to C++ defaults                                    |
-| `sb_getburden` | —               | Dumps current total + equipped burden ratios for debugging burden tracking |
-
-### 2.4 Future: SKSE Menu Framework GUI (optional)
-
-The `SettingsRegistry` is designed to be UI-agnostic. An ImGui-based settings page (using mod 120352) would:
-
-```
-ImGui slider/toggle onChange
-    │
-    ▼
-SettingsRegistry::Set(key, value)
-    │
-    ├── updates currentValue in memory
-    └── writes StaminaAndBurden_Settings.ini
-```
-
-No separate storage. No dual-source problem. The INI is always the persisted truth, the registry is always the live truth, and they are kept in sync on every write.
-
-This is deferred until after the core mechanics work. The console commands provide the same capability for testing.
-
-### 2.5 Interaction with existing INI infrastructure
-
-The existing `Settings::INI` system (`INISettings.h/cpp`, `EXPECTED_SETTINGS`) is **replaced** by `SettingsRegistry`. The old files remain in the repo until cleanup at the end.
-
-### 2.6 Current state (before SettingsRegistry)
-
-Burden parameters currently use `Parameter<T>` via `BurdenParams` singleton (`src/Settings/Params/BurdenParams.h`) with typed `ForEach()` export and the legacy `Settings::INI` reader. The `StaminaAndBurden.ini` shipped file still exists at `Data/SKSE/Plugins/`. The `SettingsRegistry` design (§2) is deferred and will replace both when introduced.
+**Deviations from original plan:**
+- No SettingsRegistry was implemented. `Parameter<T>` + `_Custom.ini` is simpler and standard for Skyrim mods. This is the permanent system.
+- INI validation is currently a shell (`EXPECTED_COUNT = 0`). The shipped `StaminaAndBurden.ini` has no key-value pairs.
+- In-game settings (console commands, ImGui menu, MCM) are deferred — lowest priority.
 
 ---
 
 ## 3. Module Specifications
 
-### 3.1 BurdenManager
+### 3.1 BurdenManager (DONE)
 
-**Purpose:** Tracks equipped and total burden ratio per actor.
+**Files:** `src/Burden/BurdenManager.h/.cpp`, `BurdenTracker.h/.cpp`
 
 **Architecture:** Two namespaces:
+- `Burden::` — burden computation functions
+- `Burden::Tracker` — actor registry with 2-tier cache (tracked + transient)
 
-- `Burden::` — burden computation functions (`UpdateBurden`, `ComputeEquipmentBurden`, `GetSlotMultiplier`, `GetWeightedArmorTypeMult`)
-- `Burden::Tracker` — actor registry (`Register`, `Unregister`, `Update`, `IsTracked`, `OnGameLoad`) with a `FormID`-keyed map of `ActorBurdenData`
-
-**Formulas:**
-
+**ActorBurdenData struct** (18 fields):
 ```
-TotalBurdenRatio    = clamp(currentWeight / maxCarryWeight, 0.0, 1.0)
-
-EquippedWeightedSum = Σ( item.weight × slotMult × armorTypeSkillMult )
-MaxEquippedWeight   = fmaxEquippedWeightRatio × maxCarryWeight
-EquippedBurdenRatio = clamp(EquippedWeightedSum / MaxEquippedWeight, 0.0, 1.0)
+actor, maxCarryWeight, carryWeight, equippedWeight, maxEquippedWeight,
+carryBurden, burden, burdenBlend,
+lightSkill, heavySkill, oneHandedSkill, twoHandedSkill, marksmanSkill, blockSkill, conjurationSkill,
+weaponBurden_rh, weaponBurden_lh, weaponBurden_2h, weaponBurden_ranged, weaponBurden_block
 ```
 
-**Slot weight multipliers** (configurable, stored as `Parameter<float>` in `BurdenParams`):
-
-| Slot                              | Default | Param Name              |
-|-----------------------------------+---------+-------------------------|
-| Body (kBody / kModChestPrimary)   | 0.70    | `fSlotBurdenMult_body`  |
-| Head                              | 1.20    | `fSlotBurdenMult_head`  |
-| Hands                             | 0.80    | `fSlotBurdenMult_hand`  |
-| Feet                              | 1.50    | `fSlotBurdenMult_feet`  |
-| All other slots                   | 1.00    | `fSlotBurdenMult_def`   |
-
-**Armor type skill-weighted multiplier:**
-
-For each equipped armor piece, burden is scaled by a skill-interpolated factor:
-
+**burdenBlend formula:**
 ```
-skillRatio  = 1.0 - clamp(skillValue / iPlayerMaxSkill, 0.0, 1.0)
-skillMult   = Interpolate(minMult, maxMult, skillRatio, fSkillInterpolate)
+burdenBlend = 1 - sqrt((1 - burden) * (1 - carryBurden))
 ```
+Blends equipped burden and carry burden into a single factor for cost/regen curves.
 
-`skillValue` = current Light Armor or Heavy Armor skill (depending on piece). At 0 skill → `maxMult` (highest burden), at 100 skill → `minMult` (lowest burden). Parameters: `fSkillBurdenMult_minLight`/`maxLight`, `fSkillBurdenMult_minHeavy`/`maxHeavy`.
+**Improvements over original plan:**
+- `burdenBlend` replaces separate burden × carryBurden product — smoother interaction
+- Weapon burden tracking (per-hand, 2h, ranged, block) enables per-type cost curves
+- Skill-weighted weapon burden: `ScaleWeaponWeight(weight, skill)` — higher skill = less perceived weapon weight
+- Conjured weapon weight computed from conjuration skill
+- Block burden with shield/DW/2h/unarmed paths, dual-wield penalty, blended block skill
+- `actor` field added so formulas can get maxStamina directly
 
-**Steed Stone:** When the Steed Stone ability spell (`doomSteedAbility`) is active, all slot multipliers are multiplied by `fSteedStoneBurdenMult` (default 0.30). Detected via `ActiveEffect::spell == steedStoneAbility` each `UpdateBurden()` call.
+**Triggers (3):**
+1. Event sinks — equip/container change → `Tracker::Update(actor)` → `AddTask` deferred
+2. Heartbeat polling — 200ms detached thread → `TaskTrackBurdenParams()` → compares 7 cached skills + carryWeight
+3. Game load — `TESLoadGameEvent` → `OnGameLoad()` clears maps, re-registers player, starts heartbeats
 
-**Triggering (3 triggers):**
+### 3.2 RegenManager (DONE)
 
-1. **Event sinks** — `TESEquipEvent` (equip/unequip) and `TESContainerChangedEvent` (pick up/drop/transfer) call `Tracker::Update(actor)`, which defers a full `UpdateBurden()` via `AddTask` to next frame.
+**Files:** `src/Stamina/RegenManager.h/.cpp`
 
-2. **Heartbeat polling** — A background thread wakes every 200ms and dispatches `TaskTrackBurdenParams()` via `AddTask`. For each tracked actor, reads `GetActorValue(kCarryWeight)`, `kLightArmor`, and `kHeavyArmor` and compares against cached values in `ActorBurdenData`. Uses short-circuit `||` — stops reading once a change is found.
+**Single source of truth:** `ComputeBurdenStaminaRegenRate(actor)` — computes the effective stamina rate (regeneration or drain) in stamina per second. Used by:
+- `RegenHook::InterceptAVRegen` — returns this value as the per-frame regen rate
+- `TaskPlayerFullStaminaMonitor` — drains 0.1 when full stamina + negative rate
 
-3. **Game load** — `TESLoadGameEvent` (via `LoadGameHandler`) → `Tracker::OnGameLoad()` clears the map, re-registers the player, and starts the heartbeat thread (once via `static bool` guard).
-
-**Data struct (`ActorBurdenData` in `BurdenManager.h`):**
-
-```cpp
-struct ActorBurdenData {
-    float maxCarryWeight{ 0.0f };      // GetActorValue(kCarryWeight)
-    float carryWeight{ 0.0f };          // current inventory weight
-    float equippedWeight{ 0.0f };       // weighted equipped sum
-    float maxEquippedWeight{ 0.0f };    // fmaxEquippedWeightRatio × maxCarryWeight
-    float carryBurden{ 0.0f };          // carryWeight / maxCarryWeight (clamped)
-    float burden{ 0.0f };               // equippedWeight / maxEquippedWeight (clamped)
-    int   lightSkill{ -1 };             // cached for heartbeat comparison
-    int   heavySkill{ -1 };             // cached for heartbeat comparison
-};
+**Formula:**
 ```
+mult           = ComputeStaminaRegenMult(actor)
+regenMult      = max(mult, 0)
+drainMult      = max(-mult, 0)
 
-**Computation flow (`UpdateBurden`):**
+engineRate     = GetEngineStaminaRate(actor)   // includes kStaminaRateMult, combat mult
+engineRate     = max(engineRate, 0)            // clamp before regen multiply
 
-1. Read `GetActorValue(kCarryWeight)` → `maxCarryWeight`
-2. Read `GetInventoryChanges()->GetInventoryWeight()` → `carryWeight`
-3. Run `ComputeEquipmentBurden(actor)` → `VisitWornItems` with `BurdenEquipVisitor` → `equippedWeight`
-4. `maxEquippedWeight = fmaxEquippedWeightRatio * maxCarryWeight`
-5. Clamp ratios → `carryBurden`, `burden`
-6. Read `GetActorValue(kLightArmor)` + `GetActorValue(kHeavyArmor)` → cache `lightSkill`, `heavySkill`
+rate           = engineRate × regenMult
+if drainMult > 0:
+  burnBase     = GetBaseStaminaRate(actor)     // kStaminaRate × 0.01 × kStamina — NO rate mult
+  scaler       = ComputeBurnScaler(actor)      // maps kStaminaRateMult onto [0,1]
+  rate        -= burnBase × drainMult × scaler
 
-**Parameters** live in `BurdenParams` (REX::Singleton), exported via `ForEach(F&&)` with typed key names (`f`/`i` prefix convention).
-
-### 3.2 RegenManager
-
-**Purpose:** Modifies stamina/health/magicka regeneration rates based on burden, cross-AV levels, weather, and exhaustion.
-
-**Stamina regen formula (per-movement-state curves):**
-
-```
-burdenBlend      = 1 - sqrt((1 - burden) × (1 - carryBurden))      [cached in ActorBurdenData]
-stateFactor      = Interpolate(maxState × HMS, minState, burdenBlend, k_movement)
-blockCost        = fBlockRegenCostBurdenPerc × burdenBlend
-weatherPenalty   = ComputeWeatherPenalty(actor)                      [player-only, exterior-only]
-
-result           = stateFactor - blockCost - weatherPenalty
+rate          -= ComputeBlockHoldPenalty(actor)
+rate          -= ComputeBowDrawHoldPenalty(actor)
 ```
 
-Movement states (each with configurable `min`/`max`, shared curve `k`): static, walking, sneaking, running, swimming. Sprinting returns 0.0 — cost handled by SprintDrainHook.
-
-HMS scales only the **ceiling** (maxState). Low cross-AV stats never drag the floor lower.
-
-**Blocking** is a compound penalty (orthogonal axis — can block while walking).
-
-**Weather** is a flat penalty, applied consistently to regen and sprint cost via `engineRate × weatherPenalty` (where `engineRate` is a clone of the game's stamina regen function).
-
-**Health/Magicka regen:** Each depends on stamina % only (cross-AV from stamina → health/magicka), via `Interpolate(Low, High, staminaPct, k)`.
-
-**Hook strategy:** `write_call<5>` on `REL::ID(38452) + 0x2B6` intercepts the engine's internal AVRegen rate function. The Thunk calls the original to get the base regen rate, multiplies by our formula, and returns the modified `__m128`. If the formula returns a negative rate, `DamageActorValue()` drains the actor directly and the returned rate is 0.0. A 100ms heartbeat (started in `BurdenTracker::OnGameLoad`) detects full-stamina + negative-multiplier and drains 0.1 to push below 100%, allowing regen ticks to fire.
-
-### 3.3 ActionManager
-
-**Purpose:** Calculates and enforces stamina costs for attacks, jumping, running, sprinting, and swimming. Prevents actions when stamina is too low.
-
-**Attack stamina cost formula:**
-
+**`ComputeStaminaRegenMult(actor)` — the regen multiplier:**
 ```
-attackCost = maxStamina
-           × (fAttackCostBase + weaponWeight × fAttackCostWeightMult)
-           × (1 - relevantSkill / fAttackCostSkillDivisor)
-           × (1 + fAttackCostBurdenPenalty × totalBurdenRatio)
+HMS = GetHMSStaminaMult(actor)           // health% × stamina% × magicka% triple product
+
+if GetCanRegenStamina(actor):            // not blocking, not bow drawn/attached, attack state = kNone
+  state = GetMovementState(actor)        // static/walking/sneaking/running/swimming
+  regenBonus = ComputeStateRegenFactor(burdenData, state, HMS)
+else:
+  regenBonus = 0
+
+mult = regenBonus - ComputeWeatherPenalty(actor)
 ```
 
-Where `relevantSkill` is the governing skill for the equipped weapon type (OneHanded, TwoHanded, Marksman, etc.). Unarmed uses a configured default.
-
-**Movement stamina costs:**
-
-| Type | Mechanism | Status |
-|------|-----------|--------|
-| Sprint | SprintDrainHook (ID 38022 + 0xC1/0xC9, `write_call<5>`) | ✅ Implemented |
-| Run/walk/sneak/swim continuous drain | Encoded in regen curves (negative stateFactor = drain) | ✅ Implemented |
-| Jump | Game-setting manipulation on burden change | ❌ Future |
-
-**Action lockout:** Before any action (attack, jump, block), check:
-
+**`ComputeStateRegenFactor` — per-movement-state curve:**
 ```
-if currentStamina < fActionLockCostFraction × actionCost → prevent action
+For each state: min/max pair → Interpolate(maxVal × HMS, minVal, burdenBlend, k)
+```
+Each movement state has its own min (high burden = worst) and max (low burden = best) parameters, blended by `burdenBlend`. The max value is multiplied by the HMS triple product, so low health/stamina/magicka reduces max regen even at zero burden.
+
+**`ComputeBurnScaler` — negative rate mult handling:**
+```
+Maps kStaminaRateMult from [BurnRate_LowBound, BurnRate_HighBound] onto [0, 1]
+via Interpolate(LowBonus, HighBonus, t, Curve_k).
+LowBonus=2.0 (debuffed mult → amplified drain), HighBonus=0.2 (buffed mult → reduced drain)
 ```
 
-**Hook points:**
-- `Character::sub_140627930` (REL::ID `38603`) — zero vanilla cost, inject own
-- `AttackAction` (REL::ID `49170`) — prevent attack when exhausted/locked
-- Game settings `fJumpStaminaCost` — update on burden change
+**Supporting functions:**
+- `GetBaseStaminaRate` — `kStaminaRate × 0.01 × kStamina` (no rate mult, no combat mult)
+- `GetEngineStaminaRate` — `GetBaseStaminaRate × combatMult × kStaminaRateMult × 0.01`
+- `ComputeBlockHoldPenalty` — continuous flat drain while blocking, burden-scaled
+- `ComputeBowDrawHoldPenalty` — continuous flat drain while bow drawn, weapon-burden-scaled
+- `ComputeWeatherPenalty` — `WeatherRainPenalty` or `WeatherSnowPenalty` from `WeatherParams`
+- `GetCanRegenStamina` — false if blocking, bow drawn/attached, or in attack state
+- `GetMovementState` — swimming → running → sneaking → walking → static priority
+- `ComputeHealthRegenMult` / `ComputeMagickaRegenMult` — stamina% → health/magicka regen curves
 
-### 3.4 BlockManager
+**Improvements over original plan:**
+- `ComputeBurdenStaminaRegenRate` as single source of truth (replaces vague "intercept rate" description)
+- Per-movement-state min/max curves instead of flat scalars — more granular control
+- `burdenBlend` instead of separate burden × carryBurden product
+- Weather penalty + block/bow hold penalties (originally planned as "future")
+- Burn scaler for kStaminaRateMult (not in original plan at all)
+- `GetBaseStaminaRate` / `GetEngineStaminaRate` split (not in original plan)
+- Negative rate handled via RegenDelayHook (cache + drain) instead of inline DamageActorValue in RegenHook
 
-**Purpose:** Redirects blocked damage from health to stamina. Manages guard breaks.
+### 3.3 CostsManager (DONE)
 
-**Damage split (fixed ratios, configurable):**
+**Files:** `src/Stamina/CostsManager.h/.cpp`
 
+**Public API:**
 ```
-Weapon block:   0.30 × rawDmg → health      0.70 × rawDmg → stamina
-Shield block:   0.10 × rawDmg → health      0.90 × rawDmg → stamina
-```
-
-**Stamina consumption after split:**
-
-```
-actualStaminaDmg = staminaPortion
-                 × (1 + fBlockBurdenPenalty × totalBurdenRatio)
-                 × (1 - blockSkill / fBlockSkillEfficiencyDivisor)
-```
-
-Higher block skill = less stamina consumed per blocked hit. The health portion passes through unchanged (player still takes chip damage).
-
-**Guard break:** If `remainingStamina < actualStaminaDmg`:
-
-```
-excessDmg = actualStaminaDmg - remainingStamina
-damageToHealth = healthPortion + excessDmg
-set stamina to 0
-trigger stagger animation ("staggerStart")
-trigger exhaustion (see §3.7)
+float ComputeSprintDrain(actor)      — returns stamina/frame (includes GetSecondsSinceLastFrame)
+float ComputeJumpCost(actor)          — returns stamina per jump
+float ComputeAttackCost(actor, data)  — returns stamina per attack
+float ComputeBowFireCost(actor)       — returns stamina per shot
 ```
 
-**Hook point:** `Character::sub_140628C20` (REL::ID `38627`) — inspect `HitData.flags` for `kBlocked`.
-
-### 3.5 CombatManager
-
-**Purpose:** Scales attack damage based on current stamina level and exhaustion state.
-
-**Stamina-dependent damage:**
-
+**Cost formula pattern (all types use the same structure):**
 ```
-dmgMult = Interpolate(AttackDmgMult_HighStamina,   // at stamina=100%
-                      AttackDmgMult_LowStamina,    // at stamina=0%
-                      1 - staminaRatio, k)
-
-finalDamage = baseDamage × dmgMult × (isExhausted ? ExhaustedDamageMult : 1.0)
+Stamina_1pctMax = 0.01 × maxStamina
+flatTerm        = Interpolate(LowBurden, HighBurden, weaponBurden, k)
+pctTerm         = Interpolate(LowCarryPct, HighCarryPct, carryBurden, k)
+cost            = flatTerm + pctTerm × Stamina_1pctMax
 ```
+- `flatTerm` scales with equipped burden (or weapon-specific burden for attacks)
+- `pctTerm` scales with carry burden, multiplied by 1% of max stamina
+- Result is a percentage of max stamina
 
-**Hook point:** Same hit-processing hook as BlockManager (`38627`), applied to all melee hits (not just blocked ones). Damage is modified before being applied.
+**Attack cost by weapon type (7 types + power attack mult):**
+- 1H attack — weapon burden, 1h skill-weighted
+- 2H attack — weapon burden, 2h skill-weighted
+- Unarmed — flat base + carry burden component
+- Shield bash — shield weight + block skill
+- Bow bash — ranged weapon burden
+- Weapon bash — weapon burden + blended block skill
+- Ranged (bow fire) — handled by ComputeBowFireCost, not attack cost
+- All types multiplied by `attackData->data.staminaMult`
 
-### 3.6 WeatherManager
+**Sprint drain** is frame-time scaled (`× GetSecondsSinceLastFrame()`) and includes weather penalty integration (`engineRate × weatherPenalty`).
 
-**Purpose:** Detects if the current weather qualifies as "bad" for regen penalty purposes.
+**Improvements over original plan:**
+- Original plan described a single `attackCost = maxStamina × (fAttackCostBase + weaponWeight × fAttackCostWeightMult) × (1 - skill / fAttackCostSkillDivisor) × (1 + burdenPenalty × burdenRatio)`. Actual system uses `flatTerm + pctTerm × 1%maxStamina` with per-type params — more granular and tuneable.
+- Original plan described game-setting writes for movement costs. Actual system hooks sprint drain directly (`38022 + 0xC1/0xC9`) and jump cost directly (`37257 + 0x17F`) — per-actor, no global setting manipulation.
+- Bow fire cost + deny (not in original plan) built into BowFireHook.
 
-**Implementation:** Inline free function in `RegenManager.cpp`. Queries `RE::Sky::GetSingleton()->IsRaining()` / `IsSnowing()`. Parameters in `WeatherParams` struct (`WeatherRainPenalty`, `WeatherSnowPenalty`, `WeatherEnabled` toggle).
+### 3.4 ActionManager (FUTURE)
 
-**Scope:** Player only, exteriors only (NPCs + interiors skip the check).
+**Purpose:** Not a separate module — attack/sprint/jump costs are handled by CostsManager + their respective hooks. A future ActionManager would handle:
+- Action lockout checks for blocked actions
+- Any future action types not covered by existing hooks
 
-```
-ComputeWeatherPenalty(actor):
-  if not player or interior → return 0
-  if !WeatherEnabled → return 0
-  if snow → return WeatherSnowPenalty
-  if rain → return WeatherRainPenalty
-  else → 0
-```
+### 3.5 BlockManager (NOT STARTED)
 
-### 3.7 Exhaustion System
+Stamina redirect on blocked hits + guard break + exhaustion trigger. No code exists.
 
-**Trigger:** When stamina is fully depleted (hits 0 from any source).
+### 3.6 CombatManager (NOT STARTED)
 
-**State machine:**
+Stamina-conditional damage scaling. No code exists.
 
-```
-Normal ──(stamina = 0)──▶ Exhausted ──(duration expires)──▶ Normal
-                            │
-                            ├── staminaRegenMult × fExhaustedRegenMult (0.5)
-                            ├── attackDmgMult   × fExhaustedDamageMult (0.6)
-                            └── duration: fExhaustionDuration seconds (default 7.0)
-```
+### 3.7 WeatherManager (DONE — minimal)
 
-**Action prevention:** Any action where `currentStamina < fActionLockCostFraction × actionCost` is silently prevented.
+**Files:** Built into `src/Stamina/RegenManager.cpp` with params in `src/Settings/Params/RegenParams.h`
 
-**Implementation:** Per-actor exhaustion end timestamp (`GameHours`). Checked in:
-- `ActionManager` (prevent attack/jump/block)
-- `RegenManager` (reduce regen)
-- `CombatManager` (reduce damage)
+- `ComputeWeatherPenalty(actor)` — player-only, checks `RE::Sky` for rain/snow
+- Configured via `WeatherParams` with `WeatherRainPenalty`, `WeatherSnowPenalty`, `WeatherEnabled`
+- No standalone manager class — inline in RegenManager
 
-**Cleanup:** On cell unload or actor death, remove from exhaustion map.
+### 3.8 Exhaustion (NOT STARTED)
+
+State machine for depleted stamina. No code exists.
 
 ---
 
 ## 4. Hook Summary
 
-| ID                | Function                       | Module               | Technique        | Purpose                                           |
-|-------------------+--------------------------------+----------------------+------------------+---------------------------------------------------|
-| *(event sink)*    | `TESEquipEvent`                | BurdenManager        | Event sink       | Trigger burden recalc on equip/unequip             |
-| *(event sink)*    | `TESContainerChangedEvent`     | BurdenManager        | Event sink       | Trigger burden recalc on pickup/drop/transfer      |
-| *(event sink)*    | `TESLoadGameEvent`             | BurdenManager        | Event sink       | Re-register player + start heartbeat on game load  |
-| *(heartbeat)*     | `TaskTrackBurdenParams`        | BurdenManager        | 200ms poll       | Detect carry weight + skill changes from any source|
-| *(completed)*     | `38452 + 0x2B6`                | RegenManager         | `write_call<5>`  | Intercept AVRegen rate function × formula          |
-| *(completed)*     | `TaskPlayerFullStaminaMonitor` | RegenManager         | 100ms poll       | Drain 0.1 stamina when full + negative mult        |
-| *(completed)*     | `38022 + 0xC1/0xC9`            | CostsManager         | `write_call<5>` ×2| Sprint stamina drain (burden + weather)            |
-| *(future)*        | `38603`                        | ActionManager        | `write_call<5>`  | Attack stamina cost → override                     |
-| *(future)*        | `38627`                        | Block/Combat Manager | `write_call<5>`  | Hit processing → stamina redirect + dmg scaling     |
-| *(blocked)*       | `49170`                        | DenyHooks            | `write_call<5>`  | NPC attack denial (player needs vtable hook)         |
-| *(future)*        | game settings (jump only)      | ActionManager        | Direct write     | Jump cost on burden change                          |
+### Installed code detours (6):
+
+| ID | Offset | Name | Purpose |
+|---|---|---|---|
+| `38452` | `+0x2B6` | `RegenHook` | Intercept AV regen rate → `ComputeBurdenStaminaRegenRate` |
+| `38452` | `+0x02C` | `RegenDelayHook` | Bypass regen delay when negative drain cached → `DamageActorValue` |
+| `38022` | `+0xC1/C9` | `SprintDrainHook` | Replace equipped-weight with burden-based sprint drain |
+| `37257` | `+0x17F` | `ActionHook` | Jump stamina cost via `ApplyStaminaCost` |
+| `38603` | `+0x171` | `AttackCostHook` | Replace engine attack stamina cost → `ComputeAttackCost` |
+| `42859` | `+0x138` | `BowFireHook` | Bow fire cost + deny if insufficient stamina |
+
+### Installed event sinks (4):
+
+| Event | Handler | Purpose |
+|---|---|---|
+| `TESLoadGameEvent` | `LoadGameHandler` | `OnGameLoad()` — clear maps, re-register player, start heartbeats |
+| `TESEquipEvent` | `EquipHandler` | `Tracker::Update(actor)` — deferred burden recalc |
+| `TESContainerChangedEvent` | `ContainerHandler` | `Tracker::Update(actor)` — deferred burden recalc |
+| `TESActorLocationChangeEvent` | `WorldspaceChangeHandler` | Clear transient NPC cache on worldspace change |
+
+### Denial hooks (NOT INSTALLED — code exists but incomplete):
+
+| ID | Offset | Name | Status | Reason |
+|---|---|---|---|---|
+| `49170` | `+0x28D` | `AttackDenyHook` | Commented out | NPC-only — does not fire for player. Player denial needs vtable hook on `AttackBlockHandler::ProcessButton`. |
+| `42423` | `+0x114` | `JumpDenyHook` | `Install()` logs NOT INSTALLED | AE call site crashes on 1.6.1170. SSE offset known (`41349+0x114`) but not ported. |
+
+Both denial hooks are **implemented but not installed** — per project convention, they are considered incomplete. Deferred until player denial entry point is solved.
+
+### Heartbeat polling:
+- 200ms detached thread (`Common::make_heartbeat`) — polls tracked actor params for skill/weight changes
+- 200ms detached thread — `TaskPlayerFullStaminaMonitor`, drains 0.1 if player at full stamina with negative regen rate
 
 ---
 
 ## 5. Data Flow
 
+### Current flow:
 ```
-Game Event (equip / container change)
+Game Event (equip/container/game load)
     │
     ▼
-BurdenManager::UpdateBurden(actor)
-    │  └── caches burdenBlend = 1 - sqrt((1-burden)*(1-carryBurden))
+Burden::Tracker::Update/OnGameLoad → UpdateBurden(actor)
     │
-    ├──► RegenManager: modify regen at next tick
-    │       └── read burdenBlend → stateFactor × HMS - block - weather
-    │
-    ├──► SprintDrainHook: sprint stamina cost
-    │       └── Costs::CalculateSprintDrain
-    │           └── burden + weather × engineRate
-    │
-    ├──► ActionManager: recalc attack + jump costs
-│       ├── hook 38603: attack stamina cost
-│       ├── [blocked] hook 49170: NPC attack denial (NpcAttackDenyHook)
-│       └── direct write: fJumpStaminaCost
-    │
-    ├──► BlockManager: stamina redirect on blocked hits
-    │       └── hook 38627 (blocked path)
-    │           └── guard break → exhaustion
-    │
-    └──► CombatManager: damage scaling
-            └── hook 38627 (all hits)
-                └── stamina-conditional + exhaustion scaling
+    ├── Event sinks (equip, container, worldspace, load)
+    ├── Heartbeat 200ms: TaskTrackBurdenParams (skill/weight polling)
+    └── Heartbeat 200ms: TaskPlayerFullStaminaMonitor
+
+Per-frame (all actors processed by engine):
+    RegenHook → ComputeBurdenStaminaRegenRate(actor)
+        ├── positive → engine applies regen normally
+        └── negative → cache drain rate, RegenDelayHook drains per frame
+
+Per-action:
+    SprintDrainHook (every frame while sprinting) → ComputeSprintDrain(actor)
+    ActionHook (on jump) → ComputeJumpCost(actor) → ApplyStaminaCost
+    AttackCostHook (on attack) → ComputeAttackCost(actor, attackData)
+    BowFireHook (on bow release) → ComputeBowFireCost(actor) → ApplyStaminaCost
+```
+
+### Planned future flow (Blocking, Combat, Console, HUD):
+```
+Burden::Tracker::Update(actor)
+    ├── BlockManager (future: stamina redirect on blocked hits)
+    ├── CombatManager (future: stamina-conditional damage scaling)
+    └── Console commands (future: sb_get/set/list/reset/getburden)
 ```
 
 ---
 
-## 5b. HUD Integration — Optional TrueHUD Burden Widget
+## 6. Denial Features
 
-**Purpose:** Display real-time burden ratios on the player HUD via TrueHUD's mod API.
+Per project convention: **any denial feature that is implemented but not installed is considered incomplete.**
 
-**Dependency status:** Optional — TrueHUD must be installed by the user. No build-time dependency. Detection via `GetModuleHandle("TrueHUD.dll")` + `GetProcAddress` at `kPostLoad`.
-
-### Module: `src/HUD/`
-
-| File | Purpose |
-|---|---|
-| `HUD/TrueHUDAPI.h` | Vendored API header (MIT, from TrueHUD repo) |
-| `HUD/BurdenWidget.h` | `BurdenWidget` class declaration |
-| `HUD/BurdenWidget.cpp` | API detection + special resource bar registration |
-
-### Integration approach: Special Resource Bar
-
-TrueHUD's `RegisterSpecialResourceFunctions` adds an extra colored bar alongside the player's health/magicka/stamina bars. No SWF required.
-
-**Registration flow:**
-
-1. `kPostLoad` → try `TRUEHUD_API::RequestPluginAPI(InterfaceVersion::V4)`
-2. If `nullptr` → log "TrueHUD not detected", no-op
-3. If valid → `RequestSpecialResourceBarsControl(handle)` → if `OK`, `RegisterSpecialResourceFunctions(handle, getCurrentBurden, getMax, ...)`
-4. Callbacks read from `Burden::Tracker::GetActorBurdenData(playerID)`
-
-**Graceful degradation:**
-
-| Scenario | Behavior |
-|---|---|
-| TrueHUD not installed | No burden bar, everything else works |
-| TrueHUD installed, special bar free | Burden bar displayed on player HUD |
-| TrueHUD installed, special bar taken | Log warning, no bar, everything else works |
-
-**Parameters** (configured via SettingsRegistry):
-| Key | Default | Purpose |
+| Feature | Status | Reason |
 |---|---|---|
-| `iBurdenWidgetRefreshMs` | `200` | How often the burden bar value updates |
-| *Color config deferred — TrueHUD allows `OverrideBarColor` in later versions* |
+| Attack denial (NPC) | Implemented, NOT INSTALLED (`Hooks.cpp:35` commented) | Hook `49170+0x28D` only fires for NPCs. Player needs different entry point. |
+| Attack denial (player) | Not implemented | Requires vtable hook on `AttackBlockHandler::ProcessButton` (vtable index 04) — approach designed, not coded. |
+| Jump denial | Implemented, NOT INSTALLED | AE call site at `42423+0x114` crashes on 1.6.1170. SSE offset `41349+0x114` known but unused. |
+| Bow fire deny | DONE — built into `BowFireHook` | Integrated into the cost hook — if `CanDoStaminaAction` returns false, the shot is suppressed. |
 
-
-### Startup wiring
-
-Add `BurdenWidget::Register()` call in `SKSEPlugin_Load` messaging listener (`kPostLoad` case), alongside existing startup steps.
-
----
-
-## 6. Papyrus Interface
-
-Extend `Data/Source/Scripts/EC_StaminaAndBurden.psc`:
-
-```
-Scriptname EC_StaminaAndBurden
-
-Int[] Function GetVersion() Global Native
-float Function GetEquippedBurdenRatio() Global Native
-float Function GetTotalBurdenRatio() Global Native
-float Function GetCurrentStaminaRegenMult() Global Native
-```
-
-The existing `UnitTest_Serialization` declarations are removed (or implemented only in debug builds).
-
-**Fix:** `Data/SKSE/CustomConsole/TestCommands.yaml` — change `SEA_TemplateProject` references to `EC_StaminaAndBurden`.
-
-**Console commands** (via TestCommands.yaml):
-
-| Command                | Native function         | Effect                       |
-|------------------------+-------------------------+------------------------------|
-| `sb_get <key>`         | `Console_GetSetting`    | Print current value          |
-| `sb_set <key> <value>` | `Console_SetSetting`    | Set + persist                |
-| `sb_list`              | `Console_ListSettings`  | Dump all                     |
-| `sb_reset`             | `Console_ResetSettings` | Delete INI, restore defaults |
-| `sb_getburden`         | `Console_GetBurden`     | Debug burden values          |
+**Deferred until a solution is found for player action denial.** The BowFireHook's inline deny is the pattern to follow: check `CanDoStaminaAction` inside the cost hook, suppress the action if insufficient.
 
 ---
 
-## 7. Serialization
+## 7. Papyrus Interface
 
-**On hold.** No serialization of burden state is currently needed — burden data is recomputed dynamically on game load. The current serialization ID is `'TRJT'` (from the template project). A future `BurdenSerde` (`'EXHD'`) may be added if save-scoped state becomes necessary.
+**Current state:** Minimal. Only `GetVersion` bound. Script at `Data/Source/Scripts/EC_StaminaAndBurden.psc` has 3 stubs: `GetVersion` + 2 `UnitTest_Serialization` stubs.
 
----
-
-## 8. All Settings (hardcoded defaults in SettingsRegistry)
-
-Setting keys in `Parameter<T>` structs, organized by compile-time group. No shipped INI file. Values and ranges defined in C++ defaults — subject to empirical tuning via curve plotting (planned ImGui overlay).
-
-### Burden (BurdenParams)
-  fmaxEquippedWeightRatio
-  fSlotBurdenMult_def / fSlotBurdenMult_body / fSlotBurdenMult_feet / fSlotBurdenMult_head / fSlotBurdenMult_hand
-  iPlayerMaxSkill
-  fSkillInterpolate
-  fSkillBurdenMult_minHeavy / fSkillBurdenMult_maxHeavy / fSkillBurdenMult_minLight / fSkillBurdenMult_maxLight
-  fSteedStoneBurdenMult
-
-### Regen.Cross-AV (RegenParams)
-  fStaminaRegenMult_LowHealth / fStaminaRegenMult_HighHealth
-  fStaminaRegenMult_LowStamina / fStaminaRegenMult_HighStamina
-  fStaminaRegenMult_LowMagicka / fStaminaRegenMult_HighMagicka
-  fStaminaRegenCurve_kStamina / fStaminaRegenCurve_kMagicka / fStaminaRegenCurve_kHealth
-  bEnableDebugLogging
-
-### Regen.Movement (RegenMovementParams)
-  fRegenStatic_max / fRegenStatic_min
-  fRegenWalking_max / fRegenWalking_min
-  fRegenSneaking_max / fRegenSneaking_min
-  fRegenRunning_max / fRegenRunning_min
-  fRegenSwimming_max / fRegenSwimming_min
-  fMovementRegenCurve_k
-  fBlockRegenCostBurdenPerc
-
-### Regen.Health (RegenParams)
-  fHealthRegenMult_LowStamina / fHealthRegenMult_HighStamina
-  fHealthRegenCurve_k
-
-### Regen.Magicka (RegenParams)
-  fMagickaRegenMult_LowStamina / fMagickaRegenMult_HighStamina
-  fMagickaRegenCurve_k
-
-### Weather (WeatherParams)
-  fWeatherRainPenalty / fWeatherSnowPenalty / bWeatherEnabled
-
-### Sprint Drain (CostsParams)
-  fSprintDrainLowBurden / fSprintDrainHighBurden
-  fSprintDrainLowCarryBurdenPct / fSprintDrainHighCarryBurdenPct
-  fSprintDrainBurdenCurve_k / fSprintDrainCarryBurdenCurve_k
-
-### Overrides.GameSettings (ParameterOverrides)
-  fCombatStaminaRegenRateMult / fCombatHealthRegenRateMult / fCombatMagickaRegenRateMult
-  fDamagedStaminaRegenDelay / fDamagedHealthRegenDelay / fDamagedMagickaRegenDelay
+**Planned** (deferred):
+- `GetEquippedBurdenRatio` — query burden data from Papyrus
+- `GetTotalBurdenRatio`
+- `GetCurrentStaminaRegenMult`
+- Console command natives (sb_get/set/list/reset/getburden)
 
 ---
 
-## 9. Implementation Phases
+## 8. Serialization
+
+**Current state:** Infrastructure exists (`Serialization::Serde.h/.cpp`) — `Serializable` base class, `ObjectManager` registry, save/load/revert callbacks registered with ID `'TRJT'`. Nothing is registered.
+
+Burden state is dynamically recomputed on game load — no serialization needed. The infrastructure remains for future use if save-scoped state becomes necessary.
+
+---
+
+## 9. Settings (Parameter Groups)
+
+All settings are `Parameter<T>` structs in `src/Settings/Params/`. No shipped INI file with values — defaults are C++ `static constexpr`. `_Custom.ini` provides user overrides.
+
+### BurdenParams (20 params)
+- `fmaxEquippedWeightRatio` — ratio of carry weight used for max equipped weight
+- `fSlotBurdenMult_def/body/feet/head/hand` — slot multipliers for equipped burden
+- `iPlayerMaxSkill` — skill cap (default 100)
+- `fSkillInterpolate` — curve shape for armor skill weighting
+- `fSkillBurdenMult_minHeavy/maxHeavy/minLight/maxLight` — armor type skill multipliers
+- `fSteedStoneBurdenMult` — Steed Stone factor (default 0.30)
+- `fWeaponWeightMult_LowSkill/HighSkill/Curve_k` — weapon weight scaling by skill
+- `fConjuredWeightMin/Max/Curve_k` — conjured weapon weight by conjuration skill
+- `fBlockSkillBlendFactor` — weapon/block skill blend for block burden
+- `fBlockWeightMult_LowSkill/HighSkill/Curve_k` — block weight scaling
+- `fDualWieldBlockPenalty` — extra penalty for blocking while dual-wielding
+- `fUnarmedWeight` — base weight for unarmed/empty hands
+
+### RegenParams (16 params)
+- `fStaminaRegenMult_LowHealth/HighHealth/LowStamina/HighStamina/LowMagicka/HighMagicka` — cross-AV curves
+- `fStaminaRegenCurve_kStamina/kMagicka/kHealth` — curve shapes
+- `fHealthRegenMult_LowStamina/HighStamina/k` — stamina → health regen curve
+- `fMagickaRegenMult_LowStamina/HighStamina/k` — stamina → magicka regen curve
+- `bEnableDebugLogging`
+
+### RegenMovementParams (17 params)
+- `fRegenStatic_max/min`, `fRegenWalking_max/min`, `fRegenSneaking_max/min`, `fRegenRunning_max/min`, `fRegenSwimming_max/min` — per-state curves
+- `fMovementRegenCurve_k` — shared curve shape
+- `fBowDrawLowBurden/HighBurden/Curve_k` — bow draw hold penalty
+- `fBlockHoldLowBurden/HighBurden/Curve_k` — block hold penalty
+
+### NegativeRegen (5 params)
+- `fBurnRate_LowBonus/HighBonus/Curve_k/LowBound/HighBound` — burn scaler mapping
+
+### WeatherParams (3 params)
+- `fWeatherRainPenalty`, `fWeatherSnowPenalty`, `bWeatherEnabled`
+
+### CostsParams (16 params)
+- `fSprintDrainLowBurden/HighBurden/LowCarryBurdenPct/HighCarryBurdenPct/BurdenCurve_k/CarryBurdenCurve_k`
+- `fJumpCostLowBurden/HighBurden/LowCarryPct/HighCarryPct/BurdenCurve_k/CarryCurve_k`
+- `fBowFireLowBurden/HighBurden/BurdenCurve_k/LowCarryPct/HighCarryPct/CarryCurve_k`
+
+### AttackCostParams (26 params)
+- `fAttackLowCarryPct/HighCarryPct/CarryCurve_k` — shared carry burden component
+- `fAttack1hLowBurden/HighBurden/BurdenCurve_k/PowerMult`
+- `fAttack2hLowBurden/HighBurden/BurdenCurve_k/PowerMult`
+- `fUnarmedBaseFlat/PowerMult`
+- `fBashShieldLowBurden/HighBurden/BurdenCurve_k/PowerMult`
+- `fBashBowLowBurden/HighBurden/BurdenCurve_k/PowerMult`
+- `fBashWeaponLowBurden/HighBurden/BurdenCurve_k/PowerMult`
+
+### DenyParams (4 params)
+- `fMinStaminaCostMult` — stamina threshold fraction for action denial
+- `bPlayerAlwaysCanDoAction` — bypass for player (debug)
+- `bNpcAlwaysCanDoAction` — bypass for NPCs (debug)
+- `fNpcRegenExemptionRate` — regen threshold for NPC exemption
+
+### ParameterOverrides (6 params)
+- `fCombatStaminaRegenRateMult/Health/Magicka` — overrides for GMST combat regen mults
+- `fDamagedStaminaRegenDelay/Health/Magicka` — overrides for GMST damaged regen delays
+
+### Settings future work:
+- INI whitelist population (currently `EXPECTED_COUNT = 0`)
+- Shipped `StaminaAndBurden.ini` with documented defaults
+- In-game console commands (sb_get/set/list/reset/getburden)
+- ImGui settings menu (lowest priority)
+
+---
+
+## 10. Implementation Phases
 
 ### Phase 1 — Burden Foundation ✅
-
-| Task                                                                     | Files                                                  |
-|--------------------------------------------------------------------------+--------------------------------------------------------|
-| Implement `BurdenManager` (slot weighting, skill-weighted armor mult)     | `src/Burden/BurdenManager.h/.cpp`                     |
-| Implement `BurdenTracker` (actor registry, deferred Update)               | `src/Burden/BurdenTracker.h/.cpp`                     |
-| Register equip/container/gameload event sinks                             | `src/Hooks/Hooks.cpp`, `src/Hooks/BurdenEventHandlers`|
-| Implement heartbeat polling (`make_heartbeat` + `TaskTrackBurdenParams`)  | `src/Common/Utils.h`, `src/Burden/BurdenTracker.cpp`  |
-| Add `BurdenParams` singleton with typed `ForEach` export                  | `src/Settings/Params/BurdenParams.h`                  |
-| Verify burden values in-game before proceeding                            | *(manual test)*                                        |
-
-### Phase 1b — Weighted Burden ✅
-
-| Task                                                 | Files                             |
-|------------------------------------------------------+-----------------------------------|
-| Add slot multiplier map + `GetSlotMultiplier()`      | `src/Burden/BurdenManager.cpp`    |
-| Update `sb_getburden` to show weighted vs unweighted | `src/Console/ConsoleCommands.cpp` |
-| Verify weighted burden in-game                       | *(manual test)*                   |
+| Task | Status |
+|---|---|
+| Slot weighting, skill-weighted armor mult | DONE |
+| Actor registry with 2-tier cache | DONE |
+| Equip/container/gameload event sinks | DONE |
+| Weapon burden tracking (rh/lh/2h/ranged/block) | DONE |
+| Block burden (shield/DW/2h/unarmed/paths) | DONE |
+| Conjured weapon weight | DONE |
+| Heartbeat polling for skill/weight changes | DONE |
+| BurdenParams singleton | DONE |
 
 ### Phase 2 — Regen ✅
-
-| Task                                                                         | Files                           |
-|------------------------------------------------------------------------------+---------------------------------|
-| Implement per-movement-state regen curves (static/walk/sneak/run/swim)       | `src/Regen/RegenManager.h/.cpp` |
-| Add burdenBlend to ActorBurdenData, compute once per UpdateBurden            | `src/Burden/BurdenManager.h/.cpp`|
-| Implement `RegenMovementParams` with per-state min/max + shared curve k      | `src/Settings/Params/RegenParams.h`|
-| Add weather penalty (player-only, exterior-only, rain/snow detection)        | `src/Regen/RegenManager.cpp`    |
-| Wire weather penalty into sprint cost (engineRate × penalty, flat additive) | `src/Regen/CostsManager.cpp`    |
-| Hook AVRegen rate function at `38452 + 0x2B6` (`write_call<5>`)               | `src/Hooks/RegenHooks.h/.cpp`   |
-| Full-stamina monitor heartbeat (100ms) kickoff from `OnGameLoad`             | `src/Hooks/RegenHooks.cpp`      |
-| Implement GetEngineStaminaRate (clone of game's regen function)              | `src/Regen/RegenManager.cpp`    |
+| Task | Status |
+|---|---|
+| `ComputeBurdenStaminaRegenRate` — single source of truth | DONE |
+| Per-movement-state min/max curves | DONE |
+| Cross-AV triple product (health% × stamina% × magicka%) | DONE |
+| Block/bow draw hold penalties | DONE |
+| Weather penalty | DONE |
+| Burn scaler for kStaminaRateMult | DONE |
+| `GetBaseStaminaRate` / `GetEngineStaminaRate` | DONE |
+| Health/magicka regen from stamina% | DONE |
+| RegenHook at 38452+0x2B6 | DONE |
+| RegenDelayHook at 38452+0x02C | DONE |
+| Full-stamina monitor heartbeat | DONE |
+| RegenMovementParams, WeatherParams, NegativeRegen | DONE |
 
 ### Phase 3 — Attack Costs ✅
-
-| Task                                                                  | Files                                             |
-|-----------------------------------------------------------------------+---------------------------------------------------|
-| Hook `38603` (attack stamina cost) — `AttackCostHook`                 | `src/Hooks/AttackCostHook.h/.cpp`                |
-| Implement 1H/2H/Unarmed attack cost formulas with burden + carry blend | `src/Stamina/CostsManager.cpp`                   |
-| Implement Bash costs (Shield, Bow, Weapon) — `Compute{Shield,Bow,Weapon}Bash` | `src/Stamina/CostsManager.cpp`             |
-| Implement `ComputeBowFireCost` (ranged attack cost)                    | `src/Stamina/CostsManager.cpp`                   |
-| Hook `49170` (NPC attack denial, disabled)                            | `src/Hooks/DenyHooks.h/.cpp`                     |
-| Add `AttackCostParams` with low/high/curve/power-mult for each type    | `src/Settings/Params/CostsParams.h`              |
-
-All cost formulas complete. Action denial extracted to Phase 7.
-
-### Phase 4 — Movement Costs + Weather ✅
-
-| Task                                                                 | Files                                          |
-|----------------------------------------------------------------------+------------------------------------------------|
-| Implement SprintDrainHook (burden + weather × engineRate)             | `src/Hooks/SprintDrainHook.h/.cpp`            |
-| Add `CostsParams` with sprint/jump drain curve params                 | `src/Settings/Params/CostsParams.h`           |
-| Implement `ComputeSprintDrain` in CostsManager                        | `src/Stamina/CostsManager.cpp`                |
-| Implement jump stamina cost via `ActionHook` (REL::ID(37257) + 0x17F) | `src/Hooks/ActionHook.h/.cpp`                |
-| Implement `ComputeJumpCost` in CostsManager                           | `src/Stamina/CostsManager.cpp`                |
-| Implement `ComputeWeatherPenalty` (Rain/Snow detection)               | `src/Regen/RegenManager.cpp`                  |
-| Add `WeatherParams` struct with rain/snow penalty + toggle            | `src/Settings/Params/RegenParams.h`           |
-| Wire weather into regen formula and sprint cost                       | `src/Regen/RegenManager.cpp`, `CostsManager.cpp` |
-
-### Phase 5 — Blocking ❌
-
-| Task                                                     | Files                              |
-|----------------------------------------------------------+------------------------------------|
-| Implement `BlockManager` (stamina redirect, guard break) | `src/Blocking/BlockManager.h/.cpp` |
-| Hook `38627` (hit processing, blocked path)              | `src/Hooks/Hooks.cpp`              |
-| Wire exhaustion trigger on guard break                   | `src/Blocking/BlockManager.cpp`    |
-
-### Phase 6 — Exhaustion / Cross-Effects ❌
-
-| Task                                                                     | Files                             |
-|--------------------------------------------------------------------------+-----------------------------------|
-| Implement `CombatManager` (stamina-conditional + exhaustion dmg scaling) | `src/Combat/CombatManager.h/.cpp` |
-| Hook stamina-conditional damage scaling into `38627` (all hits)          | `src/Hooks/Hooks.cpp`             |
-| Implement exhaustion state machine (timed duration)                      | `src/Blocking/BlockManager.cpp`   |
-| Cross-AV regen wiring (already in Phase 2)                              | *(reuse)*                         |
-
-### Phase 7 — Action Denial ❌
-
-| Task                                                                      | Files                                                  |
-|---------------------------------------------------------------------------+--------------------------------------------------------|
-| Research AE hook target for player stamina denial on attack/jump/sprint   | `src/Hooks/DenyHooks.h/.cpp`                           |
-| Implement code-hook solution (approach A in existing `.opencode/plans/`)  | `.opencode/plans/player-action-denial.md`              |
-| Alternative: hybrid ESP+DLL with TESGlobals (approach B)                  | *(same doc)*                                           |
-| Wire denial threshold to burden/exhaustion state                          | *(depends on Phase 6)*                                 |
-
-`AttackDenyHook` (`REL::ID(49170) + 0x28d`) confirmed NPC-only — player never fires.  
-Two approaches documented in `.opencode/plans/player-action-denial.md`:
-- **A) Code hook** — Find AE equivalent of StaminaNPC's `REL::ID(38047) + 0xBB/+0xC8`.
-- **B) Hybrid ESP+DLL** — Animation conditions reading `TESGlobal`s. Version-stable.
-
-### Phase 8 — Runtime Configuration ❌
-
-| Task                                                         | Files                                            |
-|--------------------------------------------------------------+--------------------------------------------------|
-| Add `sb_get`/`sb_set`/`sb_list`/`sb_reset` console commands  | `src/Console/ConsoleCommands.cpp`, `Papyrus.cpp` |
-| Wire `SettingsRegistry::LoadFromINI()` into startup sequence | `src/Export/SKSEPlugin.cpp`                      |
-| Wire `SettingsRegistry::SaveToINI()` into every `Set()`      | `src/Config/SettingsRegistry.cpp`                |
-
-### Phase 9 — HUD Burden Widget ❌
-
-| Task | Files |
+| Task | Status |
 |---|---|
-| Vendor `TrueHUDAPI.h` into project | `src/HUD/TrueHUDAPI.h` |
-| Implement `BurdenWidget` (API detection + registration) | `src/HUD/BurdenWidget.h/.cpp` |
-| Wire into startup messaging listener | `src/Export/SKSEPlugin.cpp` |
-| Expose burden data access from Tracker | `src/Burden/BurdenTracker.h/.cpp` |
+| `ComputeAttackCost` with 7 weapon types | DONE |
+| Power attack multiplier | DONE |
+| `ComputeBowFireCost` | DONE |
+| `ComputeJumpCost` | DONE |
+| `ComputeSprintDrain` (frame-time scaled) | DONE |
+| AttackCostHook at 38603+0x171 | DONE |
+| SprintDrainHook at 38022+0xC1/0xC9 | DONE |
+| ActionHook at 37257+0x17F | DONE |
+| BowFireHook at 42859+0x138 | DONE |
+| CostsParams, AttackCostParams | DONE |
 
-### Phase 10 — Papyrus + Polish ❌
+### Phase 4 — Denial (DEFERRED)
+| Task | Status |
+|---|---|
+| AttackDenyHook at 49170+0x28D | NOT INSTALLED — NPC only |
+| Player attack denial | NOT STARTED — needs vtable hook on AttackBlockHandler |
+| JumpDenyHook at 42423+0x114 | NOT INSTALLED — AE call site crashes |
 
-| Task                                                                | Files                                         |
-|---------------------------------------------------------------------+-----------------------------------------------|
-| Bind query functions in `Papyrus.cpp`                               | `src/Papyrus/Papyrus.h/.cpp`                  |
-| Update `.psc` script                                                | `Data/Source/Scripts/EC_StaminaAndBurden.psc` |
-| Remove stale `UnitTest_Serialization` declarations                  | `.psc` + `Papyrus.cpp`                        |
-| Fix `TestCommands.yaml` (SEA_TemplateProject → EC_StaminaAndBurden) | `TestCommands.yaml`                           |
-| Remove unreferenced `TaskUpdatePlayerBurdenLog`                     | `src/Burden/BurdenManager.h/.cpp`             |
-| Clean up old `Settings::INI` files                                  | `src/Settings/INI/`                           |
-| Remove `StaminaAndBurden.ini` shipped file                          | `Data/SKSE/Plugins/StaminaAndBurden.ini`      |
-| Final settings tuning pass                                          | C++ defaults in `Parameter<T>` structs        |
+### Phase 5 — Blocking (NOT STARTED)
+| Task | Status |
+|---|---|
+| BlockManager — stamina redirect on blocked hits | NOT STARTED |
+| Guard break mechanic | NOT STARTED |
+| Block skill influence on stamina consumption | NOT STARTED |
+| Hook 38627 (hit processing) | NOT STARTED |
+
+### Phase 6 — Combat Damage Scaling (NOT STARTED)
+| Task | Status |
+|---|---|
+| CombatManager — stamina-conditional damage | NOT STARTED |
+| Exhaustion state machine | NOT STARTED |
+| Damage scaling on 38627 | NOT STARTED |
+
+### Phase 7 — Settings & Console (DEFERRED — lowest priority)
+| Task | Status |
+|---|---|
+| Populate INI whitelist with all params | NOT STARTED |
+| Ship `StaminaAndBurden.ini` with defaults | NOT STARTED |
+| Console commands (sb_get/set/list/reset) | NOT STARTED |
+| sb_getburden debug command | NOT STARTED |
+| Fix TestCommands.yaml (SEA_TemplateProject → EC_StaminaAndBurden) | NOT STARTED |
+
+### Phase 8 — Papyrus & Polish (NOT STARTED)
+| Task | Status |
+|---|---|
+| Bind query functions | NOT STARTED |
+| Clean up UnitTest_Serialization stubs | NOT STARTED |
+| Clean up stale Settings::INI files | NOT STARTED |
+| Clean up unreferenced `TaskUpdatePlayerBurdenLog` | NOT STARTED |
+
+### Phase 9 — HUD Burden Widget (NOT STARTED — optional)
+| Task | Status |
+|---|---|
+| TrueHUD API integration | NOT STARTED |
+| Burden special resource bar | NOT STARTED |
 
 ---
 
-## 10. Scope by Actor Type
+## 11. Deviations from Original Plan (Improvements)
 
-| Feature                | Player                   | NPCs                     |
-|------------------------+--------------------------+--------------------------|
-| Burden tracking        | ✓ (event-driven, cached) | ✓ (lazy per-hook)        |
-| Regen modification     | ✓ (full formula)         | ✓ (no weather component) |
-| Weather penalty        | ✓                        | ✗                        |
-| Attack cost              | ✓                        | ✓                        |
-| Action denial            | ⏳ (Phase 7)             | ⏳ (Phase 7)             |
-| Movement cost          | ✓ (regen curves + hook)  | ✓ (regen curves, no weather) |
-| Block stamina redirect | ✓                        | ✓                        |
-| Exhaustion             | ✓                        | ✓                        |
-| Attack damage scaling  | ✓                        | ✓                        |
+1. **No SettingsRegistry** — `Parameter<T>` + `_Custom.ini` is simpler and standard for Skyrim. Not a gap.
+2. **Per-movement-state min/max curves** instead of flat scalars — finer granularity for regen tuning.
+3. **burdenBlend** instead of separate burden × carryBurden product — smoother blend between equipped and carry burden.
+4. **Weapon burden tracking** (per-hand, 2h, ranged, block) — enables per-type attack cost curves.
+5. **Block burden** (shield/DW/2h/unarmed paths) — not in original plan at all.
+6. **Conjured weapon weight** — not in original plan.
+7. **Burn scaler** for kStaminaRateMult — not in original plan.
+8. **Weather penalty** implemented as part of RegenManager, not a separate WeatherManager.
+9. **Block/bow draw hold penalties** — continuous flat drain, not in original plan.
+10. **RegenDelayHook** — caches negative rate, drains per frame. Improves over inline DamageActorValue in RegenHook.
+11. **Heartbeat via `std::thread` + `make_heartbeat`** instead of WorldFrameHook — no hook needed, works on all AE versions.
+12. **`ComputeBurdenStaminaRegenRate`** as single source of truth — improves clarity and maintainability.
+
+## 12. Scope by Actor Type
+
+| Feature | Player | NPCs |
+|---|---|---|
+| Burden tracking | ✓ (event-driven, cached, skill-polled) | ✓ (lazy per-hook, transient cache) |
+| Regen modification | ✓ (full formula) | ✓ (no weather component) |
+| Weather penalty | ✓ | ✗ |
+| Attack cost | ✓ (all weapon types + power) | ✓ |
+| Jump cost | ✓ | ✓ |
+| Sprint drain | ✓ | ✓ |
+| Bow fire cost + deny | ✓ | ✓ |
+| Block stamina redirect | ✗ (future) | ✗ (future) |
+| Exhaustion | ✗ (future) | ✗ (future) |
+| Attack damage scaling | ✗ (future) | ✗ (future) |
+| Action denial | AttackDenyHook NPC-only, JumpDenyHook broken AE | AttackDenyHook NPC-only |
 
 ---
 
-## 11. Open Items (future refinement)
+## 13. Key Open Items
 
-1. **Movement costs**: Game-setting manipulation affects all actors equally. If per-actor differentiation is needed, migrate from game-setting writes to per-actor function hooks.
-
-2. **Slot multiplier granularity**: Currently 2 overridable slots (Body, Feet) + default 1.0. Expandable later with more keys.
-
-3. **Exhaustion recovery condition**: Timed (configurable). Could also trigger on full stamina recharge — revisit if timed feels wrong.
-
-4. **Block skill → split ratio**: Currently skill only reduces stamina *consumption*, not the health/stamina split ratio. Add `fBlockSkillSplitShift` if you want expert blockers to divert even more damage to stamina.
-
-5. **SKSE Menu Framework GUI**: Deferred. The `SettingsRegistry` + console commands provide all the runtime testing capability needed. An ImGui page can be added later without architectural changes.
-
-6. **MCM integration**: Not in scope. The ImGui approach (SKSE Menu Framework) is preferred over MCM Helper (which requires an ESP).
+1. **Player attack denial** — vtable hook on `AttackBlockHandler::ProcessButton` (vtable index 04). AE-stable per CommonLibSSE-NG.
+2. **Jump denial AE** — need working call site for AE 1.6.1170. SSE `41349+0x114` known working.
+3. **Block redirect** — hook `38627` for hit processing, split damage to stamina on blocked hits.
+4. **Exhaustion** — state machine with timed duration, regen/damage penalties.
+5. **Settings INI** — populate whitelist with all active params.
+6. **Console commands** — sb_get/set/list/reset/getburden via Papyrus + TestCommands.yaml.
