@@ -1,6 +1,28 @@
 #include "DamageScalingHook.h"
 #include "Damage/DamageManager.h"
 
+namespace
+{
+	float GetDamageMultiplier(const RE::HitData& hitData)
+	{
+		auto attacker = hitData.aggressor.get();
+		if (!attacker)
+			return 1.0f;
+
+		auto* params = Damage::DamageParams::GetSingleton();
+		bool isPlayer = attacker->IsPlayerRef();
+
+		if ((isPlayer && !params->bDamageScalingPlayer.Get()) ||
+			(!isPlayer && !params->bDamageScalingNPC.Get()))
+			return 1.0f;
+
+		if (!hitData.weapon && hitData.attackDataSpell)
+			return 1.0f;
+
+		return Damage::ComputeStaminaDamageMult(attacker.get());
+	}
+}
+
 namespace Hooks
 {
 	void DamageScalingHook::Install()
@@ -14,23 +36,19 @@ namespace Hooks
 
 	void DamageScalingHook::ProcessHit(RE::Actor* target, RE::HitData& hitData)
 	{
-        auto attacker = hitData.aggressor.get();
+		float damageMult = GetDamageMultiplier(hitData);
 
-		Damage::DamageLog(
-			"DamageScalingHook: attacker={:x} target={:x} "
-			"totalDmg={:.1f} physDmg={:.1f} "
-			"blocked={} powerAtk={} sneakAtk={} melee={} "
-			"weapon={:x} flags={:#x}",
-			attacker ? attacker->GetFormID() : 0,
-			target ? target->GetFormID() : 0,
-			hitData.totalDamage,
-			hitData.physicalDamage,
-			hitData.flags.any(RE::HitData::Flag::kBlocked),
-			hitData.flags.any(RE::HitData::Flag::kPowerAttack),
-			hitData.flags.any(RE::HitData::Flag::kSneakAttack),
-			hitData.flags.any(RE::HitData::Flag::kMeleeAttack),
-			hitData.weapon ? hitData.weapon->GetFormID() : 0,
-			static_cast<std::underlying_type_t<RE::HitData::Flag>>(hitData.flags.get()));
+		if (damageMult != 1.0f) {
+			hitData.totalDamage *= damageMult;
+			hitData.physicalDamage *= damageMult;
+
+			auto attacker = hitData.aggressor.get();
+			Damage::DamageLog(
+				"DamageScalingHook: {:x} scaled by {:.3f} "
+				"-> totalDmg={:.2f} physDmg={:.2f}",
+				attacker ? attacker->GetFormID() : 0, damageMult,
+				hitData.totalDamage, hitData.physicalDamage);
+		}
 
 		_func(target, hitData);
 	}
