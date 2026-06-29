@@ -167,7 +167,7 @@ namespace Regen
 		if (rate <= 0.0f)
 			return 0.0f;
 
-		rate = rate * actor->GetActorValue(RE::ActorValue::kStamina);
+		rate = rate * actor->GetActorValueMax(RE::ActorValue::kStamina);
 		return rate;
 	}
 
