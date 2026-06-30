@@ -1,4 +1,4 @@
-#include "Damage/DamageManager.h"
+#include "Combat/DamageManager.h"
 #include "Common/Utils.h"
 
 namespace Damage
