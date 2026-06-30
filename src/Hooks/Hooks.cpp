@@ -5,7 +5,7 @@
 #include "Hooks/SprintDrainHook.h"
 #include "Hooks/AttackCostHook.h"
 #include "Hooks/BowFireHook.h"
-#include "Hooks/HitHook.h"
+#include "Hooks/BlockHook.h"
 #include "Hooks/DenyHooks.h"
 #include "Hooks/DamageScalingHook.h"
 
@@ -35,7 +35,7 @@ namespace Hooks {
 		AttackCostHook::Install();
 		BowFireHook::Install();
 		DamageScalingHook::Install();
-		HitHook::Install();
+		BlockHook::Install();
 		// AttackDenyHook::Install();  // Seems to be NPC-only (49170), Deferred until a solution is found
 
 		return true;

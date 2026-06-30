@@ -4,10 +4,10 @@
 
 namespace Hooks
 {
-	// Intercepts ProcessHit to log HitData before damage application.
-	// Phase 1: Logging only — no damage modification.
+	// Intercepts ProcessHit for block mechanics (stamina drain, damage redirect, guard break).
+	// Phase 1: Logging only — no modifications.
 	// AE: REL::ID(38627) + 0x4A8 (confirmed by ShieldOfStamina + Valhalla Combat)
-	struct HitHook
+	struct BlockHook
 	{
 		static void Install();
 		static void ProcessHit(RE::Actor* target, RE::HitData& hitData);
