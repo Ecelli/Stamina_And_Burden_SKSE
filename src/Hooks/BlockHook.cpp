@@ -1,4 +1,6 @@
 #include "BlockHook.h"
+#include "Combat/BlockManager.h"
+#include "Common/Utils.h"
 
 namespace Hooks
 {
@@ -27,6 +29,18 @@ namespace Hooks
 			hitData.physicalDamage,
 			hitData.percentBlocked,
 			hitData.stagger);
+
+		// Block flow (Phase 2 stubs — no behavior change yet)
+		if (blocked && target) {
+			float baseCost = Blocking::ComputeBlockStaminaCost(target);
+			float redirectCost = Blocking::ComputeDamageRedirectStaminaCost(target, hitData);
+			float totalCost = baseCost + redirectCost;
+
+			if (totalCost > 0.0f) {
+				Blocking::ApplyBlockDamageRedirect(hitData, redirectCost);
+				Common::ApplyStaminaCost(target, totalCost);
+			}
+		}
 
 		_func(target, hitData);
 	}
