@@ -17,20 +17,17 @@ namespace Hooks
 	{
 		auto aggressor = hitData.aggressor.get();
 		bool blocked = hitData.flags.any(RE::HitData::Flag::kBlocked);
-		bool blockWithWeapon = hitData.flags.any(RE::HitData::Flag::kBlockWithWeapon);
 
-		logger::info("[BlockHook] target={:x} aggressor={:x} blocked={} blockWithWeapon={}"
-			" totalDmg={:.1f} physDmg={:.1f} pctBlocked={:.2f} stagger={:.2f}",
+		Blocking::BlockLog("[BlockHook] target={:x} aggressor={:x} blocked={}"
+			" totalDmg={:.1f} physDmg={:.1f} pctBlocked={:.2f}"sv,
 			target ? target->GetFormID() : 0,
 			aggressor ? aggressor->GetFormID() : 0,
 			blocked,
-			blockWithWeapon,
 			hitData.totalDamage,
 			hitData.physicalDamage,
-			hitData.percentBlocked,
-			hitData.stagger);
+			hitData.percentBlocked);
 
-		// Block flow (Phase 2 stubs — no behavior change yet)
+		// Block flow
 		if (blocked && target) {
 			float baseCost = Blocking::ComputeBlockStaminaCost(target);
 			float redirectCost = Blocking::ComputeDamageRedirectStaminaCost(target, hitData);

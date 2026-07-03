@@ -21,6 +21,9 @@ namespace Blocking
 		Parameter<float> fBlockRedirectMult_LowBurden{ 0.8f, 0.0f, 10.0f };
 		Parameter<float> fBlockRedirectMult_HighBurden{ 5.0f, 0.0f, 20.0f };
 		Parameter<float> fBlockRedirectMultCurve_k{ 0.70f, 0.0f, 1.0f };
+		Parameter<float> fBlockRedirectMultPct_LowBurden{ 0.1f, 0.0f, 1.0f };
+		Parameter<float> fBlockRedirectMultPct_HighBurden{ 1.0f, 0.0f, 10.0f };
+		Parameter<float> fBlockRedirectMultPctCurve_k{ 0.50f, 0.0f, 1.0f };
 		Parameter<float> fBlockGuardBreakThreshold{ 0.10f, 0.0f, 1.0f };
 
 		template <typename F>
@@ -42,6 +45,9 @@ namespace Blocking
 			a_fn("fBlockRedirectMult_LowBurden"sv, s.fBlockRedirectMult_LowBurden);
 			a_fn("fBlockRedirectMult_HighBurden"sv, s.fBlockRedirectMult_HighBurden);
 			a_fn("fBlockRedirectMultCurve_k"sv, s.fBlockRedirectMultCurve_k);
+			a_fn("fBlockRedirectMultPct_LowBurden"sv, s.fBlockRedirectMultPct_LowBurden);
+			a_fn("fBlockRedirectMultPct_HighBurden"sv, s.fBlockRedirectMultPct_HighBurden);
+			a_fn("fBlockRedirectMultPctCurve_k"sv, s.fBlockRedirectMultPctCurve_k);
 			a_fn("fBlockGuardBreakThreshold"sv, s.fBlockGuardBreakThreshold);
 		}
 	};
