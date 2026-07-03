@@ -34,8 +34,21 @@ namespace Hooks
 			float totalCost = baseCost + redirectCost;
 
 			if (totalCost > 0.0f) {
-				Blocking::ApplyBlockDamageRedirect(hitData, redirectCost);
-				Common::ApplyStaminaCost(target, totalCost);
+				float currentStamina = target->GetActorValue(RE::ActorValue::kStamina);
+				float redirectAmount = hitData.totalDamage;
+
+				if (currentStamina >= totalCost) {
+					Blocking::ApplyBlockDamageRedirect(hitData, redirectAmount);
+					Common::ApplyStaminaCost(target, totalCost);
+				} else {
+					float staminaBudget = std::max(0.0f, currentStamina - baseCost);
+
+					if (staminaBudget > 0.0f && redirectCost > 0.0f) {
+						redirectAmount = redirectAmount * (staminaBudget / redirectCost);
+						Blocking::ApplyBlockDamageRedirect(hitData, redirectAmount);
+					}
+					Common::ApplyStaminaCost(target, currentStamina);
+				}
 			}
 		}
 
