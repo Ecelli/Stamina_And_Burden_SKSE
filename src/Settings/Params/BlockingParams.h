@@ -24,7 +24,6 @@ namespace Blocking
 		Parameter<float> fBlockRedirectMultPct_LowBurden{ 0.1f, 0.0f, 1.0f };
 		Parameter<float> fBlockRedirectMultPct_HighBurden{ 1.0f, 0.0f, 10.0f };
 		Parameter<float> fBlockRedirectMultPctCurve_k{ 0.50f, 0.0f, 1.0f };
-		Parameter<float> fBlockGuardBreakThreshold{ 0.10f, 0.0f, 1.0f };
 		Parameter<float> fStaggerPowerAttackMult{ 1.5f, 1.0f, 5.0f };
 		Parameter<float> fStaggerInertiaFactor_LowBurden{ 1.0f, 0.0f, 2.0f };
 		Parameter<float> fStaggerInertiaFactor_HighBurden{ 0.3f, 0.0f, 1.0f };
@@ -55,7 +54,6 @@ namespace Blocking
 			a_fn("fBlockRedirectMultPct_LowBurden"sv, s.fBlockRedirectMultPct_LowBurden);
 			a_fn("fBlockRedirectMultPct_HighBurden"sv, s.fBlockRedirectMultPct_HighBurden);
 			a_fn("fBlockRedirectMultPctCurve_k"sv, s.fBlockRedirectMultPctCurve_k);
-			a_fn("fBlockGuardBreakThreshold"sv, s.fBlockGuardBreakThreshold);
 			a_fn("fStaggerPowerAttackMult"sv, s.fStaggerPowerAttackMult);
 			a_fn("fStaggerInertiaFactor_LowBurden"sv, s.fStaggerInertiaFactor_LowBurden);
 			a_fn("fStaggerInertiaFactor_HighBurden"sv, s.fStaggerInertiaFactor_HighBurden);

@@ -52,7 +52,7 @@ namespace Hooks
 
 					if (Blocking::BlockingParams::GetSingleton()->bGuardBreakEnabled.Get()) {
 						float magnitude = Blocking::ComputeStaggerMagnitude(target, hitData);
-						float direction = Blocking::ComputeStaggerDirection(target, aggressor);
+						float direction = Blocking::ComputeStaggerDirection(target, hitData);
 						target->SetGraphVariableFloat("staggerDirection", direction);
 						target->SetGraphVariableFloat("StaggerMagnitude", magnitude);
 						target->NotifyAnimationGraph("staggerStart");

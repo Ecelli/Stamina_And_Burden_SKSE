@@ -2,6 +2,7 @@
 #include "Settings/Params/BlockingParams.h"
 #include "Common/Utils.h"
 #include "Burden/BurdenTracker.h"
+#include <RE/N/NiMath.h>
 
 namespace Blocking
 {
@@ -61,7 +62,7 @@ namespace Blocking
 			burden.weaponBurden_block,
 			params->fBlockRedirectMultCurve_k.Get());
 
-        float pctCost = stamina1pct * Math::Interpolate(
+		float pctCost = stamina1pct * Math::Interpolate(
 			params->fBlockRedirectMultPct_LowBurden.Get(),
 			params->fBlockRedirectMultPct_HighBurden.Get(),
 			burden.burdenBlend,
@@ -105,7 +106,7 @@ namespace Blocking
 			return 0.0f;
 
 		if (hitData.flags.any(RE::HitData::Flag::kPowerAttack))
-            effectiveDamage = effectiveDamage * params->fStaggerPowerAttackMult.Get();
+			effectiveDamage = effectiveDamage * params->fStaggerPowerAttackMult.Get();
 
 		float damageBurden = Math::Clamp01(effectiveDamage / currentHealth);
 
@@ -129,11 +130,12 @@ namespace Blocking
 			params->fStaggerMagnitudeCurve_k.Get());
 	}
 
-	float ComputeStaggerDirection(RE::Actor* target, RE::Actor* aggressor)
+	float ComputeStaggerDirection(RE::Actor* target, const RE::HitData& hitData)
 	{
-		auto headingAngle = target->GetHeadingAngle(aggressor->GetPosition(), false);
-		return (headingAngle >= 0.0f)
-			? headingAngle / 360.0f
-			: (360.0f + headingAngle) / 360.0f;
+		float theta = RE::NiFastATan2(hitData.hitDirection.x, hitData.hitDirection.y);
+		float heading = RE::rad_to_deg(theta - target->GetAngleZ());
+		if (heading < -180.0f) heading += 360.0f;
+		if (heading > 180.0f) heading -= 360.0f;
+		return (heading >= 0.0f) ? heading / 360.0f : (360.0f + heading) / 360.0f;
 	}
 }
