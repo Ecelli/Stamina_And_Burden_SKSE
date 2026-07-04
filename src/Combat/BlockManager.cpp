@@ -85,4 +85,55 @@ namespace Blocking
 		BlockLog("ApplyBlockDamageRedirect: {:.1f} -> {:.1f} (redirected {:.1f})"sv,
 			original, hitData.totalDamage, redirectAmount);
 	}
+
+	float ComputeStaggerMagnitude(RE::Actor* actor, const RE::HitData& hitData)
+	{
+		if (!actor)
+			return 0.0f;
+
+		auto* params = BlockingParams::GetSingleton();
+		bool isPlayer = actor->IsPlayerRef();
+		if ((isPlayer && !params->bBlockCostPlayer.Get()) ||
+			(!isPlayer && !params->bBlockCostNPC.Get()))
+			return 0.0f;
+
+		auto& burden = Burden::Tracker::GetOrComputeBurden(actor);
+
+		float effectiveDamage = hitData.totalDamage;
+		float currentHealth = actor->GetActorValue(RE::ActorValue::kHealth);
+		if (effectiveDamage <= 0.0f || currentHealth <= 0.0f)
+			return 0.0f;
+
+		if (hitData.flags.any(RE::HitData::Flag::kPowerAttack))
+            effectiveDamage = effectiveDamage * params->fStaggerPowerAttackMult.Get();
+
+		float damageBurden = Math::Clamp01(effectiveDamage / currentHealth);
+
+		float inertiaFactor = Math::Interpolate(
+			params->fStaggerInertiaFactor_LowBurden.Get(),
+			params->fStaggerInertiaFactor_HighBurden.Get(),
+			burden.burdenBlend,
+			params->fStaggerInertiaFactorCurve_k.Get());
+
+		float unblockedBurden = damageBurden * inertiaFactor;
+
+		BlockLog("ComputeStaggerMagnitude: {:x} effective={:.1f}"
+			" damageBurd={:.2f} inertiaF={:.2f} unblockedBurd={:.2f}"sv,
+			actor->GetFormID(), effectiveDamage,
+			damageBurden, inertiaFactor, unblockedBurden);
+
+		return Math::Interpolate(
+			params->fStaggerMagnitudeMin.Get(),
+			params->fStaggerMagnitudeMax.Get(),
+			unblockedBurden,
+			params->fStaggerMagnitudeCurve_k.Get());
+	}
+
+	float ComputeStaggerDirection(RE::Actor* target, RE::Actor* aggressor)
+	{
+		auto headingAngle = target->GetHeadingAngle(aggressor->GetPosition(), false);
+		return (headingAngle >= 0.0f)
+			? headingAngle / 360.0f
+			: (360.0f + headingAngle) / 360.0f;
+	}
 }

@@ -1,6 +1,7 @@
 #include "BlockHook.h"
 #include "Combat/BlockManager.h"
 #include "Common/Utils.h"
+#include "Settings/Params/BlockingParams.h"
 
 namespace Hooks
 {
@@ -15,7 +16,7 @@ namespace Hooks
 
 	void BlockHook::ProcessHit(RE::Actor* target, RE::HitData& hitData)
 	{
-		auto aggressor = hitData.aggressor.get();
+		auto aggressor = hitData.aggressor.get().get();
 		bool blocked = hitData.flags.any(RE::HitData::Flag::kBlocked);
 
 		Blocking::BlockLog("[BlockHook] target={:x} aggressor={:x} blocked={}"
@@ -48,6 +49,14 @@ namespace Hooks
 						Blocking::ApplyBlockDamageRedirect(hitData, redirectAmount);
 					}
 					Common::ApplyStaminaCost(target, currentStamina);
+
+					if (Blocking::BlockingParams::GetSingleton()->bGuardBreakEnabled.Get()) {
+						float magnitude = Blocking::ComputeStaggerMagnitude(target, hitData);
+						float direction = Blocking::ComputeStaggerDirection(target, aggressor);
+						target->SetGraphVariableFloat("staggerDirection", direction);
+						target->SetGraphVariableFloat("StaggerMagnitude", magnitude);
+						target->NotifyAnimationGraph("staggerStart");
+					}
 				}
 			}
 		}

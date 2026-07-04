@@ -25,6 +25,13 @@ namespace Blocking
 		Parameter<float> fBlockRedirectMultPct_HighBurden{ 1.0f, 0.0f, 10.0f };
 		Parameter<float> fBlockRedirectMultPctCurve_k{ 0.50f, 0.0f, 1.0f };
 		Parameter<float> fBlockGuardBreakThreshold{ 0.10f, 0.0f, 1.0f };
+		Parameter<float> fStaggerPowerAttackMult{ 1.5f, 1.0f, 5.0f };
+		Parameter<float> fStaggerInertiaFactor_LowBurden{ 1.0f, 0.0f, 2.0f };
+		Parameter<float> fStaggerInertiaFactor_HighBurden{ 0.3f, 0.0f, 1.0f };
+		Parameter<float> fStaggerInertiaFactorCurve_k{ 0.50f, 0.0f, 1.0f };
+		Parameter<float> fStaggerMagnitudeMin{ 0.0f, 0.0f, 5.0f };
+		Parameter<float> fStaggerMagnitudeMax{ 2.0f, 0.0f, 10.0f };
+		Parameter<float> fStaggerMagnitudeCurve_k{ 0.50f, 0.0f, 1.0f };
 
 		template <typename F>
 		static void ForEach(F&& a_fn)
@@ -49,6 +56,13 @@ namespace Blocking
 			a_fn("fBlockRedirectMultPct_HighBurden"sv, s.fBlockRedirectMultPct_HighBurden);
 			a_fn("fBlockRedirectMultPctCurve_k"sv, s.fBlockRedirectMultPctCurve_k);
 			a_fn("fBlockGuardBreakThreshold"sv, s.fBlockGuardBreakThreshold);
+			a_fn("fStaggerPowerAttackMult"sv, s.fStaggerPowerAttackMult);
+			a_fn("fStaggerInertiaFactor_LowBurden"sv, s.fStaggerInertiaFactor_LowBurden);
+			a_fn("fStaggerInertiaFactor_HighBurden"sv, s.fStaggerInertiaFactor_HighBurden);
+			a_fn("fStaggerInertiaFactorCurve_k"sv, s.fStaggerInertiaFactorCurve_k);
+			a_fn("fStaggerMagnitudeMin"sv, s.fStaggerMagnitudeMin);
+			a_fn("fStaggerMagnitudeMax"sv, s.fStaggerMagnitudeMax);
+			a_fn("fStaggerMagnitudeCurve_k"sv, s.fStaggerMagnitudeCurve_k);
 		}
 	};
 }
