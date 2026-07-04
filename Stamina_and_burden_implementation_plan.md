@@ -18,13 +18,13 @@ An SKSE plugin for Skyrim AE that overhauls stamina into a burden- and weight-dr
 ```
 src/
 ├── Burden/            # Burden computation + actor tracker (DONE)
+├── Combat/            # BlockManager + DamageManager (DONE)
+│   ├── BlockManager   # Block stamina cost, damage redirect, guard break
+│   └── DamageManager  # Stamina-conditional damage scaling
 ├── Common/            # PCH, Utils.h — heartbeat, CanDoStaminaAction, Interpolate (DONE)
-├── Damage/            # Stamina-based damage scaling (DONE)
-│   ├── DamageManager  # ComputeStaminaDamageMult + DamageLog
-│   └── Params:        # DamageParams singleton (in Settings/Params/)
 ├── Data/              # ModObjectManager, Lookup.h (shell — EXPECTED_COUNT=0)
 ├── Export/            # SKSEPlugin.cpp — entrypoint (DONE)
-├── Hooks/             # 7 code detours + 4 event sinks + 2 uninstalled denies (DONE)
+├── Hooks/             # 8 code detours + 4 event sinks + 2 uninstalled denies (DONE)
 ├── Papyrus/           # GetVersion only bound (MINIMAL)
 ├── RE/                # Offset.h — placeholder; all REL::IDs inline (DONE)
 ├── Serialization/     # Serde.h/.cpp — infrastructure ready, nothing registered (SHELL)
@@ -34,13 +34,12 @@ src/
 │   └── Params/        # Parameter<T> singletons: BurdenParams, RegenParams,
 │                      #   RegenMovementParams, NegativeRegen, WeatherParams,
 │                      #   CostsParams, AttackCostParams, DenyParams,
-│                      #   ParameterOverrides, DamageParams (DONE)
+│                      #   BlockingParams, ParameterOverrides, DamageParams (DONE)
 └── Stamina/
     ├── RegenManager   # Regen formulas + single source of truth (DONE)
     └── CostsManager   # Sprint/jump/attack/bow cost formulas (DONE)
 
 **Not created (future):**
-- `src/Blocking/` — stamina redirect on blocked hits, guard break
 - `src/Console/` — runtime debug/query commands
 - `src/HUD/` — TrueHUD burden widget
 
@@ -212,13 +211,144 @@ cost            = flatTerm + pctTerm × Stamina_1pctMax
 - Action lockout checks for blocked actions
 - Any future action types not covered by existing hooks
 
-### 3.5 BlockManager (NOT STARTED)
+### 3.5 BlockManager (DONE)
 
-Stamina redirect on blocked hits + guard break + exhaustion trigger. No code exists.
+**Files:** `src/Combat/BlockManager.h/.cpp`, `src/Hooks/BlockHook.h/.cpp`, `src/Settings/Params/BlockingParams.h`
 
-### 3.6 CombatManager (NOT STARTED)
+**Purpose:** On blocked hits, redirects remaining (post-block) damage from health to stamina cost. Running out of stamina triggers guard break stagger. Engine block formula is reimplemented as an offset to avoid double-counting.
 
-Stamina-conditional damage scaling. No code exists.
+**Engine context:** `HitData.totalDamage` at the hook point is already post-block:
+```
+totalDamage = physicalDamage × (1 - pctBlocked) × (1 - resistanceFactor)
+```
+
+`pctBlocked` varies depending on block skill, shield AR/weapon damage, and perk investment. Our redirect does NOT reduce damage further — it converts the already-reduced damage from health to stamina. Requires SSE Engine Fixes for correct weapon blocking (uses blocker's weapon, not attacker's).
+
+**Engine block formula (GMST-controlled):**
+```
+Shield: pctBlocked = (fShieldBaseFactor + fShieldScalingFactor × ShieldAR
+                      × (1 + BlockSkill × fBlockSkillMult × 0.0075))
+                     × perks × fBlockPowerAttackMult
+
+Weapon: pctBlocked = (fBlockWeaponBase + fBlockWeaponScaling × WeaponDamage
+                      × (1 + BlockSkill × fBlockSkillMult × 0.0075))
+                     × perks × fBlockPowerAttackMult
+```
+
+**Hook:** `REL::ID(38627) + 0x4A8` — same site as `DamageScalingHook`, chained via trampoline. DamageScalingHook executes first (scales damage), then BlockHook processes block mechanics on the scaled values.
+
+**Engine drain formula** (reimplemented from Shield of Stamina):
+```
+engineCost = (percentBlocked × physicalDamage × fStaminaBlockDmgMult)
+           + (fStaminaBlockStaggerMult × stagger + fStaminaBlockBase)
+```
+GMSTs: `fStaminaBlockDmgMult` (0.0), `fStaminaBlockStaggerMult` (0.0), `fStaminaBlockBase` (0.0) — configurable via `ParameterOverrides.h`.
+
+**Burden block cost formula:**
+```
+burdenData = GetOrComputeBurden(actor)
+
+flatCost = Interpolate(
+    fBlockCost_LowBlockBurden,
+    fBlockCost_HighBlockBurden,
+    weaponBurden_block,
+    fBlockCostCurve_k)
+
+pctCost = 1% maxStamina × Interpolate(
+    fBlockCostPct_LowBlended,
+    fBlockCostPct_HighBlended,
+    burdenBlend,
+    fBlockCostPctCurve_k)
+
+burdenCost = flatCost + pctCost
+totalCost  = max(0, burdenCost - engineCost)
+```
+**Per-actor-type toggle:** `bBlockCostPlayer` (true), `bBlockCostNPC` (false).
+
+**Damage redirect cost formula:**
+```
+redirectMult = Interpolate(
+    fBlockRedirectMult_LowBurden,
+    fBlockRedirectMult_HighBurden,
+    weaponBurden_block,
+    fBlockRedirectMultCurve_k)
+
+pctCost = 1% maxStamina × Interpolate(
+    fBlockRedirectMultPct_LowBurden,
+    fBlockRedirectMultPct_HighBurden,
+    burdenBlend,
+    fBlockRedirectMultPctCurve_k)
+
+redirectCost = totalDamage × (redirectMult + pctCost)
+```
+**Per-actor-type toggle:** `bBlockRedirectPlayer` (true), `bBlockRedirectNPC` (false).
+
+**Block flow in `BlockHook::ProcessHit`:**
+```
+if (hit blocked && target):
+    baseCost     = ComputeBlockStaminaCost(target, hitData)
+    redirectCost = ComputeDamageRedirectStaminaCost(target, hitData)
+    totalCost    = baseCost + redirectCost
+
+    if (totalCost > 0):
+        currentStamina = target->GetActorValue(kStamina)
+
+        if (currentStamina >= totalCost):
+            // Full redirect: zero totalDamage, drain totalCost stamina
+            ApplyBlockDamageRedirect(hitData, totalDamage)
+            ApplyStaminaCost(target, totalCost)
+        else:
+            // Guard break: partial redirect + drain all stamina
+            staminaBudget = max(0, currentStamina - baseCost)
+
+            if (staminaBudget > 0 && redirectCost > 0):
+                redirectAmount = totalDamage × (staminaBudget / redirectCost)
+                ApplyBlockDamageRedirect(hitData, redirectAmount)
+
+            ApplyStaminaCost(target, currentStamina)
+
+            if (bGuardBreakEnabled):
+                magnitude = ComputeStaggerMagnitude(target, hitData)
+                direction = ComputeStaggerDirection(target, hitData)
+                target->SetGraphVariableFloat("staggerDirection", direction)
+                target->SetGraphVariableFloat("StaggerMagnitude", magnitude)
+                target->NotifyAnimationGraph("staggerStart")
+```
+
+**Stagger magnitude:**
+```
+effectiveDamage = totalDamage
+if (kPowerAttack): effectiveDamage *= fStaggerPowerAttackMult
+
+damageBurden  = Clamp01(effectiveDamage / currentHealth)
+inertiaFactor = Interpolate(
+    fStaggerInertiaFactor_LowBurden,
+    fStaggerInertiaFactor_HighBurden,
+    burdenBlend,
+    fStaggerInertiaFactorCurve_k)
+
+unblockedBurden = damageBurden × inertiaFactor
+
+magnitude = Interpolate(
+    fStaggerMagnitudeMin,
+    fStaggerMagnitudeMax,
+    unblockedBurden,
+    fStaggerMagnitudeCurve_k)
+```
+
+**Stagger direction:** Uses `hitData.hitDirection` (NiPoint3). Computes horizontal angle via `NiFastATan2`, relative to target's heading via `GetAngleZ()`, normalizes to 0–1.
+
+**Upstream:** `ComputeBlockBurden()` in `BurdenManager.cpp:198` — shield/DW/2h/unarmed paths with blended block skill. Result stored in `weaponBurden_block`. Block skill is embedded upstream, not as a separate multiplier.
+
+**Deferred items:**
+- Exhaustion debuff — stamina-0 feature, not block-specific. Applies when ANY stamina drain hits 0. Needs separate design.
+- Block commitment — only makes sense with timed block.
+- Timed block — significant future feature: timed block window, commitment, perfect block, window penalty system. Dependencies: input hooks, state machine.
+- Perk integration — Deflect Arrows, Elemental Protection, Shield Wall ranks. Future consideration.
+
+### 3.6 CombatManager (DEFERRED)
+
+Future umbrella for combat-related features not covered by existing managers. Currently no standalone module needed — combat logic lives in `BlockManager`, `DamageManager`, and `CostsManager`.
 
 ### 3.7 WeatherManager (DONE — minimal)
 
@@ -234,7 +364,7 @@ State machine for depleted stamina. No code exists.
 
 ### 3.9 DamageManager (DONE)
 
-**Files:** `src/Damage/DamageManager.h/.cpp`, `src/Settings/Params/DamageParams.h`
+**Files:** `src/Combat/DamageManager.h/.cpp`, `src/Settings/Params/DamageParams.h`
 
 **Purpose:** Scales outgoing physical damage based on attacker stamina percentage. Reinforces stamina management by making low stamina directly reduce combat effectiveness.
 
@@ -281,7 +411,7 @@ damageMult      = Interpolate(fDamageScaleLow, fDamageScaleHigh, staminaPct, fDa
 
 ## 4. Hook Summary
 
-### Installed code detours (7):
+### Installed code detours (8):
 
 | ID | Offset | Name | Purpose |
 |---|---|---|---|
@@ -292,6 +422,9 @@ damageMult      = Interpolate(fDamageScaleLow, fDamageScaleHigh, staminaPct, fDa
 | `38603` | `+0x171` | `AttackCostHook` | Replace engine attack stamina cost → `ComputeAttackCost` |
 | `42859` | `+0x138` | `BowFireHook` | Bow fire cost + deny if insufficient stamina |
 | `38627` | `+0x4A8` | `DamageScalingHook` | Scale outgoing damage by attacker stamina% |
+| `38627` | `+0x4A8` | `BlockHook` | Block stamina cost, damage redirect, guard break stagger |
+
+Note: `DamageScalingHook` and `BlockHook` share the same hook point (`38627+0x4A8`). They chain via trampoline — DamageScalingHook scales damage first, then BlockHook processes block mechanics on the scaled values.
 
 ### Installed event sinks (4):
 
@@ -345,12 +478,12 @@ Per-action:
     AttackCostHook (on attack) → ComputeAttackCost(actor, attackData)
     BowFireHook (on bow release) → ComputeBowFireCost(actor) → ApplyStaminaCost
     DamageScalingHook (on hit) → ComputeStaminaDamageMult(attacker) → scale HitData
+    BlockHook (on blocked hit) → ComputeBlockStaminaCost + ComputeDamageRedirectStaminaCost → redirect or guard break
 ```
 
-### Planned future flow (Blocking, Console, HUD):
+### Future flow (Console, HUD):
 ```
 Burden::Tracker::Update(actor)
-    ├── BlockManager (future: stamina redirect on blocked hits)
     └── Console commands (future: sb_get/set/list/reset/getburden)
 ```
 
@@ -448,9 +581,44 @@ All settings are `Parameter<T>` structs in `src/Settings/Params/`. No shipped IN
 - `bNpcAlwaysCanDoAction` — bypass for NPCs (debug)
 - `fNpcRegenExemptionRate` — regen threshold for NPC exemption
 
-### ParameterOverrides (6 params)
+### BlockingParams (23 params)
+
+| Key | Default | Description |
+|---|---|---|
+| `bEnableDebugLogging` | true | Guard debug log output |
+| `bBlockCostPlayer` | true | Apply stamina cost to player |
+| `bBlockCostNPC` | false | Apply stamina cost to NPCs |
+| `bBlockRedirectPlayer` | true | Apply damage redirect to player |
+| `bBlockRedirectNPC` | false | Apply damage redirect to NPCs |
+| `bGuardBreakEnabled` | true | Enable guard break stagger |
+| `fBlockCost_LowBlockBurden` | 2.0 | Min flat stamina cost at zero block burden |
+| `fBlockCost_HighBlockBurden` | 30.0 | Max flat stamina cost at full block burden |
+| `fBlockCostCurve_k` | 0.80 | Flat cost curve shape |
+| `fBlockCostPct_LowBlended` | 2.0 | Min % maxStamina cost at zero burden |
+| `fBlockCostPct_HighBlended` | 8.0 | Max % maxStamina cost at full burden |
+| `fBlockCostPctCurve_k` | 0.50 | % maxStamina cost curve shape |
+| `fBlockRedirectMult_LowBurden` | 0.8 | Min redirect stamina mult at zero block burden |
+| `fBlockRedirectMult_HighBurden` | 5.0 | Max redirect stamina mult at full block burden |
+| `fBlockRedirectMultCurve_k` | 0.70 | Redirect mult curve shape |
+| `fBlockRedirectMultPct_LowBurden` | 0.1 | Min redirect % maxStamina at zero burden |
+| `fBlockRedirectMultPct_HighBurden` | 1.0 | Max redirect % maxStamina at full burden |
+| `fBlockRedirectMultPctCurve_k` | 0.50 | Redirect % curve shape |
+| `fStaggerPowerAttackMult` | 1.5 | Power attack damage multiplier for stagger |
+| `fStaggerInertiaFactor_LowBurden` | 1.0 | Inertia at zero burden (more stagger) |
+| `fStaggerInertiaFactor_HighBurden` | 0.3 | Inertia at full burden (less stagger) |
+| `fStaggerInertiaFactorCurve_k` | 0.50 | Inertia curve shape |
+| `fStaggerMagnitudeMin` | 0.0 | Min stagger magnitude |
+| `fStaggerMagnitudeMax` | 2.0 | Max stagger magnitude |
+| `fStaggerMagnitudeCurve_k` | 0.50 | Stagger magnitude curve shape |
+
+### ParameterOverrides (15 params)
 - `fCombatStaminaRegenRateMult/Health/Magicka` — overrides for GMST combat regen mults
 - `fDamagedStaminaRegenDelay/Health/Magicka` — overrides for GMST damaged regen delays
+- `fSprintStaminaDrainMult` — override for sprint drain GMST
+- `fShieldBaseFactor` (20.0), `fShieldScalingFactor` (0.25) — shield block %
+- `fBlockWeaponBase` (15.0), `fBlockWeaponScaling` (0.22) — weapon block %
+- `fBlockSkillMult` (6.0), `fBlockPowerAttackMult` (0.66) — block skill + power attack
+- `fStaminaBlockDmgMult` (0.0), `fStaminaBlockStaggerMult` (0.0), `fStaminaBlockBase` (0.0) — engine block stamina drain
 
 ### Settings future work:
 - INI whitelist population (currently `EXPECTED_COUNT = 0`)
@@ -511,13 +679,23 @@ All settings are `Parameter<T>` structs in `src/Settings/Params/`. No shipped IN
 | Player attack denial | NOT STARTED — needs vtable hook on AttackBlockHandler |
 | JumpDenyHook at 42423+0x114 | NOT INSTALLED — AE call site crashes |
 
-### Phase 5 — Blocking (NOT STARTED)
+### Phase 5 — Blocking ✅ (Timed Block / Exhaustion deferred)
 | Task | Status |
 |---|---|
-| BlockManager — stamina redirect on blocked hits | NOT STARTED |
-| Guard break mechanic | NOT STARTED |
-| Block skill influence on stamina consumption | NOT STARTED |
-| Hook 38627 (hit processing) | NOT STARTED |
+| BlockHook at 38627+0x4A8 (chained with DamageScalingHook) | DONE |
+| `ComputeBlockStaminaCost` — burden-based flat + pct cost | DONE |
+| Engine block drain offset (`getEngineBlockStaminaCost`) | DONE |
+| `ComputeDamageRedirectStaminaCost` — health→stamina redirect | DONE |
+| `ApplyBlockDamageRedirect` — zero totalDamage on full redirect | DONE |
+| Guard break stagger — partial redirect + drain all stamina | DONE |
+| Stagger magnitude formula (damageBurden × inertiaFactor) | DONE |
+| Stagger direction formula (NiFastATan2, heading-relative) | DONE |
+| BlockingParams singleton (23 params) | DONE |
+| Engine GMST overrides (9 block-related) | DONE |
+| NPC toggles (`bBlockCostNPC`, `bBlockRedirectNPC`) | DONE |
+| Exhaustion state machine | DEFERRED — stamina-0 feature, not block-specific |
+| Timed block (Valhalla-style) | DEFERRED — future consideration |
+| Perk integration | DEFERRED — future consideration |
 
 ### Phase 6 — Damage Scaling ✅ (Exhaustion deferred)
 | Task | Status |
@@ -571,6 +749,10 @@ All settings are `Parameter<T>` structs in `src/Settings/Params/`. No shipped IN
 12. **`ComputeBurdenStaminaRegenRate`** as single source of truth — improves clarity and maintainability.
 13. **Damage scaling via ProcessHit** instead of `get_damage` inside Populate — ProcessHit provides full HitData context (flags, target, spell detection) at the cost of needing to manually scale `totalDamage` and `physicalDamage`. `get_damage` propagates automatically but lacks context and has unverified AE offset.
 14. **Uniform scaling of totalDamage and physicalDamage** — both fields multiplied by same `damageMult`, preserving crit bonus proportionally. Matches StaminaNPC behavior where crit bonus is derived from scaled `physicalDamage`.
+15. **BlockHook + DamageScalingHook share hook point** — both detour at `38627+0x4A8`. Chained via trampoline: DamageScalingHook scales damage first, then BlockHook processes block mechanics. No conflict — they execute sequentially.
+16. **BlockManager in `src/Combat/`** — not a separate `src/Blocking/` directory. Keeps combat-related modules (`BlockManager`, `DamageManager`) together.
+17. **Engine block GMST overrides** — `fShieldBaseFactor`, `fBlockSkillMult`, etc. overridden via `ParameterOverrides.h` at startup. Requires SSE Engine Fixes for correct weapon blocking.
+18. **Block skill embedded upstream** — `ComputeBlockBurden()` in BurdenManager produces `weaponBurden_block`, not a separate multiplier in BlockManager. Avoids double-counting.
 
 ## 12. Scope by Actor Type
 
@@ -583,7 +765,7 @@ All settings are `Parameter<T>` structs in `src/Settings/Params/`. No shipped IN
 | Jump cost | ✓ | ✓ |
 | Sprint drain | ✓ | ✓ |
 | Bow fire cost + deny | ✓ | ✓ |
-| Block stamina redirect | ✗ (future) | ✗ (future) |
+| Block stamina redirect | ✓ (burden cost + redirect + guard break) | ✗ (default off, toggled via `bBlockCostNPC`/`bBlockRedirectNPC`) |
 | Exhaustion | ✗ (future) | ✗ (future) |
 | Attack damage scaling | ✓ (stamina-based curve) | ✓ (stamina-based curve) |
 | Action denial | AttackDenyHook NPC-only, JumpDenyHook broken AE | AttackDenyHook NPC-only |
@@ -594,8 +776,9 @@ All settings are `Parameter<T>` structs in `src/Settings/Params/`. No shipped IN
 
 1. **Player attack denial** — vtable hook on `AttackBlockHandler::ProcessButton` (vtable index 04). AE-stable per CommonLibSSE-NG.
 2. **Jump denial AE** — need working call site for AE 1.6.1170. SSE `41349+0x114` known working.
-3. **Block redirect** — hook `38627` for hit processing, split damage to stamina on blocked hits.
-4. **Exhaustion** — state machine with timed duration, regen/damage penalties.
+3. **Exhaustion** — state machine with timed duration, regen/damage penalties. Applies when ANY stamina drain hits 0 (sprint, power attack, block).
+4. **Timed block** — Valhalla Combat-style timed block window, commitment, perfect block, window penalty system. Dependencies: input hooks, state machine. Deferrable to separate plan.
 5. **Settings INI** — populate whitelist with all active params.
 6. **Console commands** — sb_get/set/list/reset/getburden via Papyrus + TestCommands.yaml.
 7. **`get_damage` hook migration** — verify AE offset at `RELOCATION_ID(42832, 44001) + 0x1A5` via pattern scan. If viable and formula needs simplify, could replace ProcessHit hook for cleaner propagation.
+8. **Perk integration** — our formulas consume engine-derived values (`percentBlocked`, `staminaMult`) that already include vanilla perk effects. However, modded perks (Ordinator, Vokrii, Adamant, etc.) introduce custom mechanics our system doesn't detect: timed block windows, stamina refunds on block, conditional block bonuses. Future work: load perk forms via `Actor::HasPerk()`, add conditional checks in block/attack flow, handle projectile blocking via vtable detours. Scope depends on which perk mods to support.
