@@ -30,7 +30,7 @@ namespace Hooks
 
 		// Block flow
 		if (blocked && target) {
-			float baseCost = Blocking::ComputeBlockStaminaCost(target);
+			float baseCost = Blocking::ComputeBlockStaminaCost(target, hitData);
 			float redirectCost = Blocking::ComputeDamageRedirectStaminaCost(target, hitData);
 			float totalCost = baseCost + redirectCost;
 

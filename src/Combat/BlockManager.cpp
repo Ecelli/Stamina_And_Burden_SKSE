@@ -1,12 +1,20 @@
 #include "Combat/BlockManager.h"
 #include "Settings/Params/BlockingParams.h"
+#include "Settings/Params/ParameterOverrides.h"
 #include "Common/Utils.h"
 #include "Burden/BurdenTracker.h"
 #include <RE/N/NiMath.h>
 
 namespace Blocking
 {
-	float ComputeBlockStaminaCost(RE::Actor* actor)
+	float getEngineBlockStaminaCost(const RE::HitData& hitData)
+	{
+		auto* params = Regen::ParameterOverrides::GetSingleton();
+		return ((hitData.percentBlocked * hitData.physicalDamage) * params->fStaminaBlockDmgMult.Get())
+			 + (params->fStaminaBlockStaggerMult.Get() * hitData.stagger + params->fStaminaBlockBase.Get());
+	}
+
+	float ComputeBlockStaminaCost(RE::Actor* actor, const RE::HitData& hitData)
 	{
 		if (!actor)
 			return 0.0f;
@@ -32,12 +40,14 @@ namespace Blocking
 			burden.burdenBlend,
 			params->fBlockCostPctCurve_k.Get()) ;
 
-		float totalCost = flatCost + pctCost;
+		float burdenCost = flatCost + pctCost;
+		float engineCost = getEngineBlockStaminaCost(hitData);
+		float totalCost = std::max(0.0f, burdenCost - engineCost);
 
 		BlockLog("ComputeBlockStaminaCost: {:x} blockBurden={:.2f} burdenBlend={:.2f}"
-			" flat={:.2f} pct={:.2f} total={:.2f}"sv,
+			" flat={:.2f} pct={:.2f} engine={:.2f} total={:.2f}"sv,
 			actor->GetFormID(), burden.weaponBurden_block, burden.burdenBlend,
-			flatCost, pctCost, totalCost);
+			flatCost, pctCost, engineCost, totalCost);
 
 		return totalCost;
 	}

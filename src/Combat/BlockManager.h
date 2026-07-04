@@ -4,7 +4,8 @@
 
 namespace Blocking
 {
-	float ComputeBlockStaminaCost(RE::Actor* actor);
+	float getEngineBlockStaminaCost(const RE::HitData& hitData);
+	float ComputeBlockStaminaCost(RE::Actor* actor, const RE::HitData& hitData);
 	float ComputeDamageRedirectStaminaCost(RE::Actor* actor, const RE::HitData& hitData);
 	void ApplyBlockDamageRedirect(RE::HitData& hitData, float redirectAmount);
 	float ComputeStaggerMagnitude(RE::Actor* actor, const RE::HitData& hitData);
