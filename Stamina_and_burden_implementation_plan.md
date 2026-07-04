@@ -19,9 +19,12 @@ An SKSE plugin for Skyrim AE that overhauls stamina into a burden- and weight-dr
 src/
 ├── Burden/            # Burden computation + actor tracker (DONE)
 ├── Common/            # PCH, Utils.h — heartbeat, CanDoStaminaAction, Interpolate (DONE)
+├── Damage/            # Stamina-based damage scaling (DONE)
+│   ├── DamageManager  # ComputeStaminaDamageMult + DamageLog
+│   └── Params:        # DamageParams singleton (in Settings/Params/)
 ├── Data/              # ModObjectManager, Lookup.h (shell — EXPECTED_COUNT=0)
 ├── Export/            # SKSEPlugin.cpp — entrypoint (DONE)
-├── Hooks/             # 6 code detours + 4 event sinks + 2 uninstalled denies (DONE)
+├── Hooks/             # 7 code detours + 4 event sinks + 2 uninstalled denies (DONE)
 ├── Papyrus/           # GetVersion only bound (MINIMAL)
 ├── RE/                # Offset.h — placeholder; all REL::IDs inline (DONE)
 ├── Serialization/     # Serde.h/.cpp — infrastructure ready, nothing registered (SHELL)
@@ -31,15 +34,13 @@ src/
 │   └── Params/        # Parameter<T> singletons: BurdenParams, RegenParams,
 │                      #   RegenMovementParams, NegativeRegen, WeatherParams,
 │                      #   CostsParams, AttackCostParams, DenyParams,
-│                      #   ParameterOverrides (DONE)
+│                      #   ParameterOverrides, DamageParams (DONE)
 └── Stamina/
     ├── RegenManager   # Regen formulas + single source of truth (DONE)
     └── CostsManager   # Sprint/jump/attack/bow cost formulas (DONE)
-```
 
 **Not created (future):**
 - `src/Blocking/` — stamina redirect on blocked hits, guard break
-- `src/Combat/` — stamina-conditional damage scaling
 - `src/Console/` — runtime debug/query commands
 - `src/HUD/` — TrueHUD burden widget
 
@@ -227,15 +228,60 @@ Stamina-conditional damage scaling. No code exists.
 - Configured via `WeatherParams` with `WeatherRainPenalty`, `WeatherSnowPenalty`, `WeatherEnabled`
 - No standalone manager class — inline in RegenManager
 
-### 3.8 Exhaustion (NOT STARTED)
+### 3.8 Exhaustion (DEFERRED)
 
 State machine for depleted stamina. No code exists.
+
+### 3.9 DamageManager (DONE)
+
+**Files:** `src/Damage/DamageManager.h/.cpp`, `src/Settings/Params/DamageParams.h`
+
+**Purpose:** Scales outgoing physical damage based on attacker stamina percentage. Reinforces stamina management by making low stamina directly reduce combat effectiveness.
+
+**Hook:** `DamageScalingHook` at `REL::ID(38627) + 0x4A8` (ProcessHit call site)
+
+```
+ProcessHit(target, hitData) → attacker = hitData.aggressor.get()
+    → GetDamageMultiplier(hitData)
+        → skip if null, toggle off, or spell-only
+        → ComputeStaminaDamageMult(attacker)
+            → staminaPct = curStamina / maxStamina
+            → Interpolate(fDamageScaleLow, fDamageScaleHigh, staminaPct, k)
+    → scale both totalDamage and physicalDamage
+```
+
+**Formula:**
+```
+staminaPct      = currentStamina / maxStamina
+damageMult      = Interpolate(fDamageScaleLow, fDamageScaleHigh, staminaPct, fDamageScaleCurve_k)
+```
+
+**Defaults:**
+- At 0% stamina: 50% damage (`fDamageScaleLow = 0.50`)
+- At 100% stamina: 120% damage (`fDamageScaleHigh = 1.20`)
+- Curve shape: smooth (`fDamageScaleCurve_k = 0.80`)
+
+**Parameters (DamageParams singleton, 6 params):**
+| Key | Default | Description |
+|---|---|---|
+| `bDamageScalingPlayer` | true | Apply scaling to player attacks |
+| `bDamageScalingNPC` | true | Apply scaling to NPC attacks |
+| `fDamageScaleLow` | 0.50 | Damage mult at 0% stamina |
+| `fDamageScaleHigh` | 1.20 | Damage mult at 100% stamina |
+| `fDamageScaleCurve_k` | 0.80 | Curve shape (0=linear, 1=smoothstep) |
+| `bEnableDebugLogging` | true | Debug toggle |
+
+**Design decisions:**
+- Burden NOT included in damage formula — burden affects stamina economy (costs/regen), stamina% affects damage. No double-counting.
+- ProcessHit hook chosen over `get_damage` inside Populate — see Hook Summary note for tradeoffs.
+- Both `totalDamage` and `physicalDamage` scaled uniformly — matches StaminaNPC behavior where crit bonus is derived from scaled `physicalDamage`.
+- Spell-only attacks excluded via `!hitData.weapon && hitData.attackDataSpell` — prevents scaling pure magic damage.
 
 ---
 
 ## 4. Hook Summary
 
-### Installed code detours (6):
+### Installed code detours (7):
 
 | ID | Offset | Name | Purpose |
 |---|---|---|---|
@@ -245,6 +291,7 @@ State machine for depleted stamina. No code exists.
 | `37257` | `+0x17F` | `ActionHook` | Jump stamina cost via `ApplyStaminaCost` |
 | `38603` | `+0x171` | `AttackCostHook` | Replace engine attack stamina cost → `ComputeAttackCost` |
 | `42859` | `+0x138` | `BowFireHook` | Bow fire cost + deny if insufficient stamina |
+| `38627` | `+0x4A8` | `DamageScalingHook` | Scale outgoing damage by attacker stamina% |
 
 ### Installed event sinks (4):
 
@@ -263,6 +310,10 @@ State machine for depleted stamina. No code exists.
 | `42423` | `+0x114` | `JumpDenyHook` | `Install()` logs NOT INSTALLED | AE call site crashes on 1.6.1170. SSE offset known (`41349+0x114`) but not ported. |
 
 Both denial hooks are **implemented but not installed** — per project convention, they are considered incomplete. Deferred until player denial entry point is solved.
+
+### Potential hook migration — `get_damage` inside Populate
+
+An alternative hook point exists at `RELOCATION_ID(42832, 44001) + 0x1A5` — the `get_damage` function called inside `HitData::Populate`. StaminaNPC uses this hook for damage scaling. **Advantages:** scaled value propagates through all downstream Populate computations (crit bonus, etc.) automatically. **Disadvantages:** no access to HitData flags, target, or spell-attack detection (`attackDataSpell`); AE offset unverified; weapon pointer is opaque (`void*`). Current ProcessHit hook is preferred because it provides full HitData context and is confirmed by multiple mods on AE. Migration is possible if future formula needs simplify (no attack-type conditioning, no spell exclusion needed) and AE offset is verified via pattern scan.
 
 ### Heartbeat polling:
 - 200ms detached thread (`Common::make_heartbeat`) — polls tracked actor params for skill/weight changes
@@ -293,13 +344,13 @@ Per-action:
     ActionHook (on jump) → ComputeJumpCost(actor) → ApplyStaminaCost
     AttackCostHook (on attack) → ComputeAttackCost(actor, attackData)
     BowFireHook (on bow release) → ComputeBowFireCost(actor) → ApplyStaminaCost
+    DamageScalingHook (on hit) → ComputeStaminaDamageMult(attacker) → scale HitData
 ```
 
-### Planned future flow (Blocking, Combat, Console, HUD):
+### Planned future flow (Blocking, Console, HUD):
 ```
 Burden::Tracker::Update(actor)
     ├── BlockManager (future: stamina redirect on blocked hits)
-    ├── CombatManager (future: stamina-conditional damage scaling)
     └── Console commands (future: sb_get/set/list/reset/getburden)
 ```
 
@@ -468,12 +519,16 @@ All settings are `Parameter<T>` structs in `src/Settings/Params/`. No shipped IN
 | Block skill influence on stamina consumption | NOT STARTED |
 | Hook 38627 (hit processing) | NOT STARTED |
 
-### Phase 6 — Combat Damage Scaling (NOT STARTED)
+### Phase 6 — Damage Scaling ✅ (Exhaustion deferred)
 | Task | Status |
 |---|---|
-| CombatManager — stamina-conditional damage | NOT STARTED |
-| Exhaustion state machine | NOT STARTED |
-| Damage scaling on 38627 | NOT STARTED |
+| DamageManager — stamina-conditional damage scaling | DONE |
+| DamageScalingHook at 38627+0x4A8 | DONE |
+| DamageParams singleton (6 params) | DONE |
+| Per-actor-type toggles (player/NPC) | DONE |
+| Spell-only attack exclusion | DONE |
+| Physical-only scaling (preserves crit bonus) | DONE |
+| Exhaustion state machine | DEFERRED |
 
 ### Phase 7 — Settings & Console (DEFERRED — lowest priority)
 | Task | Status |
@@ -514,6 +569,8 @@ All settings are `Parameter<T>` structs in `src/Settings/Params/`. No shipped IN
 10. **RegenDelayHook** — caches negative rate, drains per frame. Improves over inline DamageActorValue in RegenHook.
 11. **Heartbeat via `std::thread` + `make_heartbeat`** instead of WorldFrameHook — no hook needed, works on all AE versions.
 12. **`ComputeBurdenStaminaRegenRate`** as single source of truth — improves clarity and maintainability.
+13. **Damage scaling via ProcessHit** instead of `get_damage` inside Populate — ProcessHit provides full HitData context (flags, target, spell detection) at the cost of needing to manually scale `totalDamage` and `physicalDamage`. `get_damage` propagates automatically but lacks context and has unverified AE offset.
+14. **Uniform scaling of totalDamage and physicalDamage** — both fields multiplied by same `damageMult`, preserving crit bonus proportionally. Matches StaminaNPC behavior where crit bonus is derived from scaled `physicalDamage`.
 
 ## 12. Scope by Actor Type
 
@@ -528,7 +585,7 @@ All settings are `Parameter<T>` structs in `src/Settings/Params/`. No shipped IN
 | Bow fire cost + deny | ✓ | ✓ |
 | Block stamina redirect | ✗ (future) | ✗ (future) |
 | Exhaustion | ✗ (future) | ✗ (future) |
-| Attack damage scaling | ✗ (future) | ✗ (future) |
+| Attack damage scaling | ✓ (stamina-based curve) | ✓ (stamina-based curve) |
 | Action denial | AttackDenyHook NPC-only, JumpDenyHook broken AE | AttackDenyHook NPC-only |
 
 ---
@@ -541,3 +598,4 @@ All settings are `Parameter<T>` structs in `src/Settings/Params/`. No shipped IN
 4. **Exhaustion** — state machine with timed duration, regen/damage penalties.
 5. **Settings INI** — populate whitelist with all active params.
 6. **Console commands** — sb_get/set/list/reset/getburden via Papyrus + TestCommands.yaml.
+7. **`get_damage` hook migration** — verify AE offset at `RELOCATION_ID(42832, 44001) + 0x1A5` via pattern scan. If viable and formula needs simplify, could replace ProcessHit hook for cleaner propagation.

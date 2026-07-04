@@ -6,6 +6,7 @@
 #include "Hooks/AttackCostHook.h"
 #include "Hooks/BowFireHook.h"
 #include "Hooks/DenyHooks.h"
+#include "Hooks/DamageScalingHook.h"
 
 namespace Hooks {
 	bool Install() {
@@ -32,6 +33,7 @@ namespace Hooks {
 		ActionHook::Install();
 		AttackCostHook::Install();
 		BowFireHook::Install();
+		DamageScalingHook::Install();
 		// AttackDenyHook::Install();  // Seems to be NPC-only (49170), Deferred until a solution is found
 
 		return true;
