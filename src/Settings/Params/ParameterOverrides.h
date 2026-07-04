@@ -19,6 +19,19 @@ namespace Regen
 		// Sprint stamina drain
 		Parameter<float> SprintStaminaDrainMult{ 1.0f, 0.0f, 10.0f };
 
+		// Block formula GMSTs
+		Parameter<float> fShieldBaseFactor{ 20.0f, 0.0f, 100.0f };
+		Parameter<float> fShieldScalingFactor{ 0.25f, 0.0f, 2.0f };
+		Parameter<float> fBlockWeaponBase{ 15.0f, 0.0f, 100.0f };
+		Parameter<float> fBlockWeaponScaling{ 0.22f, 0.0f, 2.0f };
+		Parameter<float> fBlockSkillMult{ 6.0f, 0.0f, 10.0f };
+		Parameter<float> fBlockPowerAttackMult{ 0.66f, 0.0f, 1.0f };
+
+		// Engine block stamina drain GMSTs
+		Parameter<float> fStaminaBlockDmgMult{ 0.0f, 0.0f, 1.0f };
+		Parameter<float> fStaminaBlockStaggerMult{ 0.0f, 0.0f, 20.0f };
+		Parameter<float> fStaminaBlockBase{ 0.0f, 0.0f, 10.0f };
+
 		template <typename F>
 		static void ForEach(F&& a_fn)
 		{
@@ -30,6 +43,15 @@ namespace Regen
 			a_fn("fDamagedHealthRegenDelay"sv, s.DamagedHealthRegenDelay);
 			a_fn("fDamagedMagickaRegenDelay"sv, s.DamagedMagickaRegenDelay);
 			a_fn("fSprintStaminaDrainMult"sv, s.SprintStaminaDrainMult);
+			a_fn("fShieldBaseFactor"sv, s.fShieldBaseFactor);
+			a_fn("fShieldScalingFactor"sv, s.fShieldScalingFactor);
+			a_fn("fBlockWeaponBase"sv, s.fBlockWeaponBase);
+			a_fn("fBlockWeaponScaling"sv, s.fBlockWeaponScaling);
+			a_fn("fBlockSkillMult"sv, s.fBlockSkillMult);
+			a_fn("fBlockPowerAttackMult"sv, s.fBlockPowerAttackMult);
+			a_fn("fStaminaBlockDmgMult"sv, s.fStaminaBlockDmgMult);
+			a_fn("fStaminaBlockStaggerMult"sv, s.fStaminaBlockStaggerMult);
+			a_fn("fStaminaBlockBase"sv, s.fStaminaBlockBase);
 		}
 	};
 }

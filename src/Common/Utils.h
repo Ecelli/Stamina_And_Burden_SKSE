@@ -6,6 +6,7 @@
 #include "Settings/Params/RegenParams.h"
 #include "Settings/Params/CostsParams.h"
 #include "Settings/Params/DamageParams.h"
+#include "Settings/Params/BlockingParams.h"
 
 namespace Common
 {
@@ -53,6 +54,17 @@ namespace Damage
     void DamageLog(std::string_view a_fmt, Args&&... a_args)
     {
         if (DamageParams::GetSingleton()->EnableDebugLogging.Get()) {
+            logger::info(fmt::runtime(a_fmt), std::forward<Args>(a_args)...);
+        }
+    }
+}
+
+namespace Blocking
+{
+    template <typename... Args>
+    void BlockLog(std::string_view a_fmt, Args&&... a_args)
+    {
+        if (BlockingParams::GetSingleton()->EnableDebugLogging.Get()) {
             logger::info(fmt::runtime(a_fmt), std::forward<Args>(a_args)...);
         }
     }
