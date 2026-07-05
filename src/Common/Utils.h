@@ -7,6 +7,7 @@
 #include "Settings/Params/CostsParams.h"
 #include "Settings/Params/DamageParams.h"
 #include "Settings/Params/BlockingParams.h"
+#include "Settings/Params/ExhaustionParams.h"
 
 namespace Common
 {
@@ -65,6 +66,17 @@ namespace Blocking
     void BlockLog(std::string_view a_fmt, Args&&... a_args)
     {
         if (BlockingParams::GetSingleton()->EnableDebugLogging.Get()) {
+            logger::info(fmt::runtime(a_fmt), std::forward<Args>(a_args)...);
+        }
+    }
+}
+
+namespace Exhaustion
+{
+    template <typename... Args>
+    void ExhaustionLog(std::string_view a_fmt, Args&&... a_args)
+    {
+        if (ExhaustionParams::GetSingleton()->bEnableDebugLogging.Get()) {
             logger::info(fmt::runtime(a_fmt), std::forward<Args>(a_args)...);
         }
     }
