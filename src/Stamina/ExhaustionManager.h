@@ -26,4 +26,5 @@ namespace Exhaustion
 
 	void TaskUpdate();
 	void CheckForAndTriggerExhaustion(RE::Actor* a_actor);
+	float GetExhaustionDamageMultiplier(RE::Actor* a_actor);
 }

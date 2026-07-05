@@ -119,3 +119,14 @@ void Exhaustion::CheckForAndTriggerExhaustion(RE::Actor* a_actor)
 		}
 	}
 }
+
+float Exhaustion::GetExhaustionDamageMultiplier(RE::Actor* a_actor)
+{
+	if (!a_actor)
+		return 1.0f;
+
+	if (!ExhaustionManager::GetSingleton()->IsExhausted(a_actor))
+		return 1.0f;
+
+	return ExhaustionParams::GetSingleton()->fExhaustionPenaltyDamageMult.Get();
+}
