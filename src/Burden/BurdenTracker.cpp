@@ -1,6 +1,7 @@
 #include "BurdenTracker.h"
 #include "Common/Utils.h"
 #include "Hooks/RegenHooks.h"
+#include "Stamina/ExhaustionManager.h"
 
 // Tier 1: tracked actors (event-driven, persistent for the session)
 // Tier 2: transient NPC cache — grows freely within a worldspace,
@@ -117,6 +118,7 @@ namespace Burden::Tracker
 		GetTrackedMap().clear();
 		ClearTransientCache();
 		Hooks::ClearRegenDrainCache();
+		Exhaustion::ExhaustionManager::GetSingleton()->ClearAll();
 
 		auto* player = RE::PlayerCharacter::GetSingleton();
 		if (player) {
@@ -128,6 +130,7 @@ namespace Burden::Tracker
 			heartbeatStarted = true;
 			Common::make_heartbeat(std::chrono::milliseconds(200), TaskTrackBurdenParams);
 			Common::make_heartbeat(std::chrono::milliseconds(200), Hooks::TaskPlayerFullStaminaMonitor);
+			Common::make_heartbeat(std::chrono::milliseconds(200), Exhaustion::TaskUpdate);
 		}
 	}
 

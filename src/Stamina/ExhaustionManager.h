@@ -23,4 +23,7 @@ namespace Exhaustion
 
 		void ClearExhaustion(RE::FormID a_formId);
 	};
+
+	void TaskUpdate();
+	void CheckForAndTriggerExhaustion(RE::Actor* a_actor);
 }

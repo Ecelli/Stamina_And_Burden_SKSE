@@ -20,7 +20,7 @@ struct ExhaustionParams : REX::Singleton<ExhaustionParams>
 	Parameter<float> fExhaustionPenaltyMagickaMult{ 0.0f, 0.0f, 1.0f };
 
 	// Debug
-	Parameter<bool>  bEnableDebugLogging{ false, false, true };
+	Parameter<bool>  bEnableDebugLogging{ true, false, true };
 
 	template <typename F>
 	static void ForEach(F&& a_fn)

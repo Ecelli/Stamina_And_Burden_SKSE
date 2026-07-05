@@ -99,3 +99,23 @@ void Exhaustion::ExhaustionManager::ClearExhaustion(RE::FormID a_formId)
 {
 	states.erase(a_formId);
 }
+
+void Exhaustion::TaskUpdate()
+{
+	SKSE::GetTaskInterface()->AddTask([]() {
+		ExhaustionManager::GetSingleton()->Update();
+	});
+}
+
+void Exhaustion::CheckForAndTriggerExhaustion(RE::Actor* a_actor)
+{
+	if (!a_actor)
+		return;
+
+	if (a_actor->GetActorValue(RE::ActorValue::kStamina) <= 0.0f) {
+		auto* mgr = ExhaustionManager::GetSingleton();
+		if (!mgr->IsExhausted(a_actor)) {
+			mgr->TriggerExhaustion(a_actor);
+		}
+	}
+}

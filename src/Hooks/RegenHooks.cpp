@@ -28,6 +28,7 @@
 
 #include "RegenHooks.h"
 #include "Stamina/RegenManager.h"
+#include "Stamina/ExhaustionManager.h"
 #include "Common/Utils.h"
 #include <unordered_map>
 
@@ -92,6 +93,8 @@ namespace Hooks
 		RE::Actor* a_actor, RE::ActorValue a_av, float a_passedTime)
 	{
 		if (a_av == RE::ActorValue::kStamina) {
+			Exhaustion::CheckForAndTriggerExhaustion(a_actor);
+
 			auto it = s_cachedDrainRate.find(a_actor);
 			if (it != s_cachedDrainRate.end() && it->second < 0.0f) {
 				// Bypass the regen delay check — drain stamina
