@@ -1,4 +1,5 @@
 #include "Stamina/RegenManager.h"
+#include "Stamina/ExhaustionManager.h"
 #include "Burden/BurdenTracker.h"
 #include "Common/Utils.h"
 
@@ -252,6 +253,8 @@ namespace Regen
 		if (engineRate < 0.0f)
 			engineRate = 0.0f;
 
+		engineRate *= Exhaustion::GetExhaustionRegenMult(actor, RE::ActorValue::kStamina);
+
 		float rate = engineRate * regenMult;
 		if (drainMult > 0.0f) {
 			float burnBase = GetBaseStaminaRate(actor);
@@ -279,7 +282,8 @@ namespace Regen
 			params->HealthRegenMult_LowStamina.Get(),
 			params->HealthRegenMult_HighStamina.Get(),
 			staminaPct,
-			params->HealthRegenCurve_k.Get());
+			params->HealthRegenCurve_k.Get())
+			* Exhaustion::GetExhaustionRegenMult(actor, RE::ActorValue::kHealth);
 	}
 
 	float ComputeMagickaRegenMult(RE::Actor* actor)
@@ -296,6 +300,7 @@ namespace Regen
 			params->MagickaRegenMult_LowStamina.Get(),
 			params->MagickaRegenMult_HighStamina.Get(),
 			staminaPct,
-			params->MagickaRegenCurve_k.Get());
+			params->MagickaRegenCurve_k.Get())
+			* Exhaustion::GetExhaustionRegenMult(actor, RE::ActorValue::kMagicka);
 	}
 }

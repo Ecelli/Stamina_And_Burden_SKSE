@@ -130,3 +130,20 @@ float Exhaustion::GetExhaustionDamageMultiplier(RE::Actor* a_actor)
 
 	return ExhaustionParams::GetSingleton()->fExhaustionPenaltyDamageMult.Get();
 }
+
+float Exhaustion::GetExhaustionRegenMult(RE::Actor* a_actor, RE::ActorValue a_av)
+{
+	if (!a_actor)
+		return 1.0f;
+
+	if (!ExhaustionManager::GetSingleton()->IsExhausted(a_actor))
+		return 1.0f;
+
+	auto* params = ExhaustionParams::GetSingleton();
+	switch (a_av) {
+	case RE::ActorValue::kStamina: return params->fExhaustionPenaltyStaminaMult.Get();
+	case RE::ActorValue::kHealth:  return params->fExhaustionPenaltyHealthMult.Get();
+	case RE::ActorValue::kMagicka: return params->fExhaustionPenaltyMagickaMult.Get();
+	default: return 1.0f;
+	}
+}
