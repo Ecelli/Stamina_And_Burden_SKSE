@@ -16,6 +16,8 @@ void Exhaustion::ExhaustionManager::TriggerExhaustion(RE::Actor* a_actor)
 	auto formId = a_actor->GetFormID();
 	states[formId] = { true, 0.0f };
 
+	SetStaminaBarGrayIfPlayer(a_actor);
+
 	ExhaustionLog("ExhaustionManager: triggered for {:x}", formId);
 }
 
@@ -31,20 +33,26 @@ bool Exhaustion::ExhaustionManager::IsExhausted(RE::Actor* a_actor)
 void Exhaustion::ExhaustionManager::UpdateExhaustion(RE::Actor* a_actor, float a_deltaTime)
 {
 	auto it = states.find(a_actor->GetFormID());
-	if (it == states.end() || !it->second.isExhausted)
+	if (it == states.end() || !it->second.isExhausted) {
+        ResetStaminaBarColorIfPlayer(a_actor);
 		return;
+    }
 
 	if (a_actor->IsDead()) {
 		states.erase(it);
+        ResetStaminaBarColorIfPlayer(a_actor);
 		return;
 	}
 
 	float maxStamina = a_actor->GetActorValueMax(RE::ActorValue::kStamina);
 	if (maxStamina <= 0.0f) {
 		states.erase(it);
+        ResetStaminaBarColorIfPlayer(a_actor);
 		return;
 	}
 
+
+	SetStaminaBarGrayIfPlayer(a_actor);
 
 	float curStamina = a_actor->GetActorValue(RE::ActorValue::kStamina);
 	float staminaPct = Math::Clamp01(curStamina / maxStamina);
@@ -56,6 +64,7 @@ void Exhaustion::ExhaustionManager::UpdateExhaustion(RE::Actor* a_actor, float a
 		ExhaustionLog("ExhaustionManager: {:x} cleared (threshold {:.0f}% >= {:.0f}%)",
 			a_actor->GetFormID(), staminaPct * 100.0f, threshold * 100.0f);
 		states.erase(it);
+        ResetStaminaBarColorIfPlayer(a_actor);
 		return;
 	}
 
@@ -72,12 +81,37 @@ void Exhaustion::ExhaustionManager::UpdateExhaustion(RE::Actor* a_actor, float a
 		ExhaustionLog("ExhaustionManager: {:x} cleared (timer {:.1f}s), burst +{:.0f}",
 			a_actor->GetFormID(), it->second.safeTimer, burstAmt);
 		states.erase(it);
+        ResetStaminaBarColorIfPlayer(a_actor);
 		return;
 	}
 }
 
+void Exhaustion::SetStaminaBarGrayIfPlayer(RE::Actor* a_actor)
+{
+	if (!a_actor || !a_actor->IsPlayerRef())
+		return;
+	if (auto* ui = RE::UI::GetSingleton())
+		if (auto hud = ui->GetMenu<RE::HUDMenu>())
+			if (hud->stamina)
+				hud->stamina->root.SetColorTint(RE::GColor(128, 128, 128, 255));
+}
+
+void Exhaustion::ResetStaminaBarColorIfPlayer(RE::Actor* a_actor)
+{
+	if (!a_actor || !a_actor->IsPlayerRef())
+		return;
+	if (auto* ui = RE::UI::GetSingleton()) {
+		if (auto hud = ui->GetMenu<RE::HUDMenu>()) {
+			if (hud->stamina) {
+				hud->stamina->root.RemoveColorTint();
+            }
+        }
+    }
+}
+
 void Exhaustion::ExhaustionManager::ClearAll()
 {
+	ResetStaminaBarColorIfPlayer(RE::PlayerCharacter::GetSingleton());
 	states.clear();
 }
 

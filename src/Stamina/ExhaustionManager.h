@@ -27,4 +27,6 @@ namespace Exhaustion
 	void CheckForAndTriggerExhaustion(RE::Actor* a_actor, float a_deltaTime);
 	float GetExhaustionDamageMultiplier(RE::Actor* a_actor);
 	float GetExhaustionRegenMult(RE::Actor* a_actor, RE::ActorValue a_av);
+	void SetStaminaBarGrayIfPlayer(RE::Actor* a_actor);
+	void ResetStaminaBarColorIfPlayer(RE::Actor* a_actor);
 }
