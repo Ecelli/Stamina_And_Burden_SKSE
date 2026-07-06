@@ -40,10 +40,10 @@ namespace Burden::Tracker
 	void OnGameLoad();
 
 	/**
-	 * Periodic heartbeat callback dispatched by the background thread.
+	 * Called from the world frame hook every 6th frame (~100–240ms).
 	 * Reads GetActorValue(kCarryWeight), kLightArmor, and kHeavyArmor
 	 * for each tracked actor and triggers an Update() when any cached
 	 * value differs from the current value.
 	 */
-	void TaskTrackBurdenParams();
+	void PollTrackedActorParams();
 }

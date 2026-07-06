@@ -141,37 +141,35 @@ namespace Hooks
 	}
 
 	// ---------------------------------------------------------------
-	// Full-stamina monitor (heartbeat)
+	// Full-stamina monitor (world frame hook)
 	//
 	// The regen function doesn't fire when AV is at 100%, so our
-	// InterceptAVRegen can't drain. This heartbeat computes what the
-	// effective regen rate *would* be via ComputeBurdenStaminaRegenRate
+	// InterceptAVRegen can't drain. This monitors the player's
+	// stamina at intervals via the WorldFrameHook, computes what the
+	// effective regen rate *would* be via ComputeBurdenStaminaRegenRate,
 	// and drains 0.1 if negative, pushing stamina below 100% so the
 	// next regen tick fires normally.
 	//
-	// Started from BurdenTracker::OnGameLoad() alongside the burden
-	// parameter tracking heartbeat.
+	// Called from WorldFrameHook every 6th frame (~100–240ms).
 	// ---------------------------------------------------------------
-	void TaskPlayerFullStaminaMonitor()
+	void PlayerFullStaminaMonitor()
 	{
-		SKSE::GetTaskInterface()->AddTask([]() {
-			if (!Regen::RegenParams::GetSingleton()->bRegenPlayer.Get())
-				return;
+		if (!Regen::RegenParams::GetSingleton()->bRegenPlayer.Get())
+			return;
 
-			auto* player = RE::PlayerCharacter::GetSingleton();
-			if (!player)
-				return;
+		auto* player = RE::PlayerCharacter::GetSingleton();
+		if (!player)
+			return;
 
-			const auto av = RE::ActorValue::kStamina;
-			const float cur = player->GetActorValue(av);
-			const float max = player->GetActorValueMax(av);
-			if (max > 0.0f && cur >= max) {
-				float rate = Regen::ComputeBurdenStaminaRegenRate(player);
-				if (rate < 0.0f) {
-					player->DamageActorValue(av, 0.1f);
-					Regen::RegenLog("StaminaMonitor: drained 0.1 at full stamina (rate={:.3f}/s)", rate);
-				}
+		const auto av = RE::ActorValue::kStamina;
+		const float cur = player->GetActorValue(av);
+		const float max = player->GetActorValueMax(av);
+		if (max > 0.0f && cur >= max) {
+			float rate = Regen::ComputeBurdenStaminaRegenRate(player);
+			if (rate < 0.0f) {
+				player->DamageActorValue(av, 0.1f);
+				Regen::RegenLog("StaminaMonitor: drained 0.1 at full stamina (rate={:.3f}/s)", rate);
 			}
-		});
+		}
 	}
 }

@@ -8,6 +8,7 @@
 #include "Hooks/DenyHooks.h"
 #include "Hooks/DamageScalingHook.h"
 #include "Hooks/StaffCastingHook.h"
+#include "Hooks/WorldFrameHook.h"
 
 namespace Hooks {
 	bool Install() {
@@ -41,6 +42,7 @@ namespace Hooks {
 		JumpInputHandler::Install();
 		StartCastingHook::Install();
 		CasterUpdateHook::Install();
+		WorldFrameHook::Install();
 
 		return true;
 	}

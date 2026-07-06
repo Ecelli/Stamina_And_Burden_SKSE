@@ -1,5 +1,4 @@
 #include "BurdenTracker.h"
-#include "Common/Utils.h"
 #include "Hooks/RegenHooks.h"
 #include "Stamina/ExhaustionManager.h"
 
@@ -125,38 +124,29 @@ namespace Burden::Tracker
 			Register(player);
 		}
 
-		static bool heartbeatStarted = false; // Only ever executed once
-		if (!heartbeatStarted) {
-			heartbeatStarted = true;
-			Common::make_heartbeat(std::chrono::milliseconds(200), TaskTrackBurdenParams);
-			Common::make_heartbeat(std::chrono::milliseconds(200), Hooks::TaskPlayerFullStaminaMonitor);
-		}
 	}
 
 	// Track Actor parameters that can change dynamically without hooks
-	void TaskTrackBurdenParams()
+	void PollTrackedActorParams()
 	{
-		SKSE::GetTaskInterface()->AddTask([]() {
-			auto& map = GetTrackedMap();
-			for (auto& [formId, data] : map) {
-				auto* actor = RE::TESForm::LookupByID<RE::Actor>(formId);
-				if (!actor) {
-					continue;
-				}
-
-				if (static_cast<int>(actor->GetActorValue(RE::ActorValue::kLightArmor)) != data.lightSkill
-					|| static_cast<int>(actor->GetActorValue(RE::ActorValue::kHeavyArmor)) != data.heavySkill
-					|| static_cast<int>(actor->GetActorValue(RE::ActorValue::kOneHanded)) != data.oneHandedSkill
-					|| static_cast<int>(actor->GetActorValue(RE::ActorValue::kTwoHanded)) != data.twoHandedSkill
-					|| static_cast<int>(actor->GetActorValue(RE::ActorValue::kArchery)) != data.marksmanSkill
-					|| static_cast<int>(actor->GetActorValue(RE::ActorValue::kBlock)) != data.blockSkill
-					|| static_cast<int>(actor->GetActorValue(RE::ActorValue::kConjuration)) != data.conjurationSkill
-					|| static_cast<int>(actor->GetActorValue(RE::ActorValue::kEnchanting)) != data.staffSkill
-					|| std::abs(actor->GetActorValue(RE::ActorValue::kCarryWeight) - data.maxCarryWeight) > 0.001f) {
-
-					Burden::Tracker::Update(actor);
-				}
+		auto& map = GetTrackedMap();
+		for (auto& [formId, data] : map) {
+			auto* actor = RE::TESForm::LookupByID<RE::Actor>(formId);
+			if (!actor) {
+				continue;
 			}
-		});
+			if (static_cast<int>(actor->GetActorValue(RE::ActorValue::kLightArmor)) != data.lightSkill
+				|| static_cast<int>(actor->GetActorValue(RE::ActorValue::kHeavyArmor)) != data.heavySkill
+				|| static_cast<int>(actor->GetActorValue(RE::ActorValue::kOneHanded)) != data.oneHandedSkill
+				|| static_cast<int>(actor->GetActorValue(RE::ActorValue::kTwoHanded)) != data.twoHandedSkill
+				|| static_cast<int>(actor->GetActorValue(RE::ActorValue::kArchery)) != data.marksmanSkill
+				|| static_cast<int>(actor->GetActorValue(RE::ActorValue::kBlock)) != data.blockSkill
+				|| static_cast<int>(actor->GetActorValue(RE::ActorValue::kConjuration)) != data.conjurationSkill
+				|| static_cast<int>(actor->GetActorValue(RE::ActorValue::kEnchanting)) != data.staffSkill
+				|| std::abs(actor->GetActorValue(RE::ActorValue::kCarryWeight) - data.maxCarryWeight) > 0.001f) {
+
+				Burden::Tracker::Update(actor);
+			}
+		}
 	}
 }
