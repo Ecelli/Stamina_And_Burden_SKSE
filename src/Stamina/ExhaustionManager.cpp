@@ -59,7 +59,7 @@ void Exhaustion::ExhaustionManager::UpdateExhaustion(RE::Actor* a_actor, float a
 		return;
 	}
 
-	if (curStamina > 0.0f)
+	if (curStamina > 0.0f || !a_actor->IsPlayerRef())
 		it->second.safeTimer += a_deltaTime;
 	else
 		it->second.safeTimer = 0.0f;
