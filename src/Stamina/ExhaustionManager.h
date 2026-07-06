@@ -15,7 +15,7 @@ namespace Exhaustion
 	public:
 		void TriggerExhaustion(RE::Actor* a_actor);
 		bool IsExhausted(RE::Actor* a_actor);
-		void Update();
+		void UpdateExhaustion(RE::Actor* a_actor, float a_deltaTime);
 		void ClearAll();
 
 	private:
@@ -24,8 +24,7 @@ namespace Exhaustion
 		void ClearExhaustion(RE::FormID a_formId);
 	};
 
-	void TaskUpdate();
-	void CheckForAndTriggerExhaustion(RE::Actor* a_actor);
+	void CheckForAndTriggerExhaustion(RE::Actor* a_actor, float a_deltaTime);
 	float GetExhaustionDamageMultiplier(RE::Actor* a_actor);
 	float GetExhaustionRegenMult(RE::Actor* a_actor, RE::ActorValue a_av);
 }

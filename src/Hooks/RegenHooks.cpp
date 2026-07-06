@@ -93,7 +93,7 @@ namespace Hooks
 		RE::Actor* a_actor, RE::ActorValue a_av, float a_passedTime)
 	{
 		if (a_av == RE::ActorValue::kStamina) {
-			Exhaustion::CheckForAndTriggerExhaustion(a_actor);
+			Exhaustion::CheckForAndTriggerExhaustion(a_actor, a_passedTime);
 
 			auto it = s_cachedDrainRate.find(a_actor);
 			if (it != s_cachedDrainRate.end() && it->second < 0.0f) {

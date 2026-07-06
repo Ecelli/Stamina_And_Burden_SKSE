@@ -130,7 +130,6 @@ namespace Burden::Tracker
 			heartbeatStarted = true;
 			Common::make_heartbeat(std::chrono::milliseconds(200), TaskTrackBurdenParams);
 			Common::make_heartbeat(std::chrono::milliseconds(200), Hooks::TaskPlayerFullStaminaMonitor);
-			Common::make_heartbeat(std::chrono::milliseconds(200), Exhaustion::TaskUpdate);
 		}
 	}
 
