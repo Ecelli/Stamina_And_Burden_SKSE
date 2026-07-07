@@ -8,12 +8,13 @@
 #include "Hooks/BlockHook.h"
 #include "Hooks/DenyHooks.h"
 #include "Hooks/DamageScalingHook.h"
+#include "Hooks/MovementSpeedHook.h"
 
 namespace Hooks {
 	bool Install() {
 		SECTION_SEPARATOR;
 		logger::info("Installing hooks..."sv);
-		SKSE::AllocTrampoline(128);
+		SKSE::AllocTrampoline(256);
 
 		auto* holder = RE::ScriptEventSourceHolder::GetSingleton();
 		if (!holder) {
@@ -36,6 +37,7 @@ namespace Hooks {
 		BowFireHook::Install();
 		BlockHook::Install();
 		DamageScalingHook::Install();
+		MovementSpeedHook::Install();
 		// AttackDenyHook::Install();  // Seems to be NPC-only (49170), Deferred until a solution is found
 
 		return true;
