@@ -54,7 +54,7 @@ namespace Movement
 
 		if (result != 1.0f) {
 			Movement::MovementLog(
-				"MovementSpeedHook: {:x} -> SpeedMult = {:.2f} "
+				"SpeedHook: {:x} -> SpeedMult = {:.2f} "
 				"(burden={:.3f} swim={:.3f} exhaust={:.3f})",
 				a_actor->GetFormID(), result,
 				burdenMult, swimMult, exhaustMult);

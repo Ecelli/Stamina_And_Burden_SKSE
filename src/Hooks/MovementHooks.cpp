@@ -18,7 +18,7 @@ namespace
 			}
 
 			_func = SKSE::GetTrampoline().write_call<5>(target.address(), Speed);
-			logger::info("  >MovementSpeedHook installed at REL::ID(37943) + 0x51");
+			logger::info("  >SpeedHook installed at REL::ID(37943) + 0x51");
 		}
 
 		static float Speed(RE::Actor* a_actor)
@@ -54,7 +54,7 @@ namespace
 				call2.address(),
 				GetSprintStaminaDrain);
 
-			logger::info("  >Installed sprint drain hook (ID 38022 + 0xC1 / 0xC9)");
+			logger::info("  >SprintHook installed at REL::ID(38022) + 0xC1 / 0xC9");
 		}
 
 		static float GetEquippedWeight(RE::Actor* actor)
@@ -83,7 +83,7 @@ namespace
 		{
 			REL::Relocation<std::uintptr_t> target{ REL::ID(37257), 0x17f };
 			_GetScale = SKSE::GetTrampoline().write_call<5>(target.address(), ApplyJumpCost);
-			logger::info("  >ActionHook: jump cost installed at REL::ID(37257) + 0x17F"sv);
+			logger::info("  >JumpHook installed at REL::ID(37257) + 0x17F");
 		}
 
 		static float ApplyJumpCost(RE::Actor* actor)
