@@ -1,45 +1,22 @@
-#include "Hooks/MovementSpeedHook.h"
+#include "Movement/MovementManager.h"
 #include "Burden/BurdenTracker.h"
 #include "Stamina/ExhaustionManager.h"
 #include "Settings/Params/MovementSpeedParams.h"
 #include "Common/Utils.h"
 
-namespace Hooks
+namespace
 {
-	void MovementSpeedHook::Install()
-	{
-		// AE: REL::ID(37943) + 0x51 — call to SetMaximumMovementSpeed
-		//     inside the actor movement update loop.
-		//     Confirmed by WadeInWaterRedux reference mod.
-		REL::Relocation<std::uintptr_t> target{ REL::ID(37943), 0x51 };
-
-		if (!REL::make_pattern<"E8">().match(target.address())) {
-			logger::error("  >MovementSpeedHook: pattern mismatch at REL::ID(37943) + 0x51"sv);
-			return;
-		}
-
-		_func = SKSE::GetTrampoline().write_call<5>(target.address(), Speed);
-		logger::info("  >MovementSpeedHook installed at REL::ID(37943) + 0x51");
-	}
-
-	float MovementSpeedHook::Speed(RE::Actor* a_actor)
-	{
-		float original_speed = _func(a_actor);
-
-		if (!a_actor)
-			return original_speed;
-
-		return original_speed * ComputeSpeedMultiplier(a_actor);
-	}
-
-	float MovementSpeedHook::GetSubmergedLevel(RE::Actor* a_actor)
+	float GetSubmergedLevel(RE::Actor* a_actor)
 	{
 		using func_t = float(*)(RE::Actor*, float, RE::TESObjectCELL*);
-        REL::Relocation<func_t> func{ REL::ID(37448) };
+		REL::Relocation<func_t> func{ REL::ID(37448) };
 		return func(a_actor, a_actor->GetPositionZ(), a_actor->GetParentCell());
 	}
+}
 
-	float MovementSpeedHook::ComputeSpeedMultiplier(RE::Actor* a_actor)
+namespace Movement
+{
+	float ComputeSpeedMultiplier(RE::Actor* a_actor)
 	{
 		auto* params = MovementSpeedParams::GetSingleton();
 		float burdenMult = 1.0f;
@@ -76,8 +53,8 @@ namespace Hooks
 		float result = burdenMult * swimMult * exhaustMult;
 
 		if (result != 1.0f) {
-			Regen::RegenLog(
-				"MovementSpeedHook: {:x} -> SpeedMult = {:.2f} "
+			Movement::MovementLog(
+				"SpeedHook: {:x} -> SpeedMult = {:.2f} "
 				"(burden={:.3f} swim={:.3f} exhaust={:.3f})",
 				a_actor->GetFormID(), result,
 				burdenMult, swimMult, exhaustMult);

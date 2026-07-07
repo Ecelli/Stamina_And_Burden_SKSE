@@ -21,6 +21,9 @@ struct MovementSpeedParams : REX::Singleton<MovementSpeedParams>
 	// Exhaustion speed penalty
 	Parameter<float> exhaustionSpeedMult{ 0.7f, 0.1f, 1.0f };
 
+	// Debug
+	Parameter<bool> EnableDebugLogging{ true, false, true };
+
 	template <typename F>
 	static void ForEach(F&& a_fn)
 	{
@@ -34,5 +37,6 @@ struct MovementSpeedParams : REX::Singleton<MovementSpeedParams>
 		a_fn("fSpeedMultAboveWater"sv, s.speedMultAboveWater);
 		a_fn("fSpeedMultSubmerged"sv, s.speedMultSubmerged);
 		a_fn("fExhaustionSpeedMult"sv, s.exhaustionSpeedMult);
+		a_fn("bEnableDebugMovementLogging"sv, s.EnableDebugLogging);
 	}
 };

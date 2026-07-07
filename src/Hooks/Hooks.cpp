@@ -1,14 +1,12 @@
 #include "Hooks/hooks.h"
 #include "Hooks/BurdenEventHandlers.h"
-#include "Hooks/ActionHook.h"
 #include "Hooks/RegenHooks.h"
-#include "Hooks/SprintDrainHook.h"
+#include "Hooks/MovementHooks.h"
 #include "Hooks/AttackCostHook.h"
 #include "Hooks/BowFireHook.h"
 #include "Hooks/BlockHook.h"
 #include "Hooks/DenyHooks.h"
 #include "Hooks/DamageScalingHook.h"
-#include "Hooks/MovementSpeedHook.h"
 
 namespace Hooks {
 	bool Install() {
@@ -31,13 +29,13 @@ namespace Hooks {
 
 		RegenHook::Install();
 		RegenDelayHook::Install();
-		SprintDrainHook::Install();
-		ActionHook::Install();
+		MovementHooks::InstallSprint();
+		MovementHooks::InstallJump();
 		AttackCostHook::Install();
 		BowFireHook::Install();
 		BlockHook::Install();
 		DamageScalingHook::Install();
-		MovementSpeedHook::Install();
+		MovementHooks::InstallSpeed();
 		// AttackDenyHook::Install();  // Seems to be NPC-only (49170), Deferred until a solution is found
 
 		return true;

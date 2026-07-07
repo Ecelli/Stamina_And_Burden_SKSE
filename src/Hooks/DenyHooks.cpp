@@ -1,4 +1,5 @@
 #include "DenyHooks.h"
+#include "Movement/MovementCostManager.h"
 #include "Stamina/CostsManager.h"
 #include "Common/Utils.h"
 
@@ -14,7 +15,7 @@ namespace Hooks
 
 	void JumpDenyHook::JumpDetour(RE::Actor* actor)
 	{
-		float cost = Costs::ComputeJumpCost(actor);
+		float cost = Movement::ComputeJumpCost(actor);
 		if (Common::CanDoStaminaAction(actor, cost))
 			_Jump(actor);
 	}
