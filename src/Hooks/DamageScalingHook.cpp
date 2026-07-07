@@ -1,5 +1,6 @@
 #include "DamageScalingHook.h"
 #include "Combat/DamageManager.h"
+#include "Stamina/ExhaustionManager.h"
 #include "Common/Utils.h"
 
 namespace
@@ -39,15 +40,19 @@ namespace Hooks
 	{
 		float damageMult = GetDamageMultiplier(hitData);
 
+		auto attacker = hitData.aggressor.get();
+		damageMult *= Exhaustion::GetExhaustionDamageMultiplier(attacker.get());
+
 		if (damageMult != 1.0f) {
 			hitData.totalDamage *= damageMult;
 			hitData.physicalDamage *= damageMult;
 
-			auto attacker = hitData.aggressor.get();
 			Damage::DamageLog(
-				"DamageScalingHook: {:x} scaled by {:.3f} "
+				"DamageScalingHook: {:x} hit {:x} scaled by {:.3f} "
 				"-> totalDmg={:.2f} physDmg={:.2f}",
-				attacker ? attacker->GetFormID() : 0, damageMult,
+				attacker ? attacker->GetFormID() : 0,
+				target ? target->GetFormID() : 0,
+				damageMult,
 				hitData.totalDamage, hitData.physicalDamage);
 		}
 

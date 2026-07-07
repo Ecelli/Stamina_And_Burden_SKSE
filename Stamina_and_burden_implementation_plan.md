@@ -34,10 +34,12 @@ src/
 │   └── Params/        # Parameter<T> singletons: BurdenParams, RegenParams,
 │                      #   RegenMovementParams, NegativeRegen, WeatherParams,
 │                      #   CostsParams, AttackCostParams, DenyParams,
-│                      #   BlockingParams, ParameterOverrides, DamageParams (DONE)
+│                      #   BlockingParams, ParameterOverrides, DamageParams,
+│                      #   ExhaustionParams (DONE)
 └── Stamina/
-    ├── RegenManager   # Regen formulas + single source of truth (DONE)
-    └── CostsManager   # Sprint/jump/attack/bow cost formulas (DONE)
+    ├── RegenManager      # Regen formulas + single source of truth (DONE)
+    ├── CostsManager      # Sprint/jump/attack/bow cost formulas (DONE)
+    └── ExhaustionManager # State machine: trigger on stamina=0, penalties, safe-timer clear (DONE)
 
 **Not created (future):**
 - `src/Console/` — runtime debug/query commands
@@ -341,7 +343,7 @@ magnitude = Interpolate(
 **Upstream:** `ComputeBlockBurden()` in `BurdenManager.cpp:198` — shield/DW/2h/unarmed paths with blended block skill. Result stored in `weaponBurden_block`. Block skill is embedded upstream, not as a separate multiplier.
 
 **Deferred items:**
-- Exhaustion debuff — stamina-0 feature, not block-specific. Applies when ANY stamina drain hits 0. Needs separate design.
+- Exhaustion debuff — stamina-0 feature, not block-specific. See §3.8. (DONE)
 - Block commitment — only makes sense with timed block.
 - Timed block — significant future feature: timed block window, commitment, perfect block, window penalty system. Dependencies: input hooks, state machine.
 - Perk integration — Deflect Arrows, Elemental Protection, Shield Wall ranks. Future consideration.
@@ -358,9 +360,58 @@ Future umbrella for combat-related features not covered by existing managers. Cu
 - Configured via `WeatherParams` with `WeatherRainPenalty`, `WeatherSnowPenalty`, `WeatherEnabled`
 - No standalone manager class — inline in RegenManager
 
-### 3.8 Exhaustion (DEFERRED)
+### 3.8 Exhaustion (DONE)
 
-State machine for depleted stamina. No code exists.
+**Files:** `src/Stamina/ExhaustionManager.h/.cpp`, `src/Settings/Params/ExhaustionParams.h`
+
+**Purpose:** State machine that triggers when any actor's stamina hits ≤ 0. While exhausted, the actor suffers penalties to damage output and all regen rates. Applies regardless of what caused the stamina drain (sprint, power attack, block, etc.).
+
+**Trigger:** `Exhaustion::CheckForAndTriggerExhaustion(actor, deltaTime)` is called every frame from `RegenDelayHook::InterceptUpdateRegenDelay` (stamina AV updates only). If the actor is not already exhausted and their stamina ≤ 0, exhaustion is triggered (if toggles allow).
+
+**While exhausted (`UpdateExhaustion`):**
+```
+if actor is dead → clear exhaustion
+else if stamina >= fExhaustionThresholdStamina (default 0.30) → clear immediately
+else if stamina > 0 → accumulate safeTimer += deltaTime
+     if safeTimer >= fExhaustionDuration (default 8.0s):
+         clear exhaustion
+         restore fExhaustionBurstStamina (default 0.25) × maxStamina
+else (stamina <= 0) → reset safeTimer to 0
+```
+
+**Penalties applied while exhausted:**
+| Penalty | Param | Default | Applied via |
+|---|---|---|---|
+| Damage output | `fExhaustionPenaltyDamageMult` | 0.50 (50% damage) | `DamageScalingHook::ProcessHit` |
+| Stamina regen | `fExhaustionPenaltyStaminaMult` | 0.30 (30% regen) | `RegenManager::ComputeBurdenStaminaRegenRate` |
+| Health regen | `fExhaustionPenaltyHealthMult` | 0.0 (no health regen) | `RegenManager::ComputeHealthRegenMult` |
+| Magicka regen | `fExhaustionPenaltyMagickaMult` | 0.0 (no magicka regen) | `RegenManager::ComputeMagickaRegenMult` |
+
+**Parameters (10):**
+| Key | Type | Default | Range | Purpose |
+|---|---|---|---|---|
+| `bExhaustionPlayer` | bool | true | — | Master toggle: player can become exhausted |
+| `bExhaustionNPC` | bool | false | — | Master toggle: NPCs can become exhausted |
+| `fExhaustionDuration` | float | 8.0 | 1.0–30.0 | Seconds of safe time required to clear exhaustion |
+| `fExhaustionBurstStamina` | float | 0.25 | 0.0–1.0 | Fraction of max stamina restored as burst on clear |
+| `fExhaustionThresholdStamina` | float | 0.30 | 0.0–1.0 | Stamina % threshold for immediate clear |
+| `fExhaustionPenaltyDamageMult` | float | 0.50 | 0.0–1.0 | Damage output multiplier while exhausted |
+| `fExhaustionPenaltyStaminaMult` | float | 0.30 | 0.0–1.0 | Stamina regen multiplier while exhausted |
+| `fExhaustionPenaltyHealthMult` | float | 0.0 | 0.0–1.0 | Health regen multiplier while exhausted |
+| `fExhaustionPenaltyMagickaMult` | float | 0.0 | 0.0–1.0 | Magicka regen multiplier while exhausted |
+| `bEnableDebugLogging` | bool | true | — | Debug toggle |
+
+**State management:**
+- Per-actor state stored in `unordered_map<RE::FormID, ExhaustionState>` inside singleton `ExhaustionManager`
+- `ClearAll()` called on game load via `BurdenTracker::OnGameLoad()` — wipes all exhaustion states
+- `ClearExhaustion(FormID)` — erases a single actor's state
+
+**Not included:**
+- Action denial — not part of exhaustion scope (per project decision)
+- Visual/audio feedback — purely mechanical stat penalty
+- Papyrus bindings — state not exposed to scripts (see §8)
+- Save/load serialization — exhaustion is transient, wiped on game load (see §8)
+- INI configuration entries — defaults from `ExhaustionParams.h` always apply; INI whitelist not populated (see §7)
 
 ### 3.9 DamageManager (DONE)
 
@@ -465,12 +516,14 @@ Burden::Tracker::Update/OnGameLoad → UpdateBurden(actor)
     │
     ├── Event sinks (equip, container, worldspace, load)
     ├── Heartbeat 200ms: TaskTrackBurdenParams (skill/weight polling)
-    └── Heartbeat 200ms: TaskPlayerFullStaminaMonitor
+    ├── Heartbeat 200ms: TaskPlayerFullStaminaMonitor
+    └── Game load → ExhaustionManager::ClearAll()
 
 Per-frame (all actors processed by engine):
     RegenHook → ComputeBurdenStaminaRegenRate(actor)
         ├── positive → engine applies regen normally
         └── negative → cache drain rate, RegenDelayHook drains per frame
+            └── Exhaustion::CheckForAndTriggerExhaustion(actor, deltaTime) — every frame via RegenDelayHook
 
 Per-action:
     SprintDrainHook (every frame while sprinting) → ComputeSprintDrain(actor)
@@ -581,6 +634,18 @@ All settings are `Parameter<T>` structs in `src/Settings/Params/`. No shipped IN
 - `bNpcAlwaysCanDoAction` — bypass for NPCs (debug)
 - `fNpcRegenExemptionRate` — regen threshold for NPC exemption
 
+### ExhaustionParams (10 params)
+- `bExhaustionPlayer` — master toggle: player can become exhausted (default true)
+- `bExhaustionNPC` — master toggle: NPCs can become exhausted (default false)
+- `fExhaustionDuration` — safe time to clear exhaustion in seconds (default 8.0, range 1.0–30.0)
+- `fExhaustionBurstStamina` — fraction of max stamina restored as burst on clear (default 0.25)
+- `fExhaustionThresholdStamina` — stamina % for immediate clear (default 0.30)
+- `fExhaustionPenaltyDamageMult` — damage output multiplier while exhausted (default 0.50)
+- `fExhaustionPenaltyStaminaMult` — stamina regen multiplier while exhausted (default 0.30)
+- `fExhaustionPenaltyHealthMult` — health regen multiplier while exhausted (default 0.0)
+- `fExhaustionPenaltyMagickaMult` — magicka regen multiplier while exhausted (default 0.0)
+- `bEnableDebugLogging` — shared debug toggle
+
 ### BlockingParams (23 params)
 
 | Key | Default | Description |
@@ -679,7 +744,7 @@ All settings are `Parameter<T>` structs in `src/Settings/Params/`. No shipped IN
 | Player attack denial | NOT STARTED — needs vtable hook on AttackBlockHandler |
 | JumpDenyHook at 42423+0x114 | NOT INSTALLED — AE call site crashes |
 
-### Phase 5 — Blocking ✅ (Timed Block / Exhaustion deferred)
+### Phase 5 — Blocking ✅ (Timed Block deferred)
 | Task | Status |
 |---|---|
 | BlockHook at 38627+0x4A8 (chained with DamageScalingHook) | DONE |
@@ -693,11 +758,10 @@ All settings are `Parameter<T>` structs in `src/Settings/Params/`. No shipped IN
 | BlockingParams singleton (23 params) | DONE |
 | Engine GMST overrides (9 block-related) | DONE |
 | NPC toggles (`bBlockCostNPC`, `bBlockRedirectNPC`) | DONE |
-| Exhaustion state machine | DEFERRED — stamina-0 feature, not block-specific |
 | Timed block (Valhalla-style) | DEFERRED — future consideration |
 | Perk integration | DEFERRED — future consideration |
 
-### Phase 6 — Damage Scaling ✅ (Exhaustion deferred)
+### Phase 6 — Damage Scaling ✅
 | Task | Status |
 |---|---|
 | DamageManager — stamina-conditional damage scaling | DONE |
@@ -706,9 +770,22 @@ All settings are `Parameter<T>` structs in `src/Settings/Params/`. No shipped IN
 | Per-actor-type toggles (player/NPC) | DONE |
 | Spell-only attack exclusion | DONE |
 | Physical-only scaling (preserves crit bonus) | DONE |
-| Exhaustion state machine | DEFERRED |
 
-### Phase 7 — Settings & Console (DEFERRED — lowest priority)
+### Phase 7 — Exhaustion ✅
+| Task | Status |
+|---|---|
+| ExhaustionManager — state machine (trigger, update, clear with threshold/duration/burst) | DONE |
+| 10 ExhaustionParams (toggles, duration, burst, 4 penalties) | DONE |
+| Regen integration (stamina/health/magicka regen penalties) | DONE |
+| Damage scaling integration (damage penalty) | DONE |
+| Game-load cleanup | DONE |
+| Debug logging | DONE |
+| Papyrus bindings | NOT STARTED |
+| Save serialization | NOT STARTED |
+| INI configuration entries | NOT STARTED |
+| Visual/audio feedback | NOT STARTED |
+
+### Phase 8 — Settings & Console (DEFERRED — lowest priority)
 | Task | Status |
 |---|---|
 | Populate INI whitelist with all params | NOT STARTED |
@@ -717,7 +794,7 @@ All settings are `Parameter<T>` structs in `src/Settings/Params/`. No shipped IN
 | sb_getburden debug command | NOT STARTED |
 | Fix TestCommands.yaml (SEA_TemplateProject → EC_StaminaAndBurden) | NOT STARTED |
 
-### Phase 8 — Papyrus & Polish (NOT STARTED)
+### Phase 9 — Papyrus & Polish (NOT STARTED)
 | Task | Status |
 |---|---|
 | Bind query functions | NOT STARTED |
@@ -725,7 +802,7 @@ All settings are `Parameter<T>` structs in `src/Settings/Params/`. No shipped IN
 | Clean up stale Settings::INI files | NOT STARTED |
 | Clean up unreferenced `TaskUpdatePlayerBurdenLog` | NOT STARTED |
 
-### Phase 9 — HUD Burden Widget (NOT STARTED — optional)
+### Phase 10 — HUD Burden Widget (NOT STARTED — optional)
 | Task | Status |
 |---|---|
 | TrueHUD API integration | NOT STARTED |
@@ -753,6 +830,7 @@ All settings are `Parameter<T>` structs in `src/Settings/Params/`. No shipped IN
 16. **BlockManager in `src/Combat/`** — not a separate `src/Blocking/` directory. Keeps combat-related modules (`BlockManager`, `DamageManager`) together.
 17. **Engine block GMST overrides** — `fShieldBaseFactor`, `fBlockSkillMult`, etc. overridden via `ParameterOverrides.h` at startup. Requires SSE Engine Fixes for correct weapon blocking.
 18. **Block skill embedded upstream** — `ComputeBlockBurden()` in BurdenManager produces `weaponBurden_block`, not a separate multiplier in BlockManager. Avoids double-counting.
+19. **Exhaustion implemented** — originally deferred as a block-specific feature, now implemented as a general stamina-0 state machine triggered from the regen delay hook. Applies cross-AV regen penalties and damage scaling. No action denial.
 
 ## 12. Scope by Actor Type
 
@@ -766,7 +844,7 @@ All settings are `Parameter<T>` structs in `src/Settings/Params/`. No shipped IN
 | Sprint drain | ✓ | ✓ |
 | Bow fire cost + deny | ✓ | ✓ |
 | Block stamina redirect | ✓ (burden cost + redirect + guard break) | ✗ (default off, toggled via `bBlockCostNPC`/`bBlockRedirectNPC`) |
-| Exhaustion | ✗ (future) | ✗ (future) |
+| Exhaustion | ✓ (default on) | ✓ (default off, toggle via `bExhaustionNPC`) |
 | Attack damage scaling | ✓ (stamina-based curve) | ✓ (stamina-based curve) |
 | Action denial | AttackDenyHook NPC-only, JumpDenyHook broken AE | AttackDenyHook NPC-only |
 
@@ -776,7 +854,7 @@ All settings are `Parameter<T>` structs in `src/Settings/Params/`. No shipped IN
 
 1. **Player attack denial** — vtable hook on `AttackBlockHandler::ProcessButton` (vtable index 04). AE-stable per CommonLibSSE-NG.
 2. **Jump denial AE** — need working call site for AE 1.6.1170. SSE `41349+0x114` known working.
-3. **Exhaustion** — state machine with timed duration, regen/damage penalties. Applies when ANY stamina drain hits 0 (sprint, power attack, block).
+3. ~~Exhaustion — state machine with timed duration, regen/damage penalties. Applies when ANY stamina drain hits 0 (sprint, power attack, block).~~ → DONE (see §3.8).
 4. **Timed block** — Valhalla Combat-style timed block window, commitment, perfect block, window penalty system. Dependencies: input hooks, state machine. Deferrable to separate plan.
 5. **Settings INI** — populate whitelist with all active params.
 6. **Console commands** — sb_get/set/list/reset/getburden via Papyrus + TestCommands.yaml.
