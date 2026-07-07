@@ -1,5 +1,5 @@
 #include "ActionHook.h"
-#include "Stamina/CostsManager.h"
+#include "Movement/MovementCostManager.h"
 #include "Common/Utils.h"
 
 namespace Hooks
@@ -14,7 +14,7 @@ namespace Hooks
 	float ActionHook::ApplyJumpCost(RE::Actor* actor)
 	{
 		if (actor)
-			Common::ApplyStaminaCost(actor, Costs::ComputeJumpCost(actor));
+			Common::ApplyStaminaCost(actor, Movement::ComputeJumpCost(actor));
 		return _GetScale(actor);
 	}
 }
