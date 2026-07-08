@@ -2,6 +2,8 @@
 #include "Movement/MovementManager.h"
 #include "Movement/MovementCostManager.h"
 #include "Common/Utils.h"
+#include "Settings/Params/CostsParams.h"
+#include "Settings/Params/MovementSpeedParams.h"
 
 namespace
 {
@@ -26,6 +28,11 @@ namespace
 			float original_speed = _func(a_actor);
 
 			if (!a_actor)
+				return original_speed;
+
+			auto* params = MovementSpeedParams::GetSingleton();
+			bool enabled = a_actor->IsPlayerRef() ? params->bMovementSpeedPlayer.Get() : params->bMovementSpeedNPC.Get();
+			if (!enabled)
 				return original_speed;
 
 			return original_speed * Movement::ComputeSpeedMultiplier(a_actor);
@@ -62,6 +69,11 @@ namespace
 			if (!actor)
 				return 0.0f;
 
+			auto* params = Costs::CostsParams::GetSingleton();
+			bool enabled = actor->IsPlayerRef() ? params->bSprintCostPlayer.Get() : params->bSprintCostNPC.Get();
+			if (!enabled)
+				return _getEquippedWeight(actor);
+
 			float drain = Movement::ComputeSprintDrain(actor);
 			Costs::CostLog("SprintDrain: {:.3f} for {:x}", drain, actor->GetFormID());
 			return drain;
@@ -88,8 +100,12 @@ namespace
 
 		static float ApplyJumpCost(RE::Actor* actor)
 		{
-			if (actor)
-				Common::ApplyStaminaCost(actor, Movement::ComputeJumpCost(actor));
+			if (actor) {
+				auto* params = Costs::CostsParams::GetSingleton();
+				bool enabled = actor->IsPlayerRef() ? params->bJumpCostPlayer.Get() : params->bJumpCostNPC.Get();
+				if (enabled)
+					Common::ApplyStaminaCost(actor, Movement::ComputeJumpCost(actor));
+			}
 			return _GetScale(actor);
 		}
 

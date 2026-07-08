@@ -1,5 +1,6 @@
 #include "AttackCostHook.h"
 #include "Stamina/CostsManager.h"
+#include "Settings/Params/CostsParams.h"
 
 #include <RE/RTTI.h>
 
@@ -20,6 +21,11 @@ namespace Hooks
 
 		auto* actor = skyrim_cast<RE::Actor*>(a_this);
 		if (!actor)
+			return _func(a_this, a_attack);
+
+		auto* params = Costs::CostsParams::GetSingleton();
+		bool enabled = actor->IsPlayerRef() ? params->bAttackCostPlayer.Get() : params->bAttackCostNPC.Get();
+		if (!enabled)
 			return _func(a_this, a_attack);
 
 		return Costs::ComputeAttackCost(actor, a_attack);

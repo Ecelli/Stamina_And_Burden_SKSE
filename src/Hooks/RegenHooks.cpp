@@ -30,6 +30,7 @@
 #include "Stamina/RegenManager.h"
 #include "Stamina/ExhaustionManager.h"
 #include "Common/Utils.h"
+#include "Settings/Params/RegenParams.h"
 #include <unordered_map>
 
 namespace
@@ -48,6 +49,13 @@ namespace Hooks
 		// 1. Get the engine's base regen rate
 		__m128 out = _engineAVRegen ? _engineAVRegen(a_actor, a_av) : _mm_setzero_ps();
 		float rate = _mm_cvtss_f32(out);
+
+		// Per-actor toggle: if regen disabled for this actor type, return engine rate as-is
+		bool isPlayer = a_actor->IsPlayerRef();
+		auto* regenParams = Regen::RegenParams::GetSingleton();
+		bool regenEnabled = isPlayer ? regenParams->bRegenPlayer.Get() : regenParams->bRegenNPC.Get();
+		if (!regenEnabled)
+			return out;
 
 		// 2. Multiply by our formula
 		switch (a_av) {
@@ -138,6 +146,9 @@ namespace Hooks
 	void TaskPlayerFullStaminaMonitor()
 	{
 		SKSE::GetTaskInterface()->AddTask([]() {
+			if (!Regen::RegenParams::GetSingleton()->bRegenPlayer.Get())
+				return;
+
 			auto* player = RE::PlayerCharacter::GetSingleton();
 			if (!player)
 				return;
