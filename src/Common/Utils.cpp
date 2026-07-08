@@ -9,22 +9,8 @@ namespace Common
 		if (!actor || cost <= 0.0f) {
 			return true;
         }
+
 		auto* params = Deny::DenyParams::GetSingleton();
-		bool isPlayer = actor->IsPlayerRef();
-
-		if (isPlayer && params->bPlayerAlwaysCanDoAction.Get()) {
-			return true;
-        }
-		if (!isPlayer && params->bNpcAlwaysCanDoAction.Get()) {
-			return true;
-        }
-
-		float regenThreshold = params->fNpcRegenExemptionRate.Get();
-		if (!isPlayer && regenThreshold > 0.0f &&
-			actor->GetActorValue(RE::ActorValue::kStaminaRateMult) *
-				actor->GetActorValue(RE::ActorValue::kStaminaRate) < regenThreshold)
-			return true;
-
 		float threshold = params->fMinStaminaCostMult.Get() * cost;
 		return actor->GetActorValue(RE::ActorValue::kStamina) > threshold;
 	}
