@@ -9,43 +9,6 @@
 
 namespace
 {
-	enum class AttackHandType
-	{
-		Unarmed,
-		OneHanded,
-		TwoHanded,
-		Ranged,
-		BashShield,
-		BashBow,
-		BashWeapon
-	};
-
-	AttackHandType GetAttackHandType(RE::Actor* actor, bool left, bool bash)
-	{
-		if (bash) {
-			auto leftInfo = Burden::GetLeftHandInfo(actor);
-			if (leftInfo.HasShield())
-				return AttackHandType::BashShield;
-			if (Burden::GetRightHandInfo(actor).type == Burden::RightHandType::kBow)
-				return AttackHandType::BashBow;
-			return AttackHandType::BashWeapon;
-		}
-		auto* obj = actor->GetEquippedObject(left);
-		if (!obj)
-			return AttackHandType::Unarmed;
-		auto* weap = obj->As<RE::TESObjectWEAP>();
-		if (!weap)
-			return AttackHandType::Unarmed;
-		auto type = weap->GetWeaponType();
-		if (type == RE::WEAPON_TYPE::kHandToHandMelee)
-			return AttackHandType::Unarmed;
-		if (type == RE::WEAPON_TYPE::kBow || type == RE::WEAPON_TYPE::kCrossbow)
-			return AttackHandType::Ranged;
-		if (!left && (type == RE::WEAPON_TYPE::kTwoHandSword || type == RE::WEAPON_TYPE::kTwoHandAxe))
-			return AttackHandType::TwoHanded;
-		return AttackHandType::OneHanded;
-	}
-
 	float ComputeBurdenAttackCost(const Burden::ActorBurdenData& burden)
 	{
 		auto* params = Costs::AttackCostParams::GetSingleton();
@@ -149,41 +112,42 @@ namespace Costs
 		bool left = attackData->IsLeftAttack();
 		bool bash = attackData->data.flags.any(RE::AttackData::AttackFlag::kBashAttack);
 
+		auto handInfo = Utils::GetAttackHandInfo(actor, left, bash);
 		float baseCost = 0;
 
-		switch (GetAttackHandType(actor, left, bash)) {
-		case AttackHandType::BashShield:
+		switch (handInfo.type) {
+		case Utils::AttackHandType::BashShield:
 			baseCost = ComputeShieldBash(burden, burden.weaponBurden_block, power);
 			break;
-		case AttackHandType::BashBow:
+		case Utils::AttackHandType::BashBow:
 			baseCost = ComputeBowBash(burden, burden.weaponBurden_ranged, power);
 			break;
-		case AttackHandType::BashWeapon:
+		case Utils::AttackHandType::BashWeapon:
 			{
-				if (Burden::GetLeftHandInfo(actor).HasWeapon()) {
+				if (Utils::GetLeftHandInfo(actor).HasWeapon()) {
                     baseCost += ComputeWeaponBash(burden, burden.weaponBurden_lh, power);
-                    if (Burden::GetRightHandInfo(actor).type != Burden::RightHandType::kHandToHand) {
+                    if (Utils::GetRightHandInfo(actor).type != Utils::RightHandType::kHandToHand) {
                         baseCost += ComputeWeaponBash(burden, burden.weaponBurden_rh, power);
                     }
                 }
-				else if (Burden::GetRightHandInfo(actor).type == Burden::RightHandType::kTwoHanded)
+				else if (Utils::GetRightHandInfo(actor).type == Utils::RightHandType::kTwoHanded)
                     baseCost = ComputeWeaponBash(burden, burden.weaponBurden_2h, power);
 				else
                     baseCost += ComputeWeaponBash(burden, burden.weaponBurden_rh, power);
 				break;
 			}
-		case AttackHandType::Unarmed:
+		case Utils::AttackHandType::Unarmed:
 			baseCost = ComputeUnarmedAttack(burden, power);
 			break;
-		case AttackHandType::TwoHanded:
+		case Utils::AttackHandType::TwoHanded:
 			baseCost = Compute2hAttack(burden, burden.weaponBurden_2h, power);
 			break;
-		case AttackHandType::OneHanded:
+		case Utils::AttackHandType::OneHanded:
 			baseCost = left ?
 				Compute1hAttack(burden, burden.weaponBurden_lh, power) :
 				Compute1hAttack(burden, burden.weaponBurden_rh, power);
 			break;
-		case AttackHandType::Ranged:
+		case Utils::AttackHandType::Ranged:
 		default:
 			baseCost = 0.0f;
 			break;

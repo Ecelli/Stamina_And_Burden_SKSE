@@ -10,6 +10,70 @@
 #include "Settings/Params/ExhaustionParams.h"
 #include "Settings/Params/MovementSpeedParams.h"
 
+namespace RE
+{
+	class TESObjectARMO;
+	class TESObjectWEAP;
+}
+
+namespace Utils
+{
+	enum class LeftHandType
+	{
+		kEmpty,
+		kWeapon,
+		kShield
+	};
+
+	enum class RightHandType
+	{
+		kEmpty,
+		kOneHanded,
+		kTwoHanded,
+		kBow,
+		kHandToHand
+	};
+
+	struct LeftHandInfo
+	{
+		LeftHandType type{ LeftHandType::kEmpty };
+		RE::TESObjectWEAP* weapon{ nullptr };
+		RE::TESObjectARMO* shield{ nullptr };
+
+		[[nodiscard]] bool HasWeapon() const { return weapon != nullptr; }
+		[[nodiscard]] bool HasShield() const { return shield != nullptr; }
+	};
+
+	struct RightHandInfo
+	{
+		RightHandType type{ RightHandType::kEmpty };
+		RE::TESObjectWEAP* weapon{ nullptr };
+
+		[[nodiscard]] bool HasWeapon() const { return weapon != nullptr; }
+	};
+
+	enum class AttackHandType
+	{
+		Unarmed,
+		OneHanded,
+		TwoHanded,
+		Ranged,
+		BashShield,
+		BashBow,
+		BashWeapon
+	};
+
+	struct AttackHandInfo
+	{
+		AttackHandType type{ AttackHandType::Unarmed };
+		RE::TESForm*   form{ nullptr };
+	};
+
+	LeftHandInfo   GetLeftHandInfo(RE::Actor* actor);
+	RightHandInfo  GetRightHandInfo(RE::Actor* actor);
+	AttackHandInfo GetAttackHandInfo(RE::Actor* actor, bool left, bool blocking);
+}
+
 namespace Common
 {
 	template <typename Rep, typename Period, typename F>

@@ -134,31 +134,31 @@ namespace
 {
 	void ComputeRightHandBurden(RE::Actor* actor, Burden::ActorBurdenData& data)
 	{
-		auto info = Burden::GetRightHandInfo(actor);
+		auto info = Utils::GetRightHandInfo(actor);
 		data.weaponBurden_rh = 0.0f;
 		data.weaponBurden_2h = 0.0f;
 		data.weaponBurden_ranged = 0.0f;
 
 		switch (info.type) {
-		case Burden::RightHandType::kTwoHanded:
+		case Utils::RightHandType::kTwoHanded:
 			{
 				float w = Burden::ResolveWeaponWeight(info.weapon, data.conjurationSkill);
 				data.weaponBurden_2h = Math::Clamp01(Burden::ScaleWeaponWeight(w, data.twoHandedSkill) / data.maxEquippedWeight);
 				break;
 			}
-		case Burden::RightHandType::kBow:
+		case Utils::RightHandType::kBow:
 			{
 				float w = Burden::ResolveWeaponWeight(info.weapon, data.conjurationSkill);
 				data.weaponBurden_ranged = Math::Clamp01(Burden::ScaleWeaponWeight(w, data.marksmanSkill) / data.maxEquippedWeight);
 				break;
 			}
-		case Burden::RightHandType::kOneHanded:
+		case Utils::RightHandType::kOneHanded:
 			{
 				float w = Burden::ResolveWeaponWeight(info.weapon, data.conjurationSkill);
 				data.weaponBurden_rh = Math::Clamp01(Burden::ScaleWeaponWeight(w, data.oneHandedSkill) / data.maxEquippedWeight);
 				break;
 			}
-		case Burden::RightHandType::kHandToHand:
+		case Utils::RightHandType::kHandToHand:
 			data.weaponBurden_rh = Math::Clamp01(BurdenParams::GetSingleton()->UnarmedWeight.Get()
 				/ data.maxEquippedWeight);
 			break;
@@ -169,14 +169,14 @@ namespace
 
 	void ComputeLeftHandBurden(RE::Actor* actor, Burden::ActorBurdenData& data)
 	{
-		auto info = Burden::GetLeftHandInfo(actor);
+		auto info = Utils::GetLeftHandInfo(actor);
 		switch (info.type) {
-		case Burden::LeftHandType::kWeapon:
+		case Utils::LeftHandType::kWeapon:
 			data.weaponBurden_lh = Math::Clamp01(Burden::ScaleWeaponWeight(
 				Burden::ResolveWeaponWeight(info.weapon, data.conjurationSkill),
 				data.oneHandedSkill) / data.maxEquippedWeight);
 			break;
-		case Burden::LeftHandType::kShield:
+		case Utils::LeftHandType::kShield:
 			data.weaponBurden_lh = 0.0f;
 			break;
 		default:
@@ -197,7 +197,7 @@ namespace
 
 	float ComputeBlockBurden(RE::Actor* actor, Burden::ActorBurdenData& data)
 	{
-		auto leftInfo = Burden::GetLeftHandInfo(actor);
+		auto leftInfo = Utils::GetLeftHandInfo(actor);
 		auto* params = BurdenParams::GetSingleton();
 
 		// Shield block
@@ -216,7 +216,7 @@ namespace
 
 		// Block for DW or only left weapon.
 		if (leftInfo.HasWeapon()) {
-			auto rightInfo = Burden::GetRightHandInfo(actor);
+			auto rightInfo = Utils::GetRightHandInfo(actor);
 			if (rightInfo.HasWeapon()) {
 				float dwPenalty = params->DualWieldBlockPenalty.Get();
 				return Math::Clamp01(dwPenalty * 0.5f
@@ -228,7 +228,7 @@ namespace
 		}
 
 		// Block unarmored
-		auto rightInfo = Burden::GetRightHandInfo(actor);
+		auto rightInfo = Utils::GetRightHandInfo(actor);
 		if (!rightInfo.HasWeapon()) {
 			return Math::Clamp01(params->UnarmedWeight.Get() / data.maxEquippedWeight
 				* blockMult(data.blockSkill));
@@ -242,54 +242,16 @@ namespace
 
 namespace Burden
 {
-	LeftHandInfo GetLeftHandInfo(RE::Actor* actor)
-	{
-		LeftHandInfo info;
-		auto* form = actor->GetEquippedObject(true);
-		if (!form)
-			return info;
-		if (auto* weap = form->As<RE::TESObjectWEAP>()) {
-			info.type = LeftHandType::kWeapon;
-			info.weapon = weap;
-		} else if (auto* shield = form->As<RE::TESObjectARMO>(); shield && shield->IsShield()) {
-			info.type = LeftHandType::kShield;
-			info.shield = shield;
-		}
-		return info;
-	}
-
-	RightHandInfo GetRightHandInfo(RE::Actor* actor)
-	{
-		RightHandInfo info;
-		auto* form = actor->GetEquippedObject(false);
-		if (!form)
-			return info;
-		auto* weap = form->As<RE::TESObjectWEAP>();
-		if (!weap)
-			return info;
-		auto type = weap->GetWeaponType();
-		if (type == RE::WEAPON_TYPE::kHandToHandMelee)
-			info.type = RightHandType::kHandToHand;
-		else if (type == RE::WEAPON_TYPE::kBow || type == RE::WEAPON_TYPE::kCrossbow)
-			info.type = RightHandType::kBow;
-		else if (type == RE::WEAPON_TYPE::kTwoHandSword || type == RE::WEAPON_TYPE::kTwoHandAxe)
-			info.type = RightHandType::kTwoHanded;
-		else
-			info.type = RightHandType::kOneHanded;
-		info.weapon = weap;
-		return info;
-	}
-
-	WeaponHandlingInfo GetWeaponHandlingInfo(const ActorBurdenData& d, RightHandType t)
+	WeaponHandlingInfo GetWeaponHandlingInfo(const ActorBurdenData& d, Utils::RightHandType t)
 	{
 		switch (t) {
-		case RightHandType::kTwoHanded:
+		case Utils::RightHandType::kTwoHanded:
 			return { d.weaponBurden_2h, d.twoHandedSkill };
-		case RightHandType::kBow:
+		case Utils::RightHandType::kBow:
 			return { d.weaponBurden_ranged, d.marksmanSkill };
-		case RightHandType::kOneHanded:
+		case Utils::RightHandType::kOneHanded:
 			return { d.weaponBurden_rh, d.oneHandedSkill };
-		case RightHandType::kHandToHand:
+		case Utils::RightHandType::kHandToHand:
 			return { d.weaponBurden_rh, d.blockSkill };
 		default:
 			return { d.weaponBurden_rh, 0 };
