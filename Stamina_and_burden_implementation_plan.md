@@ -618,7 +618,7 @@ Per project convention: **any denial feature that is implemented but not install
 | Attack denial (NPC) | Implemented, NOT INSTALLED (`Hooks.cpp:35` commented) | Hook `49170+0x28D` only fires for NPCs. Player needs different entry point. |
 | Attack denial (player) | Not implemented | Requires vtable hook on `AttackBlockHandler::ProcessButton` (vtable index 04) — approach designed, not coded. |
 | Jump denial | Implemented, NOT INSTALLED | AE call site at `42423+0x114` crashes on 1.6.1170. SSE offset `41349+0x114` known but unused. |
-| Bow fire deny | DONE — built into `BowFireHook` | Integrated into the cost hook — if `CanDoStaminaAction` returns false, the shot is suppressed. |
+| Bow fire deny | DONE — built into `BowFireHook` | Integrated into the cost hook. Per-actor toggles (`bBowDenyPlayer/NPC`) control denial independently of cost. NPC denial now functional (was player-only). |
 
 **Deferred until a solution is found for player action denial.** The BowFireHook's inline deny is the pattern to follow: check `CanDoStaminaAction` inside the cost hook, suppress the action if insufficient.
 
@@ -662,7 +662,8 @@ All settings are `Parameter<T>` structs in `src/Settings/Params/`. No shipped IN
 - `fDualWieldBlockPenalty` — extra penalty for blocking while dual-wielding
 - `fUnarmedWeight` — base weight for unarmed/empty hands
 
-### RegenParams (16 params)
+### RegenParams (18 params)
+- `bRegenPlayer/NPC` — per-actor toggles for regen modification
 - `fStaminaRegenMult_LowHealth/HighHealth/LowStamina/HighStamina/LowMagicka/HighMagicka` — cross-AV curves
 - `fStaminaRegenCurve_kStamina/kMagicka/kHealth` — curve shapes
 - `fHealthRegenMult_LowStamina/HighStamina/k` — stamina → health regen curve
@@ -681,7 +682,13 @@ All settings are `Parameter<T>` structs in `src/Settings/Params/`. No shipped IN
 ### WeatherParams (3 params)
 - `fWeatherRainPenalty`, `fWeatherSnowPenalty`, `bWeatherEnabled`
 
-### CostsParams (16 params)
+### CostsParams (29 params)
+- `bAttackCostPlayer/NPC` — per-actor toggles for attack stamina cost
+- `bBowCostPlayer/NPC` — per-actor toggles for bow fire stamina cost
+- `bBowDenyPlayer/NPC` — per-actor toggles for bow fire denial on insufficient stamina
+- `bSprintCostPlayer/NPC` — per-actor toggles for sprint drain
+- `bJumpCostPlayer/NPC` — per-actor toggles for jump cost
+- `bEnableDebugLogging`
 - `fSprintDrainLowBurden/HighBurden/LowCarryBurdenPct/HighCarryBurdenPct/BurdenCurve_k/CarryBurdenCurve_k`
 - `fJumpCostLowBurden/HighBurden/LowCarryPct/HighCarryPct/BurdenCurve_k/CarryCurve_k`
 - `fBowFireLowBurden/HighBurden/BurdenCurve_k/LowCarryPct/HighCarryPct/CarryCurve_k`
@@ -695,11 +702,10 @@ All settings are `Parameter<T>` structs in `src/Settings/Params/`. No shipped IN
 - `fBashBowLowBurden/HighBurden/BurdenCurve_k/PowerMult`
 - `fBashWeaponLowBurden/HighBurden/BurdenCurve_k/PowerMult`
 
-### DenyParams (4 params)
+### DenyParams (1 param)
 - `fMinStaminaCostMult` — stamina threshold fraction for action denial
-- `bPlayerAlwaysCanDoAction` — bypass for player (debug)
-- `bNpcAlwaysCanDoAction` — bypass for NPCs (debug)
-- `fNpcRegenExemptionRate` — regen threshold for NPC exemption
+
+Removed: `bPlayerAlwaysCanDoAction`, `bNpcAlwaysCanDoAction`, `fNpcRegenExemptionRate` — unused, deprecated in favor of per-feature toggles.
 
 ### ExhaustionParams (10 params)
 - `bExhaustionPlayer` — master toggle: player can become exhausted (default true)
@@ -752,7 +758,7 @@ All settings are `Parameter<T>` structs in `src/Settings/Params/`. No shipped IN
 - `fBlockSkillMult` (6.0), `fBlockPowerAttackMult` (0.66) — block skill + power attack
 - `fStaminaBlockDmgMult` (0.0), `fStaminaBlockStaggerMult` (0.0), `fStaminaBlockBase` (0.0) — engine block stamina drain
 
-### MovementSpeedParams (10 params)
+### MovementSpeedParams (12 params)
 
 | Key | Type | Default | Range | Purpose |
 |---|---|---|---|---|
@@ -766,6 +772,8 @@ All settings are `Parameter<T>` structs in `src/Settings/Params/`. No shipped IN
 | `fSpeedMultSubmerged` | float | 0.60 | 0.1–1.0 | Speed mult when fully submerged |
 | `fExhaustionSpeedMult` | float | 0.70 | 0.1–1.0 | Speed mult while exhausted |
 | `bEnableDebugMovementLogging` | bool | true | — | Debug toggle |
+| `bMovementSpeedPlayer` | bool | true | — | Per-actor toggle for player speed scaling |
+| `bMovementSpeedNPC` | bool | true | — | Per-actor toggle for NPC speed scaling |
 
 ### Settings future work:
 - INI whitelist population (currently `EXPECTED_COUNT = 0`)
@@ -922,6 +930,7 @@ All settings are `Parameter<T>` structs in `src/Settings/Params/`. No shipped IN
 18. **Block skill embedded upstream** — `ComputeBlockBurden()` in BurdenManager produces `weaponBurden_block`, not a separate multiplier in BlockManager. Avoids double-counting.
 19. **Exhaustion implemented** — originally deferred as a block-specific feature, now implemented as a general stamina-0 state machine triggered from the regen delay hook. Applies cross-AV regen penalties and damage scaling. No action denial.
 20. **SpeedHook** — movement speed scaling by burden blend, swim depth, and exhaustion status. Not in original plan. Composite multiplier applied via dedicated hook at `37943+0x51`. Sprint/jump cost functions delegated from CostsManager to `Movement::` namespace.
+21. **Per-actor-type toggles** — every user-facing feature (regen, attack cost, bow cost, bow deny, sprint, jump, movement speed) has individual Player/NPC boolean toggle pairs in its respective param group. Replaces the removed global bypass params (`bPlayerAlwaysCanDoAction`, `bNpcAlwaysCanDoAction`, `fNpcRegenExemptionRate`). DenyParams reduced to a single `fMinStaminaCostMult` threshold.
 
 ## 12. Scope by Actor Type
 
