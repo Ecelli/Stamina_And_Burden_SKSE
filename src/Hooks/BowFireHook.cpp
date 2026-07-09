@@ -1,6 +1,7 @@
 #include "BowFireHook.h"
 #include "Stamina/CostsManager.h"
 #include "Common/Utils.h"
+#include "Settings/Params/CostsParams.h"
 
 namespace Hooks
 {
@@ -24,16 +25,21 @@ namespace Hooks
 		if (!actor)
 			return _func(a_weapon, a_source, a_overwriteAmmo, a_ammoEnch, a_poison);
 
-		float cost = Costs::ComputeBowFireCost(actor);
-		auto stamina = actor->GetActorValue(RE::ActorValue::kStamina);
+		bool isPlayer = actor->IsPlayerRef();
+		auto* params = Costs::CostsParams::GetSingleton();
+		bool costEnabled = isPlayer ? params->bBowCostPlayer.Get() : params->bBowCostNPC.Get();
+		bool denyEnabled = isPlayer ? params->bBowDenyPlayer.Get() : params->bBowDenyNPC.Get();
 
-		if (actor->IsPlayerRef() && !Common::CanDoStaminaAction(actor, cost)) {
-			Costs::CostLog("BowFireHook: suppressed shot for {:x}, stamina={:.1f} < cost={:.1f}",
-				actor->GetFormID(), stamina, cost);
+		float cost = Costs::ComputeBowFireCost(actor);
+
+		if (denyEnabled && !Common::CanDoStaminaAction(actor, cost)) {
+			Costs::CostLog("BowFireHook: suppressed shot for {:x}", actor->GetFormID());
 			return;
 		}
 
-		Common::ApplyStaminaCost(actor, cost);
+		if (costEnabled)
+			Common::ApplyStaminaCost(actor, cost);
+
 		_func(a_weapon, a_source, a_overwriteAmmo, a_ammoEnch, a_poison);
 	}
 }

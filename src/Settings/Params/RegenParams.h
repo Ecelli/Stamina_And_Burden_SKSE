@@ -30,6 +30,10 @@ namespace Regen
 		// Debug logging
 		Parameter<bool> EnableDebugLogging{ true, false, true };
 
+		// Per-actor-type toggles
+		Parameter<bool> bRegenPlayer{ true, false, true };
+		Parameter<bool> bRegenNPC{ true, false, true };
+
 		template <typename F>
 		static void ForEach(F&& a_fn)
 		{
@@ -50,6 +54,8 @@ namespace Regen
 			a_fn("fMagickaRegenMult_HighStamina"sv, s.MagickaRegenMult_HighStamina);
 			a_fn("fMagickaRegenCurve_k"sv, s.MagickaRegenCurve_k);
 			a_fn("bEnableDebugLogging"sv, s.EnableDebugLogging);
+			a_fn("bRegenPlayer"sv, s.bRegenPlayer);
+			a_fn("bRegenNPC"sv, s.bRegenNPC);
 		}
 	};
 

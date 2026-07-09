@@ -9,6 +9,18 @@ namespace Costs
 		// Debug logging
 		Parameter<bool> EnableDebugLogging{ true, false, true };
 
+		// Per-actor-type toggles
+		Parameter<bool> bAttackCostPlayer{ true, false, true };
+		Parameter<bool> bAttackCostNPC{ true, false, true };
+		Parameter<bool> bBowCostPlayer{ true, false, true };
+		Parameter<bool> bBowCostNPC{ true, false, true };
+		Parameter<bool> bBowDenyPlayer{ true, false, true };
+		Parameter<bool> bBowDenyNPC{ true, false, true };
+		Parameter<bool> bSprintCostPlayer{ true, false, true };
+		Parameter<bool> bSprintCostNPC{ true, false, true };
+		Parameter<bool> bJumpCostPlayer{ true, false, true };
+		Parameter<bool> bJumpCostNPC{ true, false, true };
+
         Parameter<float> SprintDrainLowBurden{ 3.0f, 0.0f, 200.0f };
 		Parameter<float> SprintDrainHighBurden{ 15.0f, 0.0f, 200.0f };
 		Parameter<float> SprintDrainLowCarryBurdenPct{ 0.1f, 0.0f, 60.0f };
@@ -35,6 +47,16 @@ namespace Costs
 		{
 			auto& s = GetSingleton();
 			a_fn("bEnableDebugLogging"sv, s.EnableDebugLogging);
+			a_fn("bAttackCostPlayer"sv, s.bAttackCostPlayer);
+			a_fn("bAttackCostNPC"sv, s.bAttackCostNPC);
+			a_fn("bBowCostPlayer"sv, s.bBowCostPlayer);
+			a_fn("bBowCostNPC"sv, s.bBowCostNPC);
+			a_fn("bBowDenyPlayer"sv, s.bBowDenyPlayer);
+			a_fn("bBowDenyNPC"sv, s.bBowDenyNPC);
+			a_fn("bSprintCostPlayer"sv, s.bSprintCostPlayer);
+			a_fn("bSprintCostNPC"sv, s.bSprintCostNPC);
+			a_fn("bJumpCostPlayer"sv, s.bJumpCostPlayer);
+			a_fn("bJumpCostNPC"sv, s.bJumpCostNPC);
 			a_fn("fSprintDrainLowBurden"sv, s.SprintDrainLowBurden);
 			a_fn("fSprintDrainHighBurden"sv, s.SprintDrainHighBurden);
 			a_fn("fSprintDrainLowCarryBurdenPct"sv, s.SprintDrainLowCarryBurdenPct);

@@ -24,7 +24,10 @@ src/
 ├── Common/            # PCH, Utils.h — heartbeat, CanDoStaminaAction, Interpolate (DONE)
 ├── Data/              # ModObjectManager, Lookup.h (shell — EXPECTED_COUNT=0)
 ├── Export/            # SKSEPlugin.cpp — entrypoint (DONE)
-├── Hooks/             # 8 code detours + 4 event sinks + 2 uninstalled denies (DONE)
+├── Hooks/             # 9 code detours + 4 event sinks + 2 uninstalled denies (DONE)
+├── Movement/          # Movement speed (burden/swim/exhaustion) + sprint/jump cost functions (DONE)
+│   ├── MovementManager        # ComputeSpeedMultiplier — burden, swim depth, exhaustion speed scaling
+│   └── MovementCostManager    # ComputeSprintDrain, ComputeJumpCost — delegated from CostsManager
 ├── Papyrus/           # GetVersion only bound (MINIMAL)
 ├── RE/                # Offset.h — placeholder; all REL::IDs inline (DONE)
 ├── Serialization/     # Serde.h/.cpp — infrastructure ready, nothing registered (SHELL)
@@ -35,7 +38,7 @@ src/
 │                      #   RegenMovementParams, NegativeRegen, WeatherParams,
 │                      #   CostsParams, AttackCostParams, DenyParams,
 │                      #   BlockingParams, ParameterOverrides, DamageParams,
-│                      #   ExhaustionParams (DONE)
+│                      #   ExhaustionParams, MovementSpeedParams (DONE)
 └── Stamina/
     ├── RegenManager      # Regen formulas + single source of truth (DONE)
     ├── CostsManager      # Sprint/jump/attack/bow cost formulas (DONE)
@@ -173,8 +176,6 @@ LowBonus=2.0 (debuffed mult → amplified drain), HighBonus=0.2 (buffed mult →
 
 **Public API:**
 ```
-float ComputeSprintDrain(actor)      — returns stamina/frame (includes GetSecondsSinceLastFrame)
-float ComputeJumpCost(actor)          — returns stamina per jump
 float ComputeAttackCost(actor, data)  — returns stamina per attack
 float ComputeBowFireCost(actor)       — returns stamina per shot
 ```
@@ -207,11 +208,75 @@ cost            = flatTerm + pctTerm × Stamina_1pctMax
 - Original plan described game-setting writes for movement costs. Actual system hooks sprint drain directly (`38022 + 0xC1/0xC9`) and jump cost directly (`37257 + 0x17F`) — per-actor, no global setting manipulation.
 - Bow fire cost + deny (not in original plan) built into BowFireHook.
 
-### 3.4 ActionManager (FUTURE)
+### 3.4 Movement (DONE)
 
-**Purpose:** Not a separate module — attack/sprint/jump costs are handled by CostsManager + their respective hooks. A future ActionManager would handle:
-- Action lockout checks for blocked actions
-- Any future action types not covered by existing hooks
+**Files:** `src/Movement/MovementManager.h/.cpp`, `src/Movement/MovementCostManager.h/.cpp`, `src/Hooks/MovementHooks.h/.cpp`, `src/Settings/Params/MovementSpeedParams.h`
+
+**Two concerns in one directory:**
+
+1. **MovementSpeed** — scales actor walk/run speed based on burden, swim depth, and exhaustion
+2. **MovementCosts** — sprint drain and jump cost formulas (delegated from CostsManager's original scope)
+
+#### 3.4.1 SpeedHook — Movement Speed Scaling
+
+**Hook:** `REL::ID(37943) + 0x51` — intercepts the engine's speed computation for all actors.
+
+**`Movement::ComputeSpeedMultiplier(actor)`** — composite multiplier:
+```
+burdenMult  = Interpolate(speedMultLowBurden, speedMultHighBurden, burdenBlend, speedCurve_k)
+              (only if bEnableBurdenSpeed)
+
+swimMult    = Interpolate(speedMultAboveWater, speedMultSubmerged, submergedLevel, 1.0)
+              (only if bEnableSwimSpeed; submergedLevel via REL::ID(37448))
+
+exhaustMult = exhaustionSpeedMult
+              (only if bEnableExhaustionSpeed AND actor is exhausted)
+
+result      = burdenMult × swimMult × exhaustMult
+```
+
+**Parameters (10):**
+| Key | Type | Default | Range | Purpose |
+|---|---|---|---|---|
+| `bEnableBurdenSpeed` | bool | true | — | Master toggle for burden speed scaling |
+| `bEnableSwimSpeed` | bool | true | — | Master toggle for swim speed scaling |
+| `bEnableExhaustionSpeed` | bool | true | — | Master toggle for exhaustion speed penalty |
+| `fSpeedMultLowBurden` | float | 1.10 | 0.1–2.0 | Speed mult at zero burden (slight bonus) |
+| `fSpeedMultHighBurden` | float | 0.70 | 0.1–1.0 | Speed mult at full burden |
+| `fSpeedCurve_k` | float | 0.50 | 0.0–1.0 | Burden speed curve shape |
+| `fSpeedMultAboveWater` | float | 1.00 | 0.1–1.5 | Speed mult when not submerged |
+| `fSpeedMultSubmerged` | float | 0.60 | 0.1–1.0 | Speed mult when fully submerged |
+| `fExhaustionSpeedMult` | float | 0.70 | 0.1–1.0 | Speed mult while exhausted |
+| `bEnableDebugMovementLogging` | bool | true | — | Debug toggle |
+
+#### 3.4.2 Sprint Drain and Jump Cost
+
+Sprint and jump cost formulas were originally planned under CostsManager (§3.3). They now live in the `Movement::` namespace and are implemented in `MovementCostManager.cpp`. The hooks (SprintHook, JumpHook) are installed via `MovementHooks` in `src/Hooks/MovementHooks.cpp`.
+
+**`Movement::ComputeSprintDrain(actor)`** — returns stamina/frame:
+```
+SprintBurdenFlat  = Interpolate(SprintDrainLowBurden, SprintDrainHighBurden, burden, SprintDrainBurdenCurve_k)
+SprintBurdenMult  = Interpolate(SprintDrainLowCarryBurdenPct, SprintDrainHighCarryBurdenPct, carryBurden, SprintDrainCarryBurdenCurve_k)
+TotalCost         = SprintBurdenFlat + SprintBurdenMult × 1% maxStamina
+TotalCost        += engineRate × weatherPenalty    (if weather penalty active)
+TotalCost        *= GetSecondsSinceLastFrame()      (frame-time scaled)
+```
+
+**`Movement::ComputeJumpCost(actor)`** — returns stamina per jump:
+```
+JumpBurdenFlat = Interpolate(JumpCostLowBurden, JumpCostHighBurden, burden, JumpCostBurdenCurve_k)
+JumpCarryPct   = Interpolate(JumpCostLowCarryPct, JumpCostHighCarryPct, carryBurden, JumpCostCarryCurve_k)
+TotalCost      = JumpBurdenFlat + JumpCarryPct × 1% maxStamina
+```
+
+**Hooks:**
+| ID | Offset | Name | Purpose |
+|---|---|---|---|
+| `38022` | `+0xC1/0xC9` | `SprintHook` | Replaces equipped-weight with `Movement::ComputeSprintDrain` |
+| `37257` | `+0x17F` | `JumpHook` | Applies `Movement::ComputeJumpCost` via `ApplyStaminaCost` |
+| `37943` | `+0x51` | `SpeedHook` | Scales movement speed by `Movement::ComputeSpeedMultiplier` |
+
+**Parameters** for sprint/jump are in `CostsParams` (§9, `CostsParams.h`). Speed parameters are in `MovementSpeedParams` (§9).
 
 ### 3.5 BlockManager (DONE)
 
@@ -462,18 +527,19 @@ damageMult      = Interpolate(fDamageScaleLow, fDamageScaleHigh, staminaPct, fDa
 
 ## 4. Hook Summary
 
-### Installed code detours (8):
+### Installed code detours (9):
 
 | ID | Offset | Name | Purpose |
 |---|---|---|---|
 | `38452` | `+0x2B6` | `RegenHook` | Intercept AV regen rate → `ComputeBurdenStaminaRegenRate` |
 | `38452` | `+0x02C` | `RegenDelayHook` | Bypass regen delay when negative drain cached → `DamageActorValue` |
-| `38022` | `+0xC1/C9` | `SprintDrainHook` | Replace equipped-weight with burden-based sprint drain |
-| `37257` | `+0x17F` | `ActionHook` | Jump stamina cost via `ApplyStaminaCost` |
+| `38022` | `+0xC1/C9` | `SprintDrainHook` | Replace equipped-weight with `Movement::ComputeSprintDrain` |
+| `37257` | `+0x17F` | `ActionHook` | Jump stamina cost via `Movement::ComputeJumpCost` → `ApplyStaminaCost` |
 | `38603` | `+0x171` | `AttackCostHook` | Replace engine attack stamina cost → `ComputeAttackCost` |
 | `42859` | `+0x138` | `BowFireHook` | Bow fire cost + deny if insufficient stamina |
 | `38627` | `+0x4A8` | `DamageScalingHook` | Scale outgoing damage by attacker stamina% |
 | `38627` | `+0x4A8` | `BlockHook` | Block stamina cost, damage redirect, guard break stagger |
+| `37943` | `+0x51` | `SpeedHook` | Scale movement speed by `Movement::ComputeSpeedMultiplier` (burden/swim/exhaustion) |
 
 Note: `DamageScalingHook` and `BlockHook` share the same hook point (`38627+0x4A8`). They chain via trampoline — DamageScalingHook scales damage first, then BlockHook processes block mechanics on the scaled values.
 
@@ -524,10 +590,11 @@ Per-frame (all actors processed by engine):
         ├── positive → engine applies regen normally
         └── negative → cache drain rate, RegenDelayHook drains per frame
             └── Exhaustion::CheckForAndTriggerExhaustion(actor, deltaTime) — every frame via RegenDelayHook
+    SpeedHook → Movement::ComputeSpeedMultiplier(actor) → burdenMult × swimMult × exhaustMult
 
 Per-action:
-    SprintDrainHook (every frame while sprinting) → ComputeSprintDrain(actor)
-    ActionHook (on jump) → ComputeJumpCost(actor) → ApplyStaminaCost
+    SprintDrainHook (every frame while sprinting) → Movement::ComputeSprintDrain(actor)
+    ActionHook (on jump) → Movement::ComputeJumpCost(actor) → ApplyStaminaCost
     AttackCostHook (on attack) → ComputeAttackCost(actor, attackData)
     BowFireHook (on bow release) → ComputeBowFireCost(actor) → ApplyStaminaCost
     DamageScalingHook (on hit) → ComputeStaminaDamageMult(attacker) → scale HitData
@@ -551,7 +618,7 @@ Per project convention: **any denial feature that is implemented but not install
 | Attack denial (NPC) | Implemented, NOT INSTALLED (`Hooks.cpp:35` commented) | Hook `49170+0x28D` only fires for NPCs. Player needs different entry point. |
 | Attack denial (player) | Not implemented | Requires vtable hook on `AttackBlockHandler::ProcessButton` (vtable index 04) — approach designed, not coded. |
 | Jump denial | Implemented, NOT INSTALLED | AE call site at `42423+0x114` crashes on 1.6.1170. SSE offset `41349+0x114` known but unused. |
-| Bow fire deny | DONE — built into `BowFireHook` | Integrated into the cost hook — if `CanDoStaminaAction` returns false, the shot is suppressed. |
+| Bow fire deny | DONE — built into `BowFireHook` | Integrated into the cost hook. Per-actor toggles (`bBowDenyPlayer/NPC`) control denial independently of cost. NPC denial now functional (was player-only). |
 
 **Deferred until a solution is found for player action denial.** The BowFireHook's inline deny is the pattern to follow: check `CanDoStaminaAction` inside the cost hook, suppress the action if insufficient.
 
@@ -595,7 +662,8 @@ All settings are `Parameter<T>` structs in `src/Settings/Params/`. No shipped IN
 - `fDualWieldBlockPenalty` — extra penalty for blocking while dual-wielding
 - `fUnarmedWeight` — base weight for unarmed/empty hands
 
-### RegenParams (16 params)
+### RegenParams (18 params)
+- `bRegenPlayer/NPC` — per-actor toggles for regen modification
 - `fStaminaRegenMult_LowHealth/HighHealth/LowStamina/HighStamina/LowMagicka/HighMagicka` — cross-AV curves
 - `fStaminaRegenCurve_kStamina/kMagicka/kHealth` — curve shapes
 - `fHealthRegenMult_LowStamina/HighStamina/k` — stamina → health regen curve
@@ -614,12 +682,18 @@ All settings are `Parameter<T>` structs in `src/Settings/Params/`. No shipped IN
 ### WeatherParams (3 params)
 - `fWeatherRainPenalty`, `fWeatherSnowPenalty`, `bWeatherEnabled`
 
-### CostsParams (16 params)
+### CostsParams (29 params)
+- `bAttackCostPlayer/NPC` — per-actor toggles for attack stamina cost
+- `bBowCostPlayer/NPC` — per-actor toggles for bow fire stamina cost
+- `bBowDenyPlayer/NPC` — per-actor toggles for bow fire denial on insufficient stamina
+- `bSprintCostPlayer/NPC` — per-actor toggles for sprint drain
+- `bJumpCostPlayer/NPC` — per-actor toggles for jump cost
+- `bEnableDebugLogging`
 - `fSprintDrainLowBurden/HighBurden/LowCarryBurdenPct/HighCarryBurdenPct/BurdenCurve_k/CarryBurdenCurve_k`
 - `fJumpCostLowBurden/HighBurden/LowCarryPct/HighCarryPct/BurdenCurve_k/CarryCurve_k`
 - `fBowFireLowBurden/HighBurden/BurdenCurve_k/LowCarryPct/HighCarryPct/CarryCurve_k`
 
-### AttackCostParams (26 params)
+### AttackCostParams (25 params)
 - `fAttackLowCarryPct/HighCarryPct/CarryCurve_k` — shared carry burden component
 - `fAttack1hLowBurden/HighBurden/BurdenCurve_k/PowerMult`
 - `fAttack2hLowBurden/HighBurden/BurdenCurve_k/PowerMult`
@@ -628,11 +702,10 @@ All settings are `Parameter<T>` structs in `src/Settings/Params/`. No shipped IN
 - `fBashBowLowBurden/HighBurden/BurdenCurve_k/PowerMult`
 - `fBashWeaponLowBurden/HighBurden/BurdenCurve_k/PowerMult`
 
-### DenyParams (4 params)
+### DenyParams (1 param)
 - `fMinStaminaCostMult` — stamina threshold fraction for action denial
-- `bPlayerAlwaysCanDoAction` — bypass for player (debug)
-- `bNpcAlwaysCanDoAction` — bypass for NPCs (debug)
-- `fNpcRegenExemptionRate` — regen threshold for NPC exemption
+
+Removed: `bPlayerAlwaysCanDoAction`, `bNpcAlwaysCanDoAction`, `fNpcRegenExemptionRate` — unused, deprecated in favor of per-feature toggles.
 
 ### ExhaustionParams (10 params)
 - `bExhaustionPlayer` — master toggle: player can become exhausted (default true)
@@ -685,6 +758,23 @@ All settings are `Parameter<T>` structs in `src/Settings/Params/`. No shipped IN
 - `fBlockSkillMult` (6.0), `fBlockPowerAttackMult` (0.66) — block skill + power attack
 - `fStaminaBlockDmgMult` (0.0), `fStaminaBlockStaggerMult` (0.0), `fStaminaBlockBase` (0.0) — engine block stamina drain
 
+### MovementSpeedParams (12 params)
+
+| Key | Type | Default | Range | Purpose |
+|---|---|---|---|---|
+| `bEnableBurdenSpeed` | bool | true | — | Master toggle for burden speed scaling |
+| `bEnableSwimSpeed` | bool | true | — | Master toggle for swim speed scaling |
+| `bEnableExhaustionSpeed` | bool | true | — | Master toggle for exhaustion speed penalty |
+| `fSpeedMultLowBurden` | float | 1.10 | 0.1–2.0 | Speed mult at zero burden (slight bonus) |
+| `fSpeedMultHighBurden` | float | 0.70 | 0.1–1.0 | Speed mult at full burden |
+| `fSpeedCurve_k` | float | 0.50 | 0.0–1.0 | Burden speed curve shape |
+| `fSpeedMultAboveWater` | float | 1.00 | 0.1–1.5 | Speed mult when not submerged |
+| `fSpeedMultSubmerged` | float | 0.60 | 0.1–1.0 | Speed mult when fully submerged |
+| `fExhaustionSpeedMult` | float | 0.70 | 0.1–1.0 | Speed mult while exhausted |
+| `bEnableDebugMovementLogging` | bool | true | — | Debug toggle |
+| `bMovementSpeedPlayer` | bool | true | — | Per-actor toggle for player speed scaling |
+| `bMovementSpeedNPC` | bool | true | — | Per-actor toggle for NPC speed scaling |
+
 ### Settings future work:
 - INI whitelist population (currently `EXPECTED_COUNT = 0`)
 - Shipped `StaminaAndBurden.ini` with documented defaults
@@ -729,13 +819,21 @@ All settings are `Parameter<T>` structs in `src/Settings/Params/`. No shipped IN
 | `ComputeAttackCost` with 7 weapon types | DONE |
 | Power attack multiplier | DONE |
 | `ComputeBowFireCost` | DONE |
-| `ComputeJumpCost` | DONE |
-| `ComputeSprintDrain` (frame-time scaled) | DONE |
 | AttackCostHook at 38603+0x171 | DONE |
-| SprintDrainHook at 38022+0xC1/0xC9 | DONE |
-| ActionHook at 37257+0x17F | DONE |
 | BowFireHook at 42859+0x138 | DONE |
 | CostsParams, AttackCostParams | DONE |
+
+### Phase 3b — Movement ✅
+| Task | Status |
+|---|---|
+| `Movement::ComputeSprintDrain` (frame-time scaled) | DONE |
+| `Movement::ComputeJumpCost` | DONE |
+| `Movement::ComputeSpeedMultiplier` — burden/swim/exhaustion | DONE |
+| SprintDrainHook at 38022+0xC1/0xC9 | DONE |
+| ActionHook at 37257+0x17F | DONE |
+| SpeedHook at 37943+0x51 | DONE |
+| MovementSpeedParams (10 params) | DONE |
+| MovementHooks (3 hooks in single file) | DONE |
 
 ### Phase 4 — Denial (DEFERRED)
 | Task | Status |
@@ -831,6 +929,8 @@ All settings are `Parameter<T>` structs in `src/Settings/Params/`. No shipped IN
 17. **Engine block GMST overrides** — `fShieldBaseFactor`, `fBlockSkillMult`, etc. overridden via `ParameterOverrides.h` at startup. Requires SSE Engine Fixes for correct weapon blocking.
 18. **Block skill embedded upstream** — `ComputeBlockBurden()` in BurdenManager produces `weaponBurden_block`, not a separate multiplier in BlockManager. Avoids double-counting.
 19. **Exhaustion implemented** — originally deferred as a block-specific feature, now implemented as a general stamina-0 state machine triggered from the regen delay hook. Applies cross-AV regen penalties and damage scaling. No action denial.
+20. **SpeedHook** — movement speed scaling by burden blend, swim depth, and exhaustion status. Not in original plan. Composite multiplier applied via dedicated hook at `37943+0x51`. Sprint/jump cost functions delegated from CostsManager to `Movement::` namespace.
+21. **Per-actor-type toggles** — every user-facing feature (regen, attack cost, bow cost, bow deny, sprint, jump, movement speed) has individual Player/NPC boolean toggle pairs in its respective param group. Replaces the removed global bypass params (`bPlayerAlwaysCanDoAction`, `bNpcAlwaysCanDoAction`, `fNpcRegenExemptionRate`). DenyParams reduced to a single `fMinStaminaCostMult` threshold.
 
 ## 12. Scope by Actor Type
 
@@ -846,6 +946,7 @@ All settings are `Parameter<T>` structs in `src/Settings/Params/`. No shipped IN
 | Block stamina redirect | ✓ (burden cost + redirect + guard break) | ✗ (default off, toggled via `bBlockCostNPC`/`bBlockRedirectNPC`) |
 | Exhaustion | ✓ (default on) | ✓ (default off, toggle via `bExhaustionNPC`) |
 | Attack damage scaling | ✓ (stamina-based curve) | ✓ (stamina-based curve) |
+| Movement speed | ✓ (burden + swim + exhaustion) | ✓ (burden + exhaustion) |
 | Action denial | AttackDenyHook NPC-only, JumpDenyHook broken AE | AttackDenyHook NPC-only |
 
 ---
