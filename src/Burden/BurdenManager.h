@@ -1,47 +1,9 @@
 #pragma once
 
-namespace RE
-{
-	class TESObjectARMO;
-	class TESObjectWEAP;
-}
+#include "Common/Utils.h"
 
 namespace Burden
 {
-
-	enum class LeftHandType
-	{
-		kEmpty,
-		kWeapon,
-		kShield
-	};
-
-	enum class RightHandType
-	{
-		kEmpty,
-		kOneHanded,
-		kTwoHanded,
-		kBow,
-		kHandToHand
-	};
-
-	struct LeftHandInfo
-	{
-		LeftHandType type{ LeftHandType::kEmpty };
-		RE::TESObjectWEAP* weapon{ nullptr };
-		RE::TESObjectARMO* shield{ nullptr };
-
-		bool HasWeapon() const { return weapon != nullptr; }
-		bool HasShield() const { return shield != nullptr; }
-	};
-
-	struct RightHandInfo
-	{
-		RightHandType type{ RightHandType::kEmpty };
-		RE::TESObjectWEAP* weapon{ nullptr };
-
-		bool HasWeapon() const { return weapon != nullptr; }
-	};
 
 	struct WeaponHandlingInfo
 	{
@@ -73,9 +35,7 @@ namespace Burden
 		float weaponBurden_block{ 0.0f };
 	};
 
-	LeftHandInfo    GetLeftHandInfo(RE::Actor* actor);
-	RightHandInfo   GetRightHandInfo(RE::Actor* actor);
-	WeaponHandlingInfo GetWeaponHandlingInfo(const ActorBurdenData& data, RightHandType type);
+	WeaponHandlingInfo GetWeaponHandlingInfo(const ActorBurdenData& data, Utils::RightHandType type);
 
 	float GetEquippedWeight(RE::Actor* actor);
 	float ComputeEquipmentBurden(RE::Actor* actor);

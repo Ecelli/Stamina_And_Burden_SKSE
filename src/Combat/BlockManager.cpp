@@ -2,6 +2,7 @@
 #include "Settings/Params/BlockingParams.h"
 #include "Settings/Params/ParameterOverrides.h"
 #include "Common/Utils.h"
+#include "Common/PerkCategories.h"
 #include "Burden/BurdenTracker.h"
 #include <RE/N/NiMath.h>
 
@@ -44,6 +45,9 @@ namespace Blocking
 		float engineCost = getEngineBlockStaminaCost(hitData);
 		float totalCost = std::max(0.0f, burdenCost - engineCost);
 
+		RE::HandleEntryPoint(PEPE_STAMINA_ENTRY_POINT, actor, totalCost, PEPE::Group::BlockStamina,
+			Utils::GetAttackHandInfo(actor, false, true).form);
+
 		BlockLog("ComputeBlockStaminaCost: {:x} blockBurden={:.2f} burdenBlend={:.2f}"
 			" flat={:.2f} pct={:.2f} engine={:.2f} total={:.2f}"sv,
 			actor->GetFormID(), burden.weaponBurden_block, burden.burdenBlend,
@@ -79,6 +83,9 @@ namespace Blocking
 			params->fBlockRedirectMultPctCurve_k.Get());
 
 		float redirectCost = hitData.totalDamage * (redirectMult + pctCost);
+
+		RE::HandleEntryPoint(PEPE_STAMINA_ENTRY_POINT, actor, redirectCost, PEPE::Group::BlockStamina,
+			Utils::GetAttackHandInfo(actor, false, true).form);
 
 		BlockLog("ComputeDamageRedirectStaminaCost: {:x} blockBurden={:.2f}"
 			" totalDmg={:.1f} mult={:.3f} redirectCost={:.2f}"sv,

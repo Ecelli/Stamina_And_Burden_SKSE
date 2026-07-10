@@ -2,6 +2,7 @@
 #include "Stamina/ExhaustionManager.h"
 #include "Burden/BurdenTracker.h"
 #include "Common/Utils.h"
+#include "Common/PerkCategories.h"
 
 namespace Regen
 {
@@ -74,6 +75,10 @@ namespace Regen
 			params->BlockHoldHighBurden.Get(),
 			data.weaponBurden_block,
 			params->BlockHoldCurve_k.Get());
+
+		RE::HandleEntryPoint(PEPE_STAMINA_ENTRY_POINT, actor, penalty, PEPE::Group::BlockHoldStamina,
+			Utils::GetAttackHandInfo(actor, false, true).form);
+
 		RegenLog("ComputeBlockHoldPenalty: blockBurden={:.3f} penalty={:.3f}/s",
 			data.weaponBurden_block, penalty);
 		return penalty;
@@ -101,6 +106,9 @@ namespace Regen
 			params->BowDrawHighBurden.Get(),
 			data.weaponBurden_ranged,
 			params->BowDrawCurve_k.Get());
+
+		RE::HandleEntryPoint(PEPE_STAMINA_ENTRY_POINT, actor, penalty, PEPE::Group::BowDrawHoldStamina, weap);
+
 		RegenLog("ComputeBowDrawHoldPenalty: weapBurden={:.3f} penalty={:.3f}/s",
 			data.weaponBurden_ranged, penalty);
 		return penalty;

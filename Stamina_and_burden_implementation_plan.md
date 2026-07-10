@@ -17,17 +17,21 @@ An SKSE plugin for Skyrim AE that overhauls stamina into a burden- and weight-dr
 
 ```
 src/
+├── API/               # Vendored PerkEntryPointExtenderAPI.h (PEPE v3) (DONE)
 ├── Burden/            # Burden computation + actor tracker (DONE)
 ├── Combat/            # BlockManager + DamageManager (DONE)
 │   ├── BlockManager   # Block stamina cost, damage redirect, guard break
 │   └── DamageManager  # Stamina-conditional damage scaling
-├── Common/            # PCH, Utils.h — heartbeat, CanDoStaminaAction, Interpolate (DONE)
+├── Common/            # PCH, Utils.h, PerkCategories.h (DONE)
+│   ├── Utils.h/.cpp   # Hand detection types (LeftHandInfo, RightHandInfo, AttackHandInfo),
+│   │                  #   CanDoStaminaAction, ApplyStaminaCost, heartbeat, debug log macros
+│   └── PerkCategories.h # 7 PEPE category constants (SB_*) + PEPE_STAMINA_ENTRY_POINT
 ├── Data/              # ModObjectManager, Lookup.h (shell — EXPECTED_COUNT=0)
-├── Export/            # SKSEPlugin.cpp — entrypoint (DONE)
+├── Export/            # SKSEPlugin.cpp — entrypoint, PEPE RequestInterface() at kDataLoaded (DONE)
 ├── Hooks/             # 9 code detours + 4 event sinks + 2 uninstalled denies (DONE)
 ├── Movement/          # Movement speed (burden/swim/exhaustion) + sprint/jump cost functions (DONE)
 │   ├── MovementManager        # ComputeSpeedMultiplier — burden, swim depth, exhaustion speed scaling
-│   └── MovementCostManager    # ComputeSprintDrain, ComputeJumpCost — delegated from CostsManager
+│   └── MovementCostManager    # ComputeSprintDrain, ComputeJumpCost + PEPE calls
 ├── Papyrus/           # GetVersion only bound (MINIMAL)
 ├── RE/                # Offset.h — placeholder; all REL::IDs inline (DONE)
 ├── Serialization/     # Serde.h/.cpp — infrastructure ready, nothing registered (SHELL)
@@ -40,8 +44,8 @@ src/
 │                      #   BlockingParams, ParameterOverrides, DamageParams,
 │                      #   ExhaustionParams, MovementSpeedParams (DONE)
 └── Stamina/
-    ├── RegenManager      # Regen formulas + single source of truth (DONE)
-    ├── CostsManager      # Sprint/jump/attack/bow cost formulas (DONE)
+    ├── RegenManager      # Regen formulas + PEPE calls on hold penalties (DONE)
+    ├── CostsManager      # Attack/bow cost formulas + PEPE calls (DONE)
     └── ExhaustionManager # State machine: trigger on stamina=0, penalties, safe-timer clear (DONE)
 
 **Not created (future):**
@@ -121,8 +125,8 @@ if drainMult > 0:
   scaler       = ComputeBurnScaler(actor)      // maps kStaminaRateMult onto [0,1]
   rate        -= burnBase × drainMult × scaler
 
-rate          -= ComputeBlockHoldPenalty(actor)
-rate          -= ComputeBowDrawHoldPenalty(actor)
+rate          -= ComputeBlockHoldPenalty(actor)    // PEPE: SB_BlockHoldStamina
+rate          -= ComputeBowDrawHoldPenalty(actor)  // PEPE: SB_BowDrawHoldStamina
 ```
 
 **`ComputeStaminaRegenMult(actor)` — the regen multiplier:**
@@ -154,8 +158,8 @@ LowBonus=2.0 (debuffed mult → amplified drain), HighBonus=0.2 (buffed mult →
 **Supporting functions:**
 - `GetBaseStaminaRate` — `kStaminaRate × 0.01 × kStamina` (no rate mult, no combat mult)
 - `GetEngineStaminaRate` — `GetBaseStaminaRate × combatMult × kStaminaRateMult × 0.01`
-- `ComputeBlockHoldPenalty` — continuous flat drain while blocking, burden-scaled
-- `ComputeBowDrawHoldPenalty` — continuous flat drain while bow drawn, weapon-burden-scaled
+- `ComputeBlockHoldPenalty` — continuous flat drain while blocking, burden-scaled. PEPE: `SB_BlockHoldStamina` applied to penalty before returning.
+- `ComputeBowDrawHoldPenalty` — continuous flat drain while bow drawn, weapon-burden-scaled. PEPE: `SB_BowDrawHoldStamina` applied to penalty before returning.
 - `ComputeWeatherPenalty` — `WeatherRainPenalty` or `WeatherSnowPenalty` from `WeatherParams`
 - `GetCanRegenStamina` — false if blocking, bow drawn/attached, or in attack state
 - `GetMovementState` — swimming → running → sneaking → walking → static priority
@@ -200,6 +204,7 @@ cost            = flatTerm + pctTerm × Stamina_1pctMax
 - Weapon bash — weapon burden + blended block skill
 - Ranged (bow fire) — handled by ComputeBowFireCost, not attack cost
 - All types multiplied by `attackData->data.staminaMult`
+- PEPE: `SB_AttackStamina` applied to cost after staminaMult multiply, before return
 
 **Sprint drain** is frame-time scaled (`× GetSecondsSinceLastFrame()`) and includes weather penalty integration (`engineRate × weatherPenalty`).
 
@@ -207,6 +212,7 @@ cost            = flatTerm + pctTerm × Stamina_1pctMax
 - Original plan described a single `attackCost = maxStamina × (fAttackCostBase + weaponWeight × fAttackCostWeightMult) × (1 - skill / fAttackCostSkillDivisor) × (1 + burdenPenalty × burdenRatio)`. Actual system uses `flatTerm + pctTerm × 1%maxStamina` with per-type params — more granular and tuneable.
 - Original plan described game-setting writes for movement costs. Actual system hooks sprint drain directly (`38022 + 0xC1/0xC9`) and jump cost directly (`37257 + 0x17F`) — per-actor, no global setting manipulation.
 - Bow fire cost + deny (not in original plan) built into BowFireHook.
+- PEPE: `SB_BowFireStamina` applied to cost after computation, before return.
 
 ### 3.4 Movement (DONE)
 
@@ -259,6 +265,7 @@ SprintBurdenFlat  = Interpolate(SprintDrainLowBurden, SprintDrainHighBurden, bur
 SprintBurdenMult  = Interpolate(SprintDrainLowCarryBurdenPct, SprintDrainHighCarryBurdenPct, carryBurden, SprintDrainCarryBurdenCurve_k)
 TotalCost         = SprintBurdenFlat + SprintBurdenMult × 1% maxStamina
 TotalCost        += engineRate × weatherPenalty    (if weather penalty active)
+PEPE: SB_SprintStamina  applied to TotalCost before delta-time multiplication
 TotalCost        *= GetSecondsSinceLastFrame()      (frame-time scaled)
 ```
 
@@ -267,6 +274,7 @@ TotalCost        *= GetSecondsSinceLastFrame()      (frame-time scaled)
 JumpBurdenFlat = Interpolate(JumpCostLowBurden, JumpCostHighBurden, burden, JumpCostBurdenCurve_k)
 JumpCarryPct   = Interpolate(JumpCostLowCarryPct, JumpCostHighCarryPct, carryBurden, JumpCostCarryCurve_k)
 TotalCost      = JumpBurdenFlat + JumpCarryPct × 1% maxStamina
+PEPE: SB_JumpStamina  applied to TotalCost before return
 ```
 
 **Hooks:**
@@ -329,6 +337,7 @@ pctCost = 1% maxStamina × Interpolate(
 
 burdenCost = flatCost + pctCost
 totalCost  = max(0, burdenCost - engineCost)
+PEPE: SB_BlockStamina  applied to totalCost before log/return
 ```
 **Per-actor-type toggle:** `bBlockCostPlayer` (true), `bBlockCostNPC` (false).
 
@@ -347,6 +356,7 @@ pctCost = 1% maxStamina × Interpolate(
     fBlockRedirectMultPctCurve_k)
 
 redirectCost = totalDamage × (redirectMult + pctCost)
+PEPE: SB_BlockStamina  applied to redirectCost before log/return
 ```
 **Per-actor-type toggle:** `bBlockRedirectPlayer` (true), `bBlockRedirectNPC` (false).
 
@@ -411,7 +421,7 @@ magnitude = Interpolate(
 - Exhaustion debuff — stamina-0 feature, not block-specific. See §3.8. (DONE)
 - Block commitment — only makes sense with timed block.
 - Timed block — significant future feature: timed block window, commitment, perfect block, window penalty system. Dependencies: input hooks, state machine.
-- Perk integration — Deflect Arrows, Elemental Protection, Shield Wall ranks. Future consideration.
+- Perk integration — PEPE entry point (`kModPowerAttackStamina`) wired via `RE::HandleEntryPoint` on both block sub-costs using category `SB_BlockStamina`. Modded perks can scale base block stamina cost and damage redirect cost independently via the same category.
 
 ### 3.6 CombatManager (DEFERRED)
 
@@ -565,6 +575,29 @@ Both denial hooks are **implemented but not installed** — per project conventi
 
 An alternative hook point exists at `RELOCATION_ID(42832, 44001) + 0x1A5` — the `get_damage` function called inside `HitData::Populate`. StaminaNPC uses this hook for damage scaling. **Advantages:** scaled value propagates through all downstream Populate computations (crit bonus, etc.) automatically. **Disadvantages:** no access to HitData flags, target, or spell-attack detection (`attackDataSpell`); AE offset unverified; weapon pointer is opaque (`void*`). Current ProcessHit hook is preferred because it provides full HitData context and is confirmed by multiple mods on AE. Migration is possible if future formula needs simplify (no attack-type conditioning, no spell exclusion needed) and AE offset is verified via pattern scan.
 
+### PEPE integration (not a hook — Perk Entry Point Extender):
+
+PEPE `HandleEntryPoint` calls are placed inside 8 compute functions, using `PEPE_STAMINA_ENTRY_POINT` (= `kModPowerAttackStamina`) and 7 category strings:
+
+| Category | Compute function | Variable scaled | Form arg |
+|---|---|---|---|
+| `SB_AttackStamina` | `ComputeAttackCost` | `baseCost` | `AttackHandInfo::form` (weapon/shield) |
+| `SB_BowFireStamina` | `ComputeBowFireCost` | `TotalCost` | Right-hand weapon |
+| `SB_SprintStamina` | `ComputeSprintDrain` | `TotalCost` | Right-hand weapon |
+| `SB_JumpStamina` | `ComputeJumpCost` | `TotalCost` | Right-hand weapon |
+| `SB_BlockStamina` | `ComputeBlockStaminaCost` | `totalCost` | Shield or blocking weapon |
+| `SB_BlockStamina` | `ComputeDamageRedirectStaminaCost` | `redirectCost` | Shield or blocking weapon |
+| `SB_BlockHoldStamina` | `ComputeBlockHoldPenalty` | `penalty` | Shield or blocking weapon |
+| `SB_BowDrawHoldStamina` | `ComputeBowDrawHoldPenalty` | `penalty` | Bow weapon |
+
+`SB_BlockStamina` is applied to both block sub-costs (base + redirect) independently so proration math stays correct. `RequestInterface()` called at `kDataLoaded` with nullptr guard logging.
+
+> **Usage note:** For a perk entry to affect any of these stamina costs, it must be
+> assigned to entry point `kModPowerAttackStamina` (index 27) in the CK, and its
+> **category** (PEPE field) must match the `SB_*` string exactly (case-sensitive).
+> Without a matching category, PEPE skips the entry. The condition target form
+> (weapon/shield) is passed so perks can condition on equipment type.
+
 ### Heartbeat polling:
 - 200ms detached thread (`Common::make_heartbeat`) — polls tracked actor params for skill/weight changes
 - 200ms detached thread — `TaskPlayerFullStaminaMonitor`, drains 0.1 if player at full stamina with negative regen rate
@@ -592,13 +625,13 @@ Per-frame (all actors processed by engine):
             └── Exhaustion::CheckForAndTriggerExhaustion(actor, deltaTime) — every frame via RegenDelayHook
     SpeedHook → Movement::ComputeSpeedMultiplier(actor) → burdenMult × swimMult × exhaustMult
 
-Per-action:
-    SprintDrainHook (every frame while sprinting) → Movement::ComputeSprintDrain(actor)
-    ActionHook (on jump) → Movement::ComputeJumpCost(actor) → ApplyStaminaCost
-    AttackCostHook (on attack) → ComputeAttackCost(actor, attackData)
-    BowFireHook (on bow release) → ComputeBowFireCost(actor) → ApplyStaminaCost
+Per-action (each cost passes through PEPE HandleEntryPoint before consumption):
+    SprintDrainHook (every frame while sprinting) → Movement::ComputeSprintDrain(actor) → [PEPE SB_SprintStamina] → ApplyStaminaCost
+    ActionHook (on jump) → Movement::ComputeJumpCost(actor) → [PEPE SB_JumpStamina] → ApplyStaminaCost
+    AttackCostHook (on attack) → ComputeAttackCost(actor, attackData) → [PEPE SB_AttackStamina] → ApplyStaminaCost / staminaMult
+    BowFireHook (on bow release) → ComputeBowFireCost(actor) → [PEPE SB_BowFireStamina] → ApplyStaminaCost
     DamageScalingHook (on hit) → ComputeStaminaDamageMult(attacker) → scale HitData
-    BlockHook (on blocked hit) → ComputeBlockStaminaCost + ComputeDamageRedirectStaminaCost → redirect or guard break
+    BlockHook (on blocked hit) → [PEPE SB_BlockStamina × 2] on base cost + redirect cost → redirect or guard break
 ```
 
 ### Future flow (Console, HUD):
@@ -835,6 +868,22 @@ Removed: `bPlayerAlwaysCanDoAction`, `bNpcAlwaysCanDoAction`, `fNpcRegenExemptio
 | MovementSpeedParams (10 params) | DONE |
 | MovementHooks (3 hooks in single file) | DONE |
 
+### Phase 3c — Perk Entry Point Extender Integration ✅
+| Task | Status |
+|---|---|
+| Vendored PEPE API v3 at `src/API/PerkEntryPointExtenderAPI.h` | DONE |
+| `PEPE::Group` namespace with 7 `SB_*` category constants | DONE |
+| `PEPE_STAMINA_ENTRY_POINT` (= `kModPowerAttackStamina`) | DONE |
+| `RequestInterface()` at `kDataLoaded` with nullptr guard | DONE |
+| `RE::HandleEntryPoint` on `ComputeAttackCost` — `SB_AttackStamina` | DONE |
+| `RE::HandleEntryPoint` on `ComputeBowFireCost` — `SB_BowFireStamina` | DONE |
+| `RE::HandleEntryPoint` on `ComputeSprintDrain` — `SB_SprintStamina` | DONE |
+| `RE::HandleEntryPoint` on `ComputeJumpCost` — `SB_JumpStamina` | DONE |
+| `RE::HandleEntryPoint` on `ComputeBlockStaminaCost` + `ComputeDamageRedirectStaminaCost` — `SB_BlockStamina` (2 calls) | DONE |
+| `RE::HandleEntryPoint` on `ComputeBlockHoldPenalty` — `SB_BlockHoldStamina` | DONE |
+| `RE::HandleEntryPoint` on `ComputeBowDrawHoldPenalty` — `SB_BowDrawHoldStamina` | DONE |
+| Hand detection refactored into `Utils::` namespace (`GetAttackHandInfo`, `AttackHandInfo`) for PEPE form args | DONE |
+
 ### Phase 4 — Denial (DEFERRED)
 | Task | Status |
 |---|---|
@@ -857,7 +906,7 @@ Removed: `bPlayerAlwaysCanDoAction`, `bNpcAlwaysCanDoAction`, `fNpcRegenExemptio
 | Engine GMST overrides (9 block-related) | DONE |
 | NPC toggles (`bBlockCostNPC`, `bBlockRedirectNPC`) | DONE |
 | Timed block (Valhalla-style) | DEFERRED — future consideration |
-| Perk integration | DEFERRED — future consideration |
+| Perk integration | DONE — PEPE HandleEntryPoint on both block sub-costs (SB_BlockStamina) |
 
 ### Phase 6 — Damage Scaling ✅
 | Task | Status |
@@ -931,6 +980,7 @@ Removed: `bPlayerAlwaysCanDoAction`, `bNpcAlwaysCanDoAction`, `fNpcRegenExemptio
 19. **Exhaustion implemented** — originally deferred as a block-specific feature, now implemented as a general stamina-0 state machine triggered from the regen delay hook. Applies cross-AV regen penalties and damage scaling. No action denial.
 20. **SpeedHook** — movement speed scaling by burden blend, swim depth, and exhaustion status. Not in original plan. Composite multiplier applied via dedicated hook at `37943+0x51`. Sprint/jump cost functions delegated from CostsManager to `Movement::` namespace.
 21. **Per-actor-type toggles** — every user-facing feature (regen, attack cost, bow cost, bow deny, sprint, jump, movement speed) has individual Player/NPC boolean toggle pairs in its respective param group. Replaces the removed global bypass params (`bPlayerAlwaysCanDoAction`, `bNpcAlwaysCanDoAction`, `fNpcRegenExemptionRate`). DenyParams reduced to a single `fMinStaminaCostMult` threshold.
+22. **PEPE integration** — all 8 stamina cost/penalty functions wired to `kModPowerAttackStamina` entry point via `RE::HandleEntryPoint`. Uses 7 `SB_*` category strings for per-cost-type targeting. Block uses same category on both sub-costs for correct proration. Hand detection refactored into `Utils::` namespace to supply condition form arguments. Vendored PEPE API v3, no external dependency.
 
 ## 12. Scope by Actor Type
 
@@ -960,4 +1010,4 @@ Removed: `bPlayerAlwaysCanDoAction`, `bNpcAlwaysCanDoAction`, `fNpcRegenExemptio
 5. **Settings INI** — populate whitelist with all active params.
 6. **Console commands** — sb_get/set/list/reset/getburden via Papyrus + TestCommands.yaml.
 7. **`get_damage` hook migration** — verify AE offset at `RELOCATION_ID(42832, 44001) + 0x1A5` via pattern scan. If viable and formula needs simplify, could replace ProcessHit hook for cleaner propagation.
-8. **Perk integration** — our formulas consume engine-derived values (`percentBlocked`, `staminaMult`) that already include vanilla perk effects. However, modded perks (Ordinator, Vokrii, Adamant, etc.) introduce custom mechanics our system doesn't detect: timed block windows, stamina refunds on block, conditional block bonuses. Future work: load perk forms via `Actor::HasPerk()`, add conditional checks in block/attack flow, handle projectile blocking via vtable detours. Scope depends on which perk mods to support.
+8. ~~Perk integration~~ → **DONE** (PEPE, §3c). All 8 stamina cost/penalty functions wired to `kModPowerAttackStamina` entry point via PEPE `HandleEntryPoint` with `SB_*` categories. Modded perks can scale any cost by adding perk entries targeting the relevant category. The single entry point covers attack, bow, sprint, jump, block, and hold penalty costs. Future perk-specific mechanics (timed block windows, stamina refunds, conditional bonuses) would need additional perk entry points or custom hook logic beyond PEPE's scope.
