@@ -3,6 +3,7 @@
 #include <chrono>
 #include <functional>
 #include <thread>
+#include <cmath>
 #include "Settings/Params/RegenParams.h"
 #include "Settings/Params/CostsParams.h"
 #include "Settings/Params/DamageParams.h"
@@ -182,13 +183,39 @@ namespace Math
 		return std::clamp(x, 0.0f, 1.0f);
 	}
 
-	[[nodiscard]] constexpr inline float SmoothStep(float t) noexcept
+	[[nodiscard]] inline float SmoothStep(float t) noexcept
 	{
-		t = Clamp01(t);
-		return t * t * (3.0f - 2.0f * t);
+		static constexpr float kSigma = 0.08f;
+		static constexpr int kSteps = 256;
+		// Fermi-Dirac sigmoid LUT (σ=0.05, 256 entries)
+		struct Table
+		{
+			float data[kSteps];
+
+			Table()
+			{
+				for (int i = 1; i < kSteps -1; ++i) {
+					float x = static_cast<float>(i) / (kSteps - 1);
+					float arg = (x - 0.5f) / kSigma;
+					data[i] = 1.0f / (1.0f + std::exp(-arg));
+				}
+				data[0] = 0.0f;
+				data[kSteps - 1] = 1.0f;
+			}
+
+			[[nodiscard]] float Eval(float x) const noexcept
+			{
+				int i = static_cast<int>(Math::Clamp01(x) * (kSteps - 1) + 0.5f);
+				if (i >= kSteps) i = kSteps - 1;
+				return data[i];
+			}
+		};
+
+		static const Table kTable;
+		return kTable.Eval(t);
 	}
 
-	[[nodiscard]] constexpr inline float Interpolate(float min, float max, float t, float k) noexcept
+	[[nodiscard]] inline float Interpolate(float min, float max, float t, float k) noexcept
 	{
 		t = Clamp01(t);
 		k = Clamp01(k);
