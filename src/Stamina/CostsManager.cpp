@@ -2,6 +2,7 @@
 #include "Burden/BurdenManager.h"
 #include "Burden/BurdenTracker.h"
 #include "Common/Utils.h"
+#include "Common/PerkCategories.h"
 #include "Settings/Params/CostsParams.h"
 
 #include <RE/B/BGSAttackData.h>
@@ -153,7 +154,10 @@ namespace Costs
 			break;
 		}
 
+        // Engine multiplier, basically 1, but for dual wiield stamina balance
 		baseCost *= attackData->data.staminaMult;
+
+		RE::HandleEntryPoint(PEPE_STAMINA_ENTRY_POINT, actor, baseCost, PEPE::Group::AttackStamina, handInfo.form);
 
 		Costs::CostLog("ComputeAttackCost: power={} left={} bash={} staminaMult={:.2f} -> {:.3f} for {:x}",
 			power, left, bash, attackData->data.staminaMult, baseCost, actor->GetFormID());
@@ -182,6 +186,9 @@ namespace Costs
 			params->BowFireCarryCurve_k.Get());
 
 		float TotalCost = BowFireBurdenFlat + BowFireCarryPct * Stamina_1pctMax;
+
+		RE::HandleEntryPoint(PEPE_STAMINA_ENTRY_POINT, actor, TotalCost, PEPE::Group::BowFireStamina,
+			Utils::GetAttackHandInfo(actor, false, false).form);
 
 		Costs::CostLog("ComputeBowFireCost: burden={:.3f} carry={:.3f} -> {:.3f} for {:x}",
 			burden.burden, burden.carryBurden, TotalCost, actor->GetFormID());

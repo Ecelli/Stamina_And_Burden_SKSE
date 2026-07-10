@@ -2,6 +2,7 @@
 #include "Stamina/RegenManager.h"
 #include "Burden/BurdenTracker.h"
 #include "Common/Utils.h"
+#include "Common/PerkCategories.h"
 #include "Settings/Params/CostsParams.h"
 
 namespace Movement
@@ -34,6 +35,9 @@ namespace Movement
 			TotalCost += engineRate * weatherPenalty;
 		}
 
+		RE::HandleEntryPoint(PEPE_STAMINA_ENTRY_POINT, actor, TotalCost, PEPE::Group::SprintStamina,
+			Utils::GetAttackHandInfo(actor, false, false).form);
+
 		return TotalCost * RE::GetSecondsSinceLastFrame();
 	}
 
@@ -58,6 +62,9 @@ namespace Movement
 			params->JumpCostCarryCurve_k.Get());
 
 		float TotalCost = JumpBurdenFlat + JumpCarryPct * Stamina_1pctMax;
+
+		RE::HandleEntryPoint(PEPE_STAMINA_ENTRY_POINT, actor, TotalCost, PEPE::Group::JumpStamina,
+			Utils::GetAttackHandInfo(actor, false, false).form);
 
 		Movement::MovementLog(
 			"ComputeJumpCost: burden={:.3f} carry={:.3f} -> {:.3f} for {:x}",

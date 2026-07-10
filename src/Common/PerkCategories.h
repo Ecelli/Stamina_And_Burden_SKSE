@@ -1,8 +1,9 @@
 #pragma once
 
 #include <RE/B/BGSPerkEntry.h>
+#include "API/PerkEntryPointExtenderAPI.h"
 
-namespace PEPE::Cat
+namespace PEPE::Group
 {
 	inline constexpr auto AttackStamina        = "SB_AttackStamina";
 	inline constexpr auto BowFireStamina       = "SB_BowFireStamina";
