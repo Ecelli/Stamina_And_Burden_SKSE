@@ -74,7 +74,7 @@ namespace PEPE
 	struct BasicFormCollection 
 	{
 		//If a non-collection is given
-		BasicFormCollection(T& it) {}
+		BasicFormCollection(T& it) { (void)it; }
 	};
 
 	template <typename T> requires (std::is_pointer_v<typename T::value_type> &&
@@ -134,7 +134,6 @@ namespace PEPE
 			}
 
 
-			return nullptr;
 		}
 
 		template<item_object T>
