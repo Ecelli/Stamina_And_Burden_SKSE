@@ -30,7 +30,7 @@ namespace Movement
 				params->speedMultLowBurden.Get(),
 				params->speedMultHighBurden.Get(),
 				data.burdenBlend,
-				params->speedCurve_k.Get());
+				params->burdenSpeedCurve_k.Get());
 		}
 
 		// Swim speed scaling
@@ -40,7 +40,7 @@ namespace Movement
 				params->speedMultAboveWater.Get(),
 				params->speedMultSubmerged.Get(),
 				submerged,
-				1.0f);
+				params->submergedCurve_k.Get());
 		}
 
 		// Exhaustion speed penalty
