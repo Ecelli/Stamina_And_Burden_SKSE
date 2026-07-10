@@ -7,6 +7,7 @@
 #include "Settings/INI/INISettings.h"
 #include "Settings/JSON/JSONSettings.h"
 #include "Common/Utils.h"
+#include "API/PerkEntryPointExtenderAPI.h"
 
 static void MessageEventCallback(SKSE::MessagingInterface::Message* a_msg)
 {
@@ -14,6 +15,14 @@ static void MessageEventCallback(SKSE::MessagingInterface::Message* a_msg)
 	case SKSE::MessagingInterface::kDataLoaded:
 		SECTION_SEPARATOR;
 		Regen::OverrideGameSettings();
+		SECTION_SEPARATOR;
+
+		if (!PerkEntryPointExtenderAPI::RequestInterface()) {
+			logger::warn("  >PEPE not found — perk categories will be inactive");
+		} else {
+			logger::info("  >PEPE interface resolved");
+		}
+
 		SECTION_SEPARATOR;
 		if (!Data::PreloadModObjects()) {
 			SKSE::stl::report_and_fail("Failed to preload mod objects. Check the log for more information."sv);
