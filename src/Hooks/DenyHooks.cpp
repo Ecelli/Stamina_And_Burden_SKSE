@@ -3,6 +3,11 @@
 #include "Stamina/CostsManager.h"
 #include "Common/Utils.h"
 
+#include <RE/A/AttackBlockHandler.h>
+#include <RE/B/ButtonEvent.h>
+#include <RE/P/PlayerControls.h>
+#include <RE/P/PlayerCharacter.h>
+
 namespace Hooks
 {
 	void JumpDenyHook::Install()
@@ -49,5 +54,59 @@ namespace Hooks
 		}
 
 		return _func(a_attacker, a_victim, a_attack);
+	}
+
+
+	void PlayerPowerAttackDenyHook::Install()
+	{
+		REL::Relocation<std::uintptr_t> target{ REL::ID(39003), 0xBB };
+		if (!REL::make_pattern<"E8">().match(target.address())) {
+			logger::error("  >PlayerPowerAttackDenyHook: pattern mismatch at REL::ID(39003) + 0xBB");
+			return;
+		}
+		_func = SKSE::GetTrampoline().write_call<5>(target.address(), Call);
+		logger::info("  >PlayerPowerAttackDenyHook installed at REL::ID(39003) + 0xBB");
+	}
+
+	float PlayerPowerAttackDenyHook::Call(RE::ActorValueOwner* a_this, RE::BGSAttackData* a_attack)
+	{
+		float cost = _func(a_this, a_attack);
+		if (cost > 0.0f) {
+			auto* actor = skyrim_cast<RE::Actor*>(a_this);
+			if (actor && actor->IsPlayerRef()) {
+				logger::info("PPADH: power attack cost={:.1f} stamina={:.1f} for {:x}",
+					cost, actor->GetActorValue(RE::ActorValue::kStamina), actor->GetFormID());
+			}
+		}
+		return cost;
+	}
+
+	void PlayerNormalAttackDenyHook::Install()
+	{
+		auto* playerControls = RE::PlayerControls::GetSingleton();
+		if (!playerControls || !playerControls->attackBlockHandler) {
+			logger::error("  >PlayerNormalAttackDenyHook: AttackBlockHandler unavailable");
+			return;
+		}
+
+		auto* handler = playerControls->attackBlockHandler;
+		auto* vtable = *reinterpret_cast<std::uintptr_t**>(handler);
+		logger::info("  >PlayerNormalAttackDenyHook: original ProcessButton at 0x{:X}", vtable[4]);
+
+		REL::Relocation<std::uintptr_t> vtableReloc{ RE::VTABLE_AttackBlockHandler[0] };
+		_original = vtableReloc.write_vfunc(4, &ProcessButtonDetour);
+		logger::info("  >PlayerNormalAttackDenyHook installed on AttackBlockHandler::ProcessButton");
+	}
+
+	void PlayerNormalAttackDenyHook::ProcessButtonDetour(
+		RE::AttackBlockHandler* a_this, RE::ButtonEvent* a_event, RE::PlayerControlsData* a_data)
+	{
+		if (a_event && a_event->IsDown()) {
+			auto* player = RE::PlayerCharacter::GetSingleton();
+			if (player) {
+				logger::info("PNADH: player attack press detected for {:x}", player->GetFormID());
+			}
+		}
+		_original(a_this, a_event, a_data);
 	}
 }

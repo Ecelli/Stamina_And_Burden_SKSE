@@ -8,6 +8,7 @@
 #include "Settings/JSON/JSONSettings.h"
 #include "Common/Utils.h"
 #include "API/PerkEntryPointExtenderAPI.h"
+#include "Hooks/DenyHooks.h"
 
 static void MessageEventCallback(SKSE::MessagingInterface::Message* a_msg)
 {
@@ -27,6 +28,9 @@ static void MessageEventCallback(SKSE::MessagingInterface::Message* a_msg)
 		if (!Data::PreloadModObjects()) {
 			SKSE::stl::report_and_fail("Failed to preload mod objects. Check the log for more information."sv);
 		}
+
+		SECTION_SEPARATOR;
+		Hooks::PlayerNormalAttackDenyHook::Install();
 
 		SECTION_SEPARATOR;
 		logger::info("Finished startup tasks, enjoy your game!"sv);

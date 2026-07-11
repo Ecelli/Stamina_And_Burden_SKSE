@@ -32,7 +32,22 @@ namespace Hooks
 		static inline REL::Relocation<decltype(JumpDetour)> _Jump;
 	};
 
-	// TODO: Player denial via AttackBlockHandler vtable hook (vtable index 04)
-	// See: RE/A/AttackBlockHandler.h in CommonLibSSE-NG
-	// struct PlayerAttackBlockHook { ... };
+	// Player power attack denial via GetAttackStamina call inside
+	// ActorStateManager::TestInterpretedAction (REL::ID(39003) + 0xBB).
+	// ScrambledBugs-proven pattern. Step 1: pass-through + logging.
+	struct PlayerPowerAttackDenyHook
+	{
+		static void Install();
+		static float Call(RE::ActorValueOwner* a_this, RE::BGSAttackData* a_attack);
+		static inline REL::Relocation<decltype(Call)> _func;
+	};
+
+	// Player normal attack denial via AttackBlockHandler::ProcessButton vtable hook.
+	// VTABLE_AttackBlockHandler[0] vtable index 04. Step 1: pass-through + logging.
+	struct PlayerNormalAttackDenyHook
+	{
+		static void Install();
+		static void ProcessButtonDetour(RE::AttackBlockHandler* a_this, RE::ButtonEvent* a_event, RE::PlayerControlsData* a_data);
+		static inline REL::Relocation<decltype(ProcessButtonDetour)> _original;
+	};
 }
