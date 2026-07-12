@@ -48,6 +48,18 @@ namespace Hooks
 	{
 		auto* actor = skyrim_cast<RE::Actor*>(a_this);
 		if (!actor) return 0.0F;
+
+        bool isPlayer = actor->IsPlayerRef();
+        auto* costParams = Costs::CostsParams::GetSingleton();
+        auto* denyParams = Deny::DenyParams::GetSingleton();
+
+        bool costEnabled = isPlayer ? costParams->bAttackCostPlayer.Get() : costParams->bAttackCostNPC.Get();
+        bool denyEnabled = isPlayer ? denyParams->bEnableDenyPlayer.Get() : denyParams->bEnableDenyNPC.Get();
+		denyEnabled = costEnabled && denyEnabled;
+
+        if (!denyEnabled)
+            return 0.0F;
+
         float cost = Costs::ComputeAttackCost(actor, attackData);
 		if (Common::CanDoStaminaAction(actor, cost)) {
             return 0.0f; // CAN DO
