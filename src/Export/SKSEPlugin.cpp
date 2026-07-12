@@ -8,6 +8,7 @@
 #include "Settings/JSON/JSONSettings.h"
 #include "Common/Utils.h"
 #include "API/PerkEntryPointExtenderAPI.h"
+#include "Hooks/DenyHooks.h"
 
 static void MessageEventCallback(SKSE::MessagingInterface::Message* a_msg)
 {

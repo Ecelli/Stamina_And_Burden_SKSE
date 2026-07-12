@@ -29,6 +29,7 @@ namespace Hooks
 		auto* params = Costs::CostsParams::GetSingleton();
 		bool costEnabled = isPlayer ? params->bBowCostPlayer.Get() : params->bBowCostNPC.Get();
 		bool denyEnabled = isPlayer ? params->bBowDenyPlayer.Get() : params->bBowDenyNPC.Get();
+		denyEnabled = costEnabled && denyEnabled;
 
 		float cost = Costs::ComputeBowFireCost(actor);
 

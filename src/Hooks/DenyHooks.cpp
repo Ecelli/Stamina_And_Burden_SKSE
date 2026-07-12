@@ -21,33 +21,91 @@ namespace Hooks
 	}
 
 
-	void AttackDenyHook::Install()
+
+	void AttackDenyHook::NopHasStaminaBranches()
 	{
-		// AE: REL::ID(49170) + 0x28d inside GetThisAttackChance
-		// NOTE: NPC only — does NOT fire for the player.
-		REL::Relocation<std::uintptr_t> target{ REL::ID(49170), 0x28d };
-		_func = SKSE::GetTrampoline().write_call<5>(target.address(), Call);
-		logger::info("  >AttackDenyHook installed at REL::ID(49170) + 0x28d");
+		{ // Player branch
+			REL::Relocation<std::uintptr_t> target{ REL::ID(39003), 0xE1 };
+			if (REL::make_pattern<"77 19">().match(target.address())) {
+				REL::safe_write(target.address(), std::array<std::uint8_t, 2>{0x90, 0x90});
+				logger::info("  >AttackDenyHook: player branch NOPed at 39003+0xE1");
+			} else {
+				logger::error("  >AttackDenyHook: player branch pattern fail at 39003+0xE1");
+			}
+		}
+		{ // NPC branch
+			REL::Relocation<std::uintptr_t> target{ REL::ID(49170), 0x272 };
+			if (REL::make_pattern<"75 10">().match(target.address())) {
+				REL::safe_write(target.address(), std::array<std::uint8_t, 2>{0x90, 0x90});
+				logger::info("  >AttackDenyHook: NPC branch NOPed at 49170+0x272");
+			} else {
+				logger::error("  >AttackDenyHook: NPC branch pattern fail at 49170+0x272");
+			}
+		}
 	}
 
-	float AttackDenyHook::Call(RE::Actor* a_attacker, RE::Actor* a_victim, RE::BGSAttackData* a_attack)
+	float AttackDenyHook::HasStamina(RE::ActorValueOwner* a_this, RE::BGSAttackData* attackData)
 	{
-		Costs::CostLog("AttackDenyHook: attacker={:x} victim={:x}",
-			a_attacker ? a_attacker->GetFormID() : 0,
-			a_victim ? a_victim->GetFormID() : 0);
+		auto* actor = skyrim_cast<RE::Actor*>(a_this);
+		if (!actor) return 0.0F;
 
-		if (!a_attacker || !a_attack)
-			return _func(a_attacker, a_victim, a_attack);
+        bool isPlayer = actor->IsPlayerRef();
+        auto* costParams = Costs::CostsParams::GetSingleton();
+        auto* denyParams = Deny::DenyParams::GetSingleton();
 
-		float cost = Costs::ComputeAttackCost(a_attacker, a_attack);
+        bool costEnabled = isPlayer ? costParams->bAttackCostPlayer.Get() : costParams->bAttackCostNPC.Get();
+        bool denyEnabled = isPlayer ? denyParams->bEnableDenyPlayer.Get() : denyParams->bEnableDenyNPC.Get();
+		denyEnabled = costEnabled && denyEnabled;
 
-		if (!Common::CanDoStaminaAction(a_attacker, cost)) {
-			Costs::CostLog("AttackDenyHook: suppressed for {:x}, stamina={:.1f} < cost={:.1f}",
-				a_attacker->GetFormID(),
-				a_attacker->GetActorValue(RE::ActorValue::kStamina), cost);
-			return 0.0f;
+        if (!denyEnabled)
+            return 0.0F;
+
+        float cost = Costs::ComputeAttackCost(actor, attackData);
+		if (Common::CanDoStaminaAction(actor, cost)) {
+            return 0.0f; // CAN DO
+        }
+
+        Deny::DenyLog("AttackDeny: denied {:x}, stamina={:.1f} cost={:.1f}",
+            actor->GetFormID(),
+            actor->GetActorValue(RE::ActorValue::kStamina),
+            cost);
+        
+        return cost;
+	}
+
+	float AttackDenyHook::PlayerHasStamina(RE::ActorValueOwner* a_this, RE::BGSAttackData* a_attack)
+	{
+		return HasStamina(a_this, a_attack);
+	}
+
+	float AttackDenyHook::NPCHasStamina(RE::ActorValueOwner* a_this, RE::BGSAttackData* a_attack)
+	{
+		return HasStamina(a_this, a_attack);
+	}
+
+	void AttackDenyHook::Install()
+	{ // Based off scrambled bugs
+		NopHasStaminaBranches();
+
+		{ // Player Branch
+			REL::Relocation<std::uintptr_t> target{ REL::ID(39003), 0xBB };
+			if (!REL::make_pattern<"E8">().match(target.address())) {
+				logger::error("  >AttackDenyHook: player call mismatch at 39003+0xBB");
+				return;
+			}
+			SKSE::GetTrampoline().write_call<5>(target.address(), PlayerHasStamina);
+			logger::info("  >AttackDenyHook: player installed at 39003+0xBB");
 		}
 
-		return _func(a_attacker, a_victim, a_attack);
+		{  // NPC branch
+			REL::Relocation<std::uintptr_t> target{ REL::ID(49170), 0x27A };
+			if (!REL::make_pattern<"E8">().match(target.address())) {
+				logger::error("  >AttackDenyHook: NPC call mismatch at 49170+0x27A");
+				return;
+			}
+			SKSE::GetTrampoline().write_call<5>(target.address(), NPCHasStamina);
+			logger::info("  >AttackDenyHook: NPC installed at 49170+0x27A");
+		}
 	}
+
 }
