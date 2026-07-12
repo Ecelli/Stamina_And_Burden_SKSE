@@ -79,11 +79,21 @@ namespace Hooks
 		}
 	}
 
-	float PowerAttackDenyHook::HasStamina(RE::ActorValueOwner* a_this, RE::BGSAttackData*)
+	float PowerAttackDenyHook::HasStamina(RE::ActorValueOwner* a_this, RE::BGSAttackData* attackData)
 	{
 		auto* actor = skyrim_cast<RE::Actor*>(a_this);
 		if (!actor) return 0.0F;
-		return actor->GetActorValue(RE::ActorValue::kStamina) > 40.0F ? 0.0F : 1.0F;
+        float cost = Costs::ComputeAttackCost(actor, attackData);
+		if (Common::CanDoStaminaAction(actor, cost)) {
+            return 0.0f; // CAN DO
+        }
+
+        Deny::DenyLog("AttackDeny: denied {:x}, stamina={:.1f} cost={:.1f}",
+            actor->GetFormID(),
+            actor->GetActorValue(RE::ActorValue::kStamina),
+            cost);
+        
+        return cost;
 	}
 
 	float PowerAttackDenyHook::PlayerHasStamina(RE::ActorValueOwner* a_this, RE::BGSAttackData* a_attack)

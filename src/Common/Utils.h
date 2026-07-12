@@ -9,12 +9,7 @@
 #include "Settings/Params/BlockingParams.h"
 #include "Settings/Params/ExhaustionParams.h"
 #include "Settings/Params/MovementSpeedParams.h"
-
-namespace RE
-{
-	class TESObjectARMO;
-	class TESObjectWEAP;
-}
+#include "Settings/Params/DenyParams.h"
 
 namespace Utils
 {
@@ -153,6 +148,17 @@ namespace Movement
     void MovementLog(std::string_view a_fmt, Args&&... a_args)
     {
         if (MovementSpeedParams::GetSingleton()->EnableDebugLogging.Get()) {
+            logger::info(fmt::runtime(a_fmt), std::forward<Args>(a_args)...);
+        }
+    }
+}
+
+namespace Deny
+{
+    template <typename... Args>
+    void DenyLog(std::string_view a_fmt, Args&&... a_args)
+    {
+        if (DenyParams::GetSingleton()->EnableDebugLogging.Get()) {
             logger::info(fmt::runtime(a_fmt), std::forward<Args>(a_args)...);
         }
     }
