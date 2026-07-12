@@ -32,14 +32,17 @@ namespace Hooks
 		static inline REL::Relocation<decltype(JumpDetour)> _Jump;
 	};
 
-	// Player power attack denial via GetAttackStamina call inside
-	// ActorStateManager::TestInterpretedAction (REL::ID(39003) + 0xBB).
-	// ScrambledBugs-proven pattern. Step 1: pass-through + logging.
-	struct PlayerPowerAttackDenyHook
+	// Power attack denial via ScrambledBugs pattern:
+	//   - NOP HasStamina branches (39003+0xE1, 49170+0x272)
+	//   - Hook GetAttackStamina calls (39003+0xBB, 49170+0x27A)
+	//   - No call to original — directly return 0.0F (allow) or 1.0F (deny)
+	struct PowerAttackDenyHook
 	{
 		static void Install();
-		static float Call(RE::ActorValueOwner* a_this, RE::BGSAttackData* a_attack);
-		static inline REL::Relocation<decltype(Call)> _func;
+		static void NopHasStaminaBranches();
+		static float HasStamina(RE::ActorValueOwner* a_this, RE::BGSAttackData* a_attack);
+		static float PlayerHasStamina(RE::ActorValueOwner* a_this, RE::BGSAttackData* a_attack);
+		static float NPCHasStamina(RE::ActorValueOwner* a_this, RE::BGSAttackData* a_attack);
 	};
 
 	// Player normal attack denial via AttackBlockHandler::ProcessButton vtable hook.

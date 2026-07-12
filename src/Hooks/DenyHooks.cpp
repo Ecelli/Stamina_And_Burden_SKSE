@@ -57,28 +57,68 @@ namespace Hooks
 	}
 
 
-	void PlayerPowerAttackDenyHook::Install()
+	void PowerAttackDenyHook::NopHasStaminaBranches()
 	{
-		REL::Relocation<std::uintptr_t> target{ REL::ID(39003), 0xBB };
-		if (!REL::make_pattern<"E8">().match(target.address())) {
-			logger::error("  >PlayerPowerAttackDenyHook: pattern mismatch at REL::ID(39003) + 0xBB");
-			return;
-		}
-		_func = SKSE::GetTrampoline().write_call<5>(target.address(), Call);
-		logger::info("  >PlayerPowerAttackDenyHook installed at REL::ID(39003) + 0xBB");
-	}
-
-	float PlayerPowerAttackDenyHook::Call(RE::ActorValueOwner* a_this, RE::BGSAttackData* a_attack)
-	{
-		float cost = _func(a_this, a_attack);
-		if (cost > 0.0f) {
-			auto* actor = skyrim_cast<RE::Actor*>(a_this);
-			if (actor && actor->IsPlayerRef()) {
-				logger::info("PPADH: power attack cost={:.1f} stamina={:.1f} for {:x}",
-					cost, actor->GetActorValue(RE::ActorValue::kStamina), actor->GetFormID());
+		{ // Player branch
+			REL::Relocation<std::uintptr_t> target{ REL::ID(39003), 0xE1 };
+			if (REL::make_pattern<"77 19">().match(target.address())) {
+				REL::safe_write(target.address(), std::array<std::uint8_t, 2>{0x90, 0x90});
+				logger::info("  >PowerAttackDenyHook: player branch NOPed at 39003+0xE1");
+			} else {
+				logger::error("  >PowerAttackDenyHook: player branch pattern fail at 39003+0xE1");
 			}
 		}
-		return cost;
+		{ // NPC branch
+			REL::Relocation<std::uintptr_t> target{ REL::ID(49170), 0x272 };
+			if (REL::make_pattern<"75 10">().match(target.address())) {
+				REL::safe_write(target.address(), std::array<std::uint8_t, 2>{0x90, 0x90});
+				logger::info("  >PowerAttackDenyHook: NPC branch NOPed at 49170+0x272");
+			} else {
+				logger::error("  >PowerAttackDenyHook: NPC branch pattern fail at 49170+0x272");
+			}
+		}
+	}
+
+	float PowerAttackDenyHook::HasStamina(RE::ActorValueOwner* a_this, RE::BGSAttackData*)
+	{
+		auto* actor = skyrim_cast<RE::Actor*>(a_this);
+		if (!actor) return 0.0F;
+		return actor->GetActorValue(RE::ActorValue::kStamina) > 40.0F ? 0.0F : 1.0F;
+	}
+
+	float PowerAttackDenyHook::PlayerHasStamina(RE::ActorValueOwner* a_this, RE::BGSAttackData* a_attack)
+	{
+		return HasStamina(a_this, a_attack);
+	}
+
+	float PowerAttackDenyHook::NPCHasStamina(RE::ActorValueOwner* a_this, RE::BGSAttackData* a_attack)
+	{
+		return HasStamina(a_this, a_attack);
+	}
+
+	void PowerAttackDenyHook::Install()
+	{ // Based off scrambled bugs
+		NopHasStaminaBranches();
+
+		{ // Player Branch
+			REL::Relocation<std::uintptr_t> target{ REL::ID(39003), 0xBB };
+			if (!REL::make_pattern<"E8">().match(target.address())) {
+				logger::error("  >PowerAttackDenyHook: player call mismatch at 39003+0xBB");
+				return;
+			}
+			SKSE::GetTrampoline().write_call<5>(target.address(), PlayerHasStamina);
+			logger::info("  >PowerAttackDenyHook: player installed at 39003+0xBB");
+		}
+
+		{  // NPC branch
+			REL::Relocation<std::uintptr_t> target{ REL::ID(49170), 0x27A };
+			if (!REL::make_pattern<"E8">().match(target.address())) {
+				logger::error("  >PowerAttackDenyHook: NPC call mismatch at 49170+0x27A");
+				return;
+			}
+			SKSE::GetTrampoline().write_call<5>(target.address(), NPCHasStamina);
+			logger::info("  >PowerAttackDenyHook: NPC installed at 49170+0x27A");
+		}
 	}
 
 	void PlayerNormalAttackDenyHook::Install()
