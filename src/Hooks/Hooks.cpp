@@ -36,8 +36,7 @@ namespace Hooks {
 		BlockHook::Install();
 		DamageScalingHook::Install();
 		MovementHooks::InstallSpeed();
-		PowerAttackDenyHook::Install();
-		// AttackDenyHook::Install();  // NPC-only (49170), deferred
+		AttackDenyHook::Install();
 
 		return true;
 	}

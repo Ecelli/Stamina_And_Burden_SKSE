@@ -30,9 +30,6 @@ static void MessageEventCallback(SKSE::MessagingInterface::Message* a_msg)
 		}
 
 		SECTION_SEPARATOR;
-		Hooks::PlayerNormalAttackDenyHook::Install();
-
-		SECTION_SEPARATOR;
 		logger::info("Finished startup tasks, enjoy your game!"sv);
 		Settings::JSON::Holder::GetSingleton()->Release();
 		break;
