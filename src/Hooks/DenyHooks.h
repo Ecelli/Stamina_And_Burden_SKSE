@@ -37,5 +37,6 @@ namespace Hooks
 		static float HasStamina(RE::ActorValueOwner* a_this, RE::BGSAttackData* a_attack);
 		static float PlayerHasStamina(RE::ActorValueOwner* a_this, RE::BGSAttackData* a_attack);
 		static float NPCHasStamina(RE::ActorValueOwner* a_this, RE::BGSAttackData* a_attack);
+		static inline REL::Relocation<decltype(HasStamina)> _original;
 	};
 }

@@ -54,9 +54,10 @@ namespace Hooks
         auto* denyParams = Deny::DenyParams::GetSingleton();
 
         bool costEnabled = isPlayer ? costParams->bAttackCostPlayer.Get() : costParams->bAttackCostNPC.Get();
-        bool denyEnabled = isPlayer ? denyParams->bEnableDenyPlayer.Get() : denyParams->bEnableDenyNPC.Get();
-		denyEnabled = costEnabled && denyEnabled;
+        if (!costEnabled)
+            return _original(a_this, attackData);
 
+        bool denyEnabled = isPlayer ? denyParams->bEnableDenyPlayer.Get() : denyParams->bEnableDenyNPC.Get();
         if (!denyEnabled)
             return 0.0F;
 
@@ -93,7 +94,7 @@ namespace Hooks
 				logger::error("  >AttackDenyHook: player call mismatch at 39003+0xBB");
 				return;
 			}
-			SKSE::GetTrampoline().write_call<5>(target.address(), PlayerHasStamina);
+			_original = SKSE::GetTrampoline().write_call<5>(target.address(), PlayerHasStamina);
 			logger::info("  >AttackDenyHook: player installed at 39003+0xBB");
 		}
 
