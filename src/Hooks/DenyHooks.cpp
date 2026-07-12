@@ -90,6 +90,8 @@ namespace Hooks
 
         float cost = Costs::ComputeAttackCost(actor, attackData);
 		if (Common::CanDoStaminaAction(actor, cost)) {
+            // NOTE: cost drained here; AttackCostHook returns 0 to avoid double-drain
+            Common::ApplyStaminaCost(actor, cost);
             return 0.0f; // CAN DO
         }
 

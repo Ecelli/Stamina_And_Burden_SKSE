@@ -28,6 +28,8 @@ namespace Hooks
 		if (!enabled)
 			return _func(a_this, a_attack);
 
-		return Costs::ComputeAttackCost(actor, a_attack);
+		// NOTE: cost already drained in AttackDenyHook — return 0 to prevent engine double-drain
+		// return Costs::ComputeAttackCost(actor, a_attack); // If we need to fix it
+		return 0.0f;
 	}
 }
