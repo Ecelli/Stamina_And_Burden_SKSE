@@ -28,7 +28,7 @@ src/
 │   └── PerkCategories.h # 7 PEPE category constants (SB_*) + PEPE_STAMINA_ENTRY_POINT
 ├── Data/              # ModObjectManager, Lookup.h (shell — EXPECTED_COUNT=0)
 ├── Export/            # SKSEPlugin.cpp — entrypoint, PEPE RequestInterface() at kDataLoaded (DONE)
-├── Hooks/             # 9 code detours + 4 event sinks + 2 uninstalled denies (DONE)
+├── Hooks/             # 10 code detours + 4 event sinks + 1 uninstalled deny (DONE)
 ├── Movement/          # Movement speed (burden/swim/exhaustion) + sprint/jump cost functions (DONE)
 │   ├── MovementManager        # ComputeSpeedMultiplier — burden, swim depth, exhaustion speed scaling
 │   └── MovementCostManager    # ComputeSprintDrain, ComputeJumpCost + PEPE calls
@@ -537,7 +537,7 @@ damageMult      = Interpolate(fDamageScaleLow, fDamageScaleHigh, staminaPct, fDa
 
 ## 4. Hook Summary
 
-### Installed code detours (9):
+### Installed code detours (10):
 
 | ID | Offset | Name | Purpose |
 |---|---|---|---|
@@ -550,6 +550,7 @@ damageMult      = Interpolate(fDamageScaleLow, fDamageScaleHigh, staminaPct, fDa
 | `38627` | `+0x4A8` | `DamageScalingHook` | Scale outgoing damage by attacker stamina% |
 | `38627` | `+0x4A8` | `BlockHook` | Block stamina cost, damage redirect, guard break stagger |
 | `37943` | `+0x51` | `SpeedHook` | Scale movement speed by `Movement::ComputeSpeedMultiplier` (burden/swim/exhaustion) |
+| `39003` / `49170` | `+0xBB` / `+0x27A` (+ NOP branches `0xE1`/`0x272`) | `AttackDenyHook` | Replaces engine HasStamina check — denies attacks when stamina insufficient (player + NPC) |
 
 Note: `DamageScalingHook` and `BlockHook` share the same hook point (`38627+0x4A8`). They chain via trampoline — DamageScalingHook scales damage first, then BlockHook processes block mechanics on the scaled values.
 
@@ -562,14 +563,14 @@ Note: `DamageScalingHook` and `BlockHook` share the same hook point (`38627+0x4A
 | `TESContainerChangedEvent` | `ContainerHandler` | `Tracker::Update(actor)` — deferred burden recalc |
 | `TESActorLocationChangeEvent` | `WorldspaceChangeHandler` | Clear transient NPC cache on worldspace change |
 
-### Denial hooks (NOT INSTALLED — code exists but incomplete):
+### Denial hooks:
 
-| ID | Offset | Name | Status | Reason |
+| ID | Offset | Name | Status | Notes |
 |---|---|---|---|---|
-| `49170` | `+0x28D` | `AttackDenyHook` | Commented out | NPC-only — does not fire for player. Player denial needs vtable hook on `AttackBlockHandler::ProcessButton`. |
-| `42423` | `+0x114` | `JumpDenyHook` | `Install()` logs NOT INSTALLED | AE call site crashes on 1.6.1170. SSE offset known (`41349+0x114`) but not ported. |
+| `39003` / `49170` | `+0xBB` / `+0x27A` (+ NOP branches `0xE1`/`0x272`) | `AttackDenyHook` | INSTALLED | Both player and NPC. Shared `HasStamina()` dispatches on per-actor-type toggles from `DenyParams`. Follows ScrambledBugs' `PowerAttackStaminaRequirement` approach. |
+| `42423` | `+0x114` | `JumpDenyHook` | NOT INSTALLED | AE call site crashes on 1.6.1170. SSE offset known (`41349+0x114`) but not ported. |
 
-Both denial hooks are **implemented but not installed** — per project convention, they are considered incomplete. Deferred until player denial entry point is solved.
+`AttackDenyHook` is fully implemented, tested, and active. `JumpDenyHook` remains deferred until a working AE call site is found.
 
 ### Potential hook migration — `get_damage` inside Populate
 
@@ -629,6 +630,7 @@ Per-action (each cost passes through PEPE HandleEntryPoint before consumption):
     SprintDrainHook (every frame while sprinting) → Movement::ComputeSprintDrain(actor) → [PEPE SB_SprintStamina] → ApplyStaminaCost
     ActionHook (on jump) → Movement::ComputeJumpCost(actor) → [PEPE SB_JumpStamina] → ApplyStaminaCost
     AttackCostHook (on attack) → ComputeAttackCost(actor, attackData) → [PEPE SB_AttackStamina] → ApplyStaminaCost / staminaMult
+    AttackDenyHook (on attack) → CanDoStaminaAction(actor, cost) → 0.0F (allow) or cost (deny — engine penalizes)
     BowFireHook (on bow release) → ComputeBowFireCost(actor) → [PEPE SB_BowFireStamina] → ApplyStaminaCost
     DamageScalingHook (on hit) → ComputeStaminaDamageMult(attacker) → scale HitData
     BlockHook (on blocked hit) → [PEPE SB_BlockStamina × 2] on base cost + redirect cost → redirect or guard break
@@ -644,16 +646,14 @@ Burden::Tracker::Update(actor)
 
 ## 6. Denial Features
 
-Per project convention: **any denial feature that is implemented but not installed is considered incomplete.**
-
-| Feature | Status | Reason |
+| Feature | Status | Implementation |
 |---|---|---|
-| Attack denial (NPC) | Implemented, NOT INSTALLED (`Hooks.cpp:35` commented) | Hook `49170+0x28D` only fires for NPCs. Player needs different entry point. |
-| Attack denial (player) | Not implemented | Requires vtable hook on `AttackBlockHandler::ProcessButton` (vtable index 04) — approach designed, not coded. |
-| Jump denial | Implemented, NOT INSTALLED | AE call site at `42423+0x114` crashes on 1.6.1170. SSE offset `41349+0x114` known but unused. |
-| Bow fire deny | DONE — built into `BowFireHook` | Integrated into the cost hook. Per-actor toggles (`bBowDenyPlayer/NPC`) control denial independently of cost. NPC denial now functional (was player-only). |
+| Attack denial (player) | **INSTALLED** | `AttackDenyHook` at `REL::ID(39003)` + `0xBB` (call detour) + `0xE1` (NOP branch). NOPs engine's player HasStamina conditional jump and replaces the GetAttackStamina call. |
+| Attack denial (NPC) | **INSTALLED** | `AttackDenyHook` at `REL::ID(49170)` + `0x27A` (call detour) + `0x272` (NOP branch). Same approach as player. |
+| Jump denial | NOT INSTALLED | AE call site at `42423+0x114` crashes on 1.6.1170. SSE offset `41349+0x114` known but unused. Code exists but is dead. |
+| Bow fire deny | **DONE** — built into `BowFireHook` | Integrated into the cost hook. Per-actor toggles (`bBowDenyPlayer/NPC`) control denial independently of cost. |
 
-**Deferred until a solution is found for player action denial.** The BowFireHook's inline deny is the pattern to follow: check `CanDoStaminaAction` inside the cost hook, suppress the action if insufficient.
+Both player and NPC attack denial share the same `HasStamina()` logic which checks per-actor-type toggles from `DenyParams` (`bEnableDenyPlayer`/`bEnableDenyNPC`). Return convention: `0.0F` = has stamina (allow), `>0.0F` = no stamina (deny — engine handles the penalty). Jump denial remains the only deferred denial feature.
 
 ---
 
@@ -735,8 +735,11 @@ All settings are `Parameter<T>` structs in `src/Settings/Params/`. No shipped IN
 - `fBashBowLowBurden/HighBurden/BurdenCurve_k/PowerMult`
 - `fBashWeaponLowBurden/HighBurden/BurdenCurve_k/PowerMult`
 
-### DenyParams (1 param)
-- `fMinStaminaCostMult` — stamina threshold fraction for action denial
+### DenyParams (4 params)
+- `bEnableDenyPlayer` — enable attack denial for player (default true)
+- `bEnableDenyNPC` — enable attack denial for NPCs (default true)
+- `fMinStaminaCostMult` — stamina threshold fraction for action denial; actor must have stamina > `fMinStaminaCostMult × cost` to be allowed to act (default 0.30)
+- `bEnableDebugLogging` — enable `DenyLog()` output (default true)
 
 Removed: `bPlayerAlwaysCanDoAction`, `bNpcAlwaysCanDoAction`, `fNpcRegenExemptionRate` — unused, deprecated in favor of per-feature toggles.
 
@@ -884,11 +887,12 @@ Removed: `bPlayerAlwaysCanDoAction`, `bNpcAlwaysCanDoAction`, `fNpcRegenExemptio
 | `RE::HandleEntryPoint` on `ComputeBowDrawHoldPenalty` — `SB_BowDrawHoldStamina` | DONE |
 | Hand detection refactored into `Utils::` namespace (`GetAttackHandInfo`, `AttackHandInfo`) for PEPE form args | DONE |
 
-### Phase 4 — Denial (DEFERRED)
+### Phase 4 — Denial ✅ (Jump Denial Deferred)
 | Task | Status |
 |---|---|
-| AttackDenyHook at 49170+0x28D | NOT INSTALLED — NPC only |
-| Player attack denial | NOT STARTED — needs vtable hook on AttackBlockHandler |
+| AttackDenyHook — player (39003+0xBB + NOP 0xE1) | **INSTALLED** |
+| AttackDenyHook — NPC (49170+0x27A + NOP 0x272) | **INSTALLED** |
+| Bow fire deny (built into BowFireHook) | DONE |
 | JumpDenyHook at 42423+0x114 | NOT INSTALLED — AE call site crashes |
 
 ### Phase 5 — Blocking ✅ (Timed Block deferred)
@@ -979,7 +983,7 @@ Removed: `bPlayerAlwaysCanDoAction`, `bNpcAlwaysCanDoAction`, `fNpcRegenExemptio
 18. **Block skill embedded upstream** — `ComputeBlockBurden()` in BurdenManager produces `weaponBurden_block`, not a separate multiplier in BlockManager. Avoids double-counting.
 19. **Exhaustion implemented** — originally deferred as a block-specific feature, now implemented as a general stamina-0 state machine triggered from the regen delay hook. Applies cross-AV regen penalties and damage scaling. No action denial.
 20. **SpeedHook** — movement speed scaling by burden blend, swim depth, and exhaustion status. Not in original plan. Composite multiplier applied via dedicated hook at `37943+0x51`. Sprint/jump cost functions delegated from CostsManager to `Movement::` namespace.
-21. **Per-actor-type toggles** — every user-facing feature (regen, attack cost, bow cost, bow deny, sprint, jump, movement speed) has individual Player/NPC boolean toggle pairs in its respective param group. Replaces the removed global bypass params (`bPlayerAlwaysCanDoAction`, `bNpcAlwaysCanDoAction`, `fNpcRegenExemptionRate`). DenyParams reduced to a single `fMinStaminaCostMult` threshold.
+21. **Per-actor-type toggles** — every user-facing feature (regen, attack cost, bow cost, bow deny, sprint, jump, movement speed) has individual Player/NPC boolean toggle pairs in its respective param group. Replaces the removed global bypass params (`bPlayerAlwaysCanDoAction`, `bNpcAlwaysCanDoAction`, `fNpcRegenExemptionRate`). DenyParams contains four params: `bEnableDenyPlayer`, `bEnableDenyNPC`, `fMinStaminaCostMult`, and `EnableDebugLogging`.
 22. **PEPE integration** — all 8 stamina cost/penalty functions wired to `kModPowerAttackStamina` entry point via `RE::HandleEntryPoint`. Uses 7 `SB_*` category strings for per-cost-type targeting. Block uses same category on both sub-costs for correct proration. Hand detection refactored into `Utils::` namespace to supply condition form arguments. Vendored PEPE API v3, no external dependency.
 
 ## 12. Scope by Actor Type
@@ -997,17 +1001,17 @@ Removed: `bPlayerAlwaysCanDoAction`, `bNpcAlwaysCanDoAction`, `fNpcRegenExemptio
 | Exhaustion | ✓ (default on) | ✓ (default off, toggle via `bExhaustionNPC`) |
 | Attack damage scaling | ✓ (stamina-based curve) | ✓ (stamina-based curve) |
 | Movement speed | ✓ (burden + swim + exhaustion) | ✓ (burden + exhaustion) |
-| Action denial | AttackDenyHook NPC-only, JumpDenyHook broken AE | AttackDenyHook NPC-only |
+| Attack denial | ✓ (via `AttackDenyHook` at `39003+0xBB`/`0xE1`) | ✓ (via `AttackDenyHook` at `49170+0x27A`/`0x272`) |
+| Jump denial | ✗ (JumpDenyHook AE call site crashes) | ✗ |
 
 ---
 
 ## 13. Key Open Items
 
-1. **Player attack denial** — vtable hook on `AttackBlockHandler::ProcessButton` (vtable index 04). AE-stable per CommonLibSSE-NG.
-2. **Jump denial AE** — need working call site for AE 1.6.1170. SSE `41349+0x114` known working.
-3. ~~Exhaustion — state machine with timed duration, regen/damage penalties. Applies when ANY stamina drain hits 0 (sprint, power attack, block).~~ → DONE (see §3.8).
-4. **Timed block** — Valhalla Combat-style timed block window, commitment, perfect block, window penalty system. Dependencies: input hooks, state machine. Deferrable to separate plan.
-5. **Settings INI** — populate whitelist with all active params.
-6. **Console commands** — sb_get/set/list/reset/getburden via Papyrus + TestCommands.yaml.
-7. **`get_damage` hook migration** — verify AE offset at `RELOCATION_ID(42832, 44001) + 0x1A5` via pattern scan. If viable and formula needs simplify, could replace ProcessHit hook for cleaner propagation.
-8. ~~Perk integration~~ → **DONE** (PEPE, §3c). All 8 stamina cost/penalty functions wired to `kModPowerAttackStamina` entry point via PEPE `HandleEntryPoint` with `SB_*` categories. Modded perks can scale any cost by adding perk entries targeting the relevant category. The single entry point covers attack, bow, sprint, jump, block, and hold penalty costs. Future perk-specific mechanics (timed block windows, stamina refunds, conditional bonuses) would need additional perk entry points or custom hook logic beyond PEPE's scope.
+1. **Jump denial AE** — need working call site for AE 1.6.1170. SSE `41349+0x114` known working.
+2. ~~Exhaustion — state machine with timed duration, regen/damage penalties. Applies when ANY stamina drain hits 0 (sprint, power attack, block).~~ → DONE (see §3.8).
+3. **Timed block** — Valhalla Combat-style timed block window, commitment, perfect block, window penalty system. Dependencies: input hooks, state machine. Deferrable to separate plan.
+4. **Settings INI** — populate whitelist with all active params.
+5. **Console commands** — sb_get/set/list/reset/getburden via Papyrus + TestCommands.yaml.
+6. **`get_damage` hook migration** — verify AE offset at `RELOCATION_ID(42832, 44001) + 0x1A5` via pattern scan. If viable and formula needs simplify, could replace ProcessHit hook for cleaner propagation.
+7. ~~Perk integration~~ → **DONE** (PEPE, §3c). All 8 stamina cost/penalty functions wired to `kModPowerAttackStamina` entry point via PEPE `HandleEntryPoint` with `SB_*` categories. Modded perks can scale any cost by adding perk entries targeting the relevant category. The single entry point covers attack, bow, sprint, jump, block, and hold penalty costs. Future perk-specific mechanics (timed block windows, stamina refunds, conditional bonuses) would need additional perk entry points or custom hook logic beyond PEPE's scope.
