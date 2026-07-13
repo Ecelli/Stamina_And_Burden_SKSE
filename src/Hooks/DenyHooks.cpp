@@ -4,6 +4,29 @@
 #include "Common/Utils.h"
 #include <RE/J/JumpHandler.h>
 
+namespace
+{
+	bool PlayerCanJump()
+	{
+		auto* jumpParams = JumpParams::GetSingleton();
+
+		if (!jumpParams->bJumpDenyPlayer.Get())
+			return true;
+
+		auto* player = RE::PlayerCharacter::GetSingleton();
+		if (!player)
+			return true;
+
+		float cost = Movement::ComputeJumpCost(player);
+		if (Common::CanDoStaminaAction(player, cost))
+			return true;
+
+		Deny::DenyLog("JumpInputHandler: denied (stamina={:.1f}, cost={:.1f})",
+			player->GetActorValue(RE::ActorValue::kStamina), cost);
+		return false;
+	}
+}
+
 namespace Hooks
 {
 	void JumpInputHandler::Install()
@@ -18,9 +41,9 @@ namespace Hooks
 		RE::ButtonEvent* a_event,
 		RE::PlayerControlsData* a_data)
 	{
-		logger::info("JumpInputHandler::ProcessButton fired (down={}, held={:.2f})",
-			a_event ? a_event->IsDown() : false,
-			a_event ? a_event->HeldDuration() : -1.0f);
+		if (a_event && a_event->IsDown() && !PlayerCanJump())
+			return;
+
 		_ProcessButton(a_this, a_event, a_data);
 	}
 

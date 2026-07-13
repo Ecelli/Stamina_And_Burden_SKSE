@@ -164,6 +164,17 @@ namespace Deny
     }
 }
 
+namespace Jump
+{
+	template <typename... Args>
+	void JumpLog(std::string_view a_fmt, Args&&... a_args)
+	{
+		if (JumpParams::GetSingleton()->EnableDebugJumpLogging.Get()) {
+			logger::info(fmt::runtime(a_fmt), std::forward<Args>(a_args)...);
+		}
+	}
+}
+
 namespace Math
 {
 	[[nodiscard]] constexpr inline float Clamp01(float x) noexcept
