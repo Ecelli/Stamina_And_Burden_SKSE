@@ -2,22 +2,26 @@
 #include "Movement/MovementCostManager.h"
 #include "Stamina/CostsManager.h"
 #include "Common/Utils.h"
+#include <RE/J/JumpHandler.h>
 
 namespace Hooks
 {
-	void JumpDenyHook::Install()
+	void JumpInputHandler::Install()
 	{
-		// SSE: REL::ID(41349) + 0x114 — works in StaminaNPC
-		// AE: REL::ID(42423) + 0x114 — write_branch<5> crashes on 1.6.1170
-		// Needs pattern scan or Cheat Engine to find correct AE call site
-		logger::info("  >JumpDenyHook: NOT INSTALLED (AE call site for jump entry unknown)");
+		REL::Relocation<std::uintptr_t> vtbl{ RE::VTABLE_JumpHandler[0] };
+		_ProcessButton = vtbl.write_vfunc(0x04, &ProcessButton);
+		logger::info("  >JumpInputHandler installed at VTABLE index 04");
 	}
 
-	void JumpDenyHook::JumpDetour(RE::Actor* actor)
+	void JumpInputHandler::ProcessButton(
+		RE::JumpHandler* a_this,
+		RE::ButtonEvent* a_event,
+		RE::PlayerControlsData* a_data)
 	{
-		float cost = Movement::ComputeJumpCost(actor);
-		if (Common::CanDoStaminaAction(actor, cost))
-			_Jump(actor);
+		logger::info("JumpInputHandler::ProcessButton fired (down={}, held={:.2f})",
+			a_event ? a_event->IsDown() : false,
+			a_event ? a_event->HeldDuration() : -1.0f);
+		_ProcessButton(a_this, a_event, a_data);
 	}
 
 

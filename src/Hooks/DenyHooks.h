@@ -4,14 +4,16 @@
 
 namespace Hooks
 {
-	// Jump denial — blocked, AE call site unknown
-	// SSE ref: REL::ID(41349) + 0x114
-	// AE candidate: REL::ID(42423) + 0x114 — crashes on 1.6.1170
-	struct JumpDenyHook
+	// Player-only jump denial via JumpHandler::ProcessButton VTABLE hook.
+	// Prevents jumping when stamina is insufficient, before any animation or
+	// physics processing begins.
+	// NPCs are excluded — they don't use the PlayerInputHandler system and
+	// rarely jump in practice.
+	struct JumpInputHandler
 	{
 		static void Install();
-		static void JumpDetour(RE::Actor* actor);
-		static inline REL::Relocation<decltype(JumpDetour)> _Jump;
+		static void ProcessButton(RE::JumpHandler* a_this, RE::ButtonEvent* a_event, RE::PlayerControlsData* a_data);
+		static inline REL::Relocation<decltype(ProcessButton)> _ProcessButton;
 	};
 
 	// Implements ScrambledBugs' PowerAttackStaminaRequirement patch
