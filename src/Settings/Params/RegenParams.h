@@ -90,6 +90,11 @@ namespace Regen
 		Parameter<float> BlockHoldHighBurden{ 30.0f, 0.0f, 50.0f };
 		Parameter<float> BlockHoldCurve_k{ 0.8f, 0.0f, 1.0f };
 
+		// Hold-drain blended burden component (pct of max stamina/sec, shared across block/bow hold)
+		Parameter<float> HoldDrainLowBlended{ 0.0f, 0.0f, 10.0f };
+		Parameter<float> HoldDrainHighBlended{ 2.0f, 0.0f, 10.0f };
+		Parameter<float> HoldBlendedCurve_k{ 0.8f, 0.0f, 1.0f };
+
 		template <typename F>
 		static void ForEach(F&& a_fn)
 		{
@@ -111,6 +116,9 @@ namespace Regen
 			a_fn("fBlockHoldLowBurden"sv, s.BlockHoldLowBurden);
 			a_fn("fBlockHoldHighBurden"sv, s.BlockHoldHighBurden);
 			a_fn("fBlockHoldCurve_k"sv, s.BlockHoldCurve_k);
+			a_fn("fHoldDrainLowBlended"sv, s.HoldDrainLowBlended);
+			a_fn("fHoldDrainHighBlended"sv, s.HoldDrainHighBlended);
+			a_fn("fHoldBlendedCurve_k"sv, s.HoldBlendedCurve_k);
 		}
 	};
 

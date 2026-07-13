@@ -76,11 +76,18 @@ namespace Regen
 			data.weaponBurden_block,
 			params->BlockHoldCurve_k.Get());
 
+		float maxStamina = actor->GetActorValueMax(RE::ActorValue::kStamina);
+		penalty += maxStamina * 0.01f * Math::Interpolate(
+			params->HoldDrainLowBlended.Get(),
+			params->HoldDrainHighBlended.Get(),
+			data.burdenBlend,
+			params->HoldBlendedCurve_k.Get());
+
 		RE::HandleEntryPoint(PEPE_STAMINA_ENTRY_POINT, actor, penalty, PEPE::Group::BlockHoldStamina,
 			Utils::GetAttackHandInfo(actor, false, true).form);
 
-		RegenLog("ComputeBlockHoldPenalty: blockBurden={:.3f} penalty={:.3f}/s",
-			data.weaponBurden_block, penalty);
+		RegenLog("ComputeBlockHoldPenalty: blockBurden={:.3f} blend={:.3f} penalty={:.3f}/s",
+			data.weaponBurden_block, data.burdenBlend, penalty);
 		return penalty;
 	}
 
@@ -107,10 +114,17 @@ namespace Regen
 			data.weaponBurden_ranged,
 			params->BowDrawCurve_k.Get());
 
+		float maxStamina = actor->GetActorValueMax(RE::ActorValue::kStamina);
+		penalty += maxStamina * 0.01f * Math::Interpolate(
+			params->HoldDrainLowBlended.Get(),
+			params->HoldDrainHighBlended.Get(),
+			data.burdenBlend,
+			params->HoldBlendedCurve_k.Get());
+
 		RE::HandleEntryPoint(PEPE_STAMINA_ENTRY_POINT, actor, penalty, PEPE::Group::BowDrawHoldStamina, weap);
 
-		RegenLog("ComputeBowDrawHoldPenalty: weapBurden={:.3f} penalty={:.3f}/s",
-			data.weaponBurden_ranged, penalty);
+		RegenLog("ComputeBowDrawHoldPenalty: weapBurden={:.3f} blend={:.3f} penalty={:.3f}/s",
+			data.weaponBurden_ranged, data.burdenBlend, penalty);
 		return penalty;
 	}
 
