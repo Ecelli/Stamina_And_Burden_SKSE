@@ -50,7 +50,8 @@ namespace Hooks
 					}
 					Common::ApplyStaminaCost(target, currentStamina);
 
-					if (Blocking::BlockingParams::GetSingleton()->bGuardBreakEnabled.Get()) {
+					if (redirectCost > 0.0f) {
+                        // Guard break REQUIRES redirect, and redirect >0 => on.
 						float magnitude = Blocking::ComputeStaggerMagnitude(target, hitData);
 						float direction = Blocking::ComputeStaggerDirection(target, hitData);
 						target->SetGraphVariableFloat("staggerDirection", direction);

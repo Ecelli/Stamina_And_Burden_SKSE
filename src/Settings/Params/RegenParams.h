@@ -4,6 +4,9 @@
 
 namespace Regen
 {
+	// =========================================================================
+	// RegenParams — Cross-AV regen curves, per-actor toggles
+	// =========================================================================
 	struct RegenParams : REX::Singleton<RegenParams>
 	{
 		// Cross-AV: health → stamina, stamina → stamina, magicka → stamina
@@ -59,6 +62,9 @@ namespace Regen
 		}
 	};
 
+	// =========================================================================
+	// RegenMovementParams — Movement-state regen curves, hold penalties
+	// =========================================================================
 	struct RegenMovementParams : REX::Singleton<RegenMovementParams>
 	{
 		// Movement state curves — each has max (low burden / best regen) and min (high burden / worst regen)
@@ -122,6 +128,9 @@ namespace Regen
 		}
 	};
 
+	// =========================================================================
+	// NegativeRegen — Burn scaler for stamina drain
+	// =========================================================================
 	struct NegativeRegen : REX::Singleton<NegativeRegen>
 	{
 		// Burn rate scaler: rescales the drain portion when our regen multiplier is
@@ -146,6 +155,9 @@ namespace Regen
 		}
 	};
 
+	// =========================================================================
+	// WeatherParams — Weather-based regen penalties
+	// =========================================================================
 	struct WeatherParams : REX::Singleton<WeatherParams>
 	{
 		Parameter<float> WeatherRainPenalty{ 0.5f, 0.0f, 10.0f };

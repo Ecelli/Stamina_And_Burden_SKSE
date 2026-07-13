@@ -8,10 +8,9 @@ namespace Blocking
 	{
 		Parameter<bool>  EnableDebugLogging{ true, false, true };
 		Parameter<bool>  bBlockCostPlayer{ true, false, true };
-		Parameter<bool>  bBlockCostNPC{ false, false, true };
+		Parameter<bool>  bBlockCostNPC{ true, false, true };
 		Parameter<bool>  bBlockRedirectPlayer{ true, false, true };
-		Parameter<bool>  bBlockRedirectNPC{ false, false, true };
-		Parameter<bool>  bGuardBreakEnabled{ true, false, true };
+		Parameter<bool>  bBlockRedirectNPC{ true, false, true };
 		Parameter<float> fBlockCost_LowBlockBurden{ 2.0f, 0.0f, 50.0f };
 		Parameter<float> fBlockCost_HighBlockBurden{ 30.0f, 0.0f, 100.0f };
 		Parameter<float> fBlockCostCurve_k{ 0.80f, 0.0f, 1.0f };
@@ -41,7 +40,6 @@ namespace Blocking
 			a_fn("bBlockCostNPC"sv, s.bBlockCostNPC);
 			a_fn("bBlockRedirectPlayer"sv, s.bBlockRedirectPlayer);
 			a_fn("bBlockRedirectNPC"sv, s.bBlockRedirectNPC);
-			a_fn("bGuardBreakEnabled"sv, s.bGuardBreakEnabled);
 			a_fn("fBlockCost_LowBlockBurden"sv, s.fBlockCost_LowBlockBurden);
 			a_fn("fBlockCost_HighBlockBurden"sv, s.fBlockCost_HighBlockBurden);
 			a_fn("fBlockCostCurve_k"sv, s.fBlockCostCurve_k);
