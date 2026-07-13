@@ -723,11 +723,12 @@ All settings are `Parameter<T>` structs in `src/Settings/Params/`. No shipped IN
 - `fMagickaRegenMult_LowStamina/HighStamina/k` — stamina → magicka regen curve
 - `bEnableDebugLogging`
 
-### RegenMovementParams (17 params)
+### RegenMovementParams (20 params)
 - `fRegenStatic_max/min`, `fRegenWalking_max/min`, `fRegenSneaking_max/min`, `fRegenRunning_max/min`, `fRegenSwimming_max/min` — per-state curves
 - `fMovementRegenCurve_k` — shared curve shape
-- `fBowDrawLowBurden/HighBurden/Curve_k` — bow draw hold penalty
-- `fBlockHoldLowBurden/HighBurden/Curve_k` — block hold penalty
+- `fBowDrawLowBurden/HighBurden/Curve_k` — bow draw hold penalty (weapon-burden component)
+- `fBlockHoldLowBurden/HighBurden/Curve_k` — block hold penalty (weapon-burden component)
+- `fHoldDrainLowBlended/HighBlended` + `fHoldBlendedCurve_k` — shared blended-burden component (pct of max stamina/sec) added to both hold penalties
 
 ### NegativeRegen (5 params)
 - `fBurnRate_LowBonus/HighBonus/Curve_k/LowBound/HighBound` — burn scaler mapping
@@ -1021,6 +1022,7 @@ Removed: `bPlayerAlwaysCanDoAction`, `bNpcAlwaysCanDoAction`, `fNpcRegenExemptio
 20. **SpeedHook** — movement speed scaling by burden blend, swim depth, and exhaustion status. Not in original plan. Composite multiplier applied via dedicated hook at `37943+0x51`. Sprint/jump cost functions delegated from CostsManager to `Movement::` namespace.
 21. **Per-actor-type toggles** — every user-facing feature (regen, attack cost, bow cost, bow deny, sprint, jump, movement speed) has individual Player/NPC boolean toggle pairs in its respective param group. Replaces the removed global bypass params (`bPlayerAlwaysCanDoAction`, `bNpcAlwaysCanDoAction`, `fNpcRegenExemptionRate`). DenyParams contains four params: `bEnableDenyPlayer`, `bEnableDenyNPC`, `fMinStaminaCostMult`, and `EnableDebugLogging`.
 22. **PEPE integration** — all 8 stamina cost/penalty functions wired to `kModPowerAttackStamina` entry point via `RE::HandleEntryPoint`. Uses 7 `SB_*` category strings for per-cost-type targeting. Block uses same category on both sub-costs for correct proration. Hand detection refactored into `Utils::` namespace to supply condition form arguments. Vendored PEPE API v3, no external dependency.
+23. **Hold penalty blended-burden component** — block/bow draw hold penalties originally scaled by weapon-specific burden only. Added a percentage-of-max-stamina `burdenBlend` term matching the attack cost pattern, so total carry burden also contributes to hold drain. Uses 3 shared params (`HoldDrainLowBlended`, `HoldDrainHighBlended`, `HoldBlendedCurve_k`) — one curve shape, separate range for both hold types.
 
 ## 12. Scope by Actor Type
 
@@ -1050,9 +1052,9 @@ Removed: `bPlayerAlwaysCanDoAction`, `bNpcAlwaysCanDoAction`, `fNpcRegenExemptio
 3. **Console commands** — sb_get/set/list/reset/getburden via Papyrus + TestCommands.yaml.
 4. ~~Perk integration~~ → **DONE** (PEPE, §3c). All 8 stamina cost/penalty functions wired to `kModPowerAttackStamina` entry point via PEPE `HandleEntryPoint` with `SB_*` categories. Modded perks can scale any cost by adding perk entries targeting the relevant category. The single entry point covers attack, bow, sprint, jump, block, and hold penalty costs. Future perk-specific mechanics (timed block windows, stamina refunds, conditional bonuses) would need additional perk entry points or custom hook logic beyond PEPE's scope.
 5. **Exhaustion regen formula** — consider replacing the current HMS triple-product multiplier structure with a formula that can dip below zero flat (i.e. amplify/drain beyond the maximum-multiplier boundary). Currently exhaustion applies a multiplicative penalty to the engine rate, but never pushes regen into negative territory. A deeper stamina-drain gameplay loop could trigger exhaustion-to-drain cascades.
-6. **Hold penalty scaling** — block/bow draw hold penalties currently scale with weapon-specific burden (`weaponBurden_block` / `weaponBurden_ranged`) only. Evaluate whether adding an optional blended-burden component would improve consistency with regular attack cost scaling.
-
 ---
+
+
 
 ## 14. Resolved Questions
 
@@ -1067,3 +1069,10 @@ Removed: `bPlayerAlwaysCanDoAction`, `bNpcAlwaysCanDoAction`, `fNpcRegenExemptio
 - The AE offset is unverified and pattern-scanning is the only reliable approach
 - The existing ProcessHit hook at the shared `38627+0x4A8` chains correctly with other mods (PreludeToPurgatory confirmed) via `write_call<5>` trampoline ordering, so there's no compatibility pressure to move
 - The marginal improvement in crit-bonus precision doesn't justify losing HitData context
+
+### 14.2 Hold penalty scaling — blended-burden component
+**Status:** RESOLVED — added blended-burden component.
+
+**Considered:** Block/bow draw hold penalties originally scaled by weapon-specific burden only (`weaponBurden_block` / `weaponBurden_ranged`). Regular attack costs include a `burdenBlend` term (equipped + carry burden composite) via `ComputeBurdenAttackCost`. The question was whether hold penalties should match this pattern for consistency.
+
+**Decision:** Both hold penalties now include a `maxStamina × 1% × Interpolate(HoldDrainLowBlended, HoldDrainHighBlended, burdenBlend, HoldBlendedCurve_k)` term, matching the attack cost structure. 3 shared params (`HoldDrainLowBlended`, `HoldDrainHighBlended`, `HoldBlendedCurve_k`) added to `RegenMovementParams`. The curve shape is shared (`HoldBlendedCurve_k`) while the range is tunable via the low/high bounds.
