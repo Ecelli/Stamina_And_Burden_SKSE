@@ -48,3 +48,38 @@ struct MovementSpeedParams : REX::Singleton<MovementSpeedParams>
 		a_fn("bMovementSpeedNPC"sv, s.bMovementSpeedNPC);
 	}
 };
+
+struct JumpParams : REX::Singleton<JumpParams>
+{
+	// Height scaling toggles
+	Parameter<bool> bJumpHeightPlayer{ true, false, true };
+	Parameter<bool> bJumpHeightNPC{ true, false, true };
+
+	// Height curve: Interpolate(low, high, burdenBlend, k)
+	Parameter<float> fJumpHeightLowBurden{ 1.0f, 0.1f, 2.0f };
+	Parameter<float> fJumpHeightHighBurden{ 0.5f, 0.1f, 1.0f };
+	Parameter<float> fJumpHeightCurve_k{ 0.5f, 0.0f, 1.0f };
+
+	// Exhaustion penalty (multiplied on top of burden curve)
+	Parameter<float> fJumpHeightExhaustionMult{ 0.70f, 0.1f, 1.0f };
+
+	// Denial — player only (NPCs don't use PlayerInputHandler, rarely jump)
+	Parameter<bool> bJumpDenyPlayer{ true, false, true };
+
+	// Debug
+	Parameter<bool> EnableDebugJumpLogging{ true, false, true };
+
+	template <typename F>
+	static void ForEach(F&& a_fn)
+	{
+		auto& s = GetSingleton();
+		a_fn("bJumpHeightPlayer"sv, s.bJumpHeightPlayer);
+		a_fn("bJumpHeightNPC"sv, s.bJumpHeightNPC);
+		a_fn("fJumpHeightLowBurden"sv, s.fJumpHeightLowBurden);
+		a_fn("fJumpHeightHighBurden"sv, s.fJumpHeightHighBurden);
+		a_fn("fJumpHeightCurve_k"sv, s.fJumpHeightCurve_k);
+		a_fn("fJumpHeightExhaustionMult"sv, s.fJumpHeightExhaustionMult);
+		a_fn("bJumpDenyPlayer"sv, s.bJumpDenyPlayer);
+		a_fn("bEnableDebugJumpLogging"sv, s.EnableDebugJumpLogging);
+	}
+};

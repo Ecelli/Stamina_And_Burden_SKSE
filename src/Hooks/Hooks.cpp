@@ -37,6 +37,7 @@ namespace Hooks {
 		DamageScalingHook::Install();
 		MovementHooks::InstallSpeed();
 		AttackDenyHook::Install();
+		JumpInputHandler::Install();
 
 		return true;
 	}
