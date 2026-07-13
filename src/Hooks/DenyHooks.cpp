@@ -8,22 +8,25 @@ namespace
 {
 	bool PlayerCanJump()
 	{
-		auto* jumpParams = JumpParams::GetSingleton();
-
-		if (!jumpParams->bJumpDenyPlayer.Get())
-			return true;
-
 		auto* player = RE::PlayerCharacter::GetSingleton();
 		if (!player)
 			return true;
 
-		float cost = Movement::ComputeJumpCost(player);
-		if (Common::CanDoStaminaAction(player, cost))
-			return true;
+		auto* costParams = Costs::CostsParams::GetSingleton();
+		if (costParams->bJumpCostPlayer.Get()) {
+			float cost = Movement::ComputeJumpCost(player);
 
-		Deny::DenyLog("JumpInputHandler: denied (stamina={:.1f}, cost={:.1f})",
-			player->GetActorValue(RE::ActorValue::kStamina), cost);
-		return false;
+			auto* jumpParams = JumpParams::GetSingleton();
+			if (jumpParams->bJumpDenyPlayer.Get() && !Common::CanDoStaminaAction(player, cost)) {
+				Deny::DenyLog("JumpInputHandler: denied (stamina={:.1f}, cost={:.1f})",
+					player->GetActorValue(RE::ActorValue::kStamina), cost);
+				return false;
+			}
+
+			Common::ApplyStaminaCost(player, cost);
+		}
+
+		return true;
 	}
 }
 
