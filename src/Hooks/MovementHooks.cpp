@@ -106,7 +106,12 @@ namespace
 				if (enabled)
 					Common::ApplyStaminaCost(actor, Movement::ComputeJumpCost(actor));
 			}
-			return _GetScale(actor);
+
+			float scale = _GetScale(actor);
+			if (actor) {
+				scale *= Movement::ComputeJumpHeightMult(actor);
+			}
+			return scale;
 		}
 
 		static inline REL::Relocation<decltype(ApplyJumpCost)> _GetScale;

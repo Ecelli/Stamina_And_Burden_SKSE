@@ -62,4 +62,36 @@ namespace Movement
 
 		return result;
 	}
+
+	float ComputeJumpHeightMult(RE::Actor* a_actor)
+	{
+		auto* params = JumpParams::GetSingleton();
+
+		bool enabled = a_actor->IsPlayerRef() ? params->bJumpHeightPlayer.Get() : params->bJumpHeightNPC.Get();
+		if (!enabled)
+			return 1.0f;
+
+		auto& data = Burden::Tracker::GetOrComputeBurden(a_actor);
+
+		float burdenMult = Math::Interpolate(
+			params->fJumpHeightLowBurden.Get(),
+			params->fJumpHeightHighBurden.Get(),
+			data.burdenBlend,
+			params->fJumpHeightCurve_k.Get());
+
+		float exhaustMult = 1.0f;
+		if (Exhaustion::ExhaustionManager::GetSingleton()->IsExhausted(a_actor)) {
+			exhaustMult = params->fJumpHeightExhaustionMult.Get();
+		}
+
+		float result = burdenMult * exhaustMult;
+
+		if (result != 1.0f) {
+			Jump::JumpLog(
+				"JumpHeight: {:x} -> heightMult = {:.3f} (burden={:.3f} exhaust={:.3f})",
+				a_actor->GetFormID(), result, burdenMult, exhaustMult);
+		}
+
+		return result;
+	}
 }
