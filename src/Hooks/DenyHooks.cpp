@@ -85,11 +85,16 @@ namespace Hooks
             return _original(a_this, attackData);
 
         bool denyEnabled = isPlayer ? denyParams->bEnableDenyPlayer.Get() : denyParams->bEnableDenyNPC.Get();
-        if (!denyEnabled)
-            return 0.0F;
-
         float cost = Costs::ComputeAttackCost(actor, attackData);
+
+        if (!denyEnabled) {
+            Common::ApplyStaminaCost(actor, cost);
+            return 0.0F;
+        }
+
 		if (Common::CanDoStaminaAction(actor, cost)) {
+            // NOTE: cost drained here; AttackCostHook returns 0 to avoid double-drain
+            Common::ApplyStaminaCost(actor, cost);
             return 0.0f; // CAN DO
         }
 
