@@ -75,7 +75,7 @@ src/
 - `Burden::` — burden computation functions
 - `Burden::Tracker` — actor registry with 2-tier cache (tracked + transient)
 
-**ActorBurdenData struct** (18 fields):
+**ActorBurdenData struct** (20 fields):
 ```
 actor, maxCarryWeight, carryWeight, equippedWeight, maxEquippedWeight,
 carryBurden, burden, burdenBlend,
@@ -218,10 +218,11 @@ cost            = flatTerm + pctTerm × Stamina_1pctMax
 
 **Files:** `src/Movement/MovementManager.h/.cpp`, `src/Movement/MovementCostManager.h/.cpp`, `src/Hooks/MovementHooks.h/.cpp`, `src/Settings/Params/MovementSpeedParams.h`
 
-**Two concerns in one directory:**
+**Three concerns in one directory:**
 
 1. **MovementSpeed** — scales actor walk/run speed based on burden, swim depth, and exhaustion
 2. **MovementCosts** — sprint drain and jump cost formulas (delegated from CostsManager's original scope)
+3. **JumpHeightScaling** — scales jump height by burden blend and exhaustion status
 
 #### 3.4.1 SpeedHook — Movement Speed Scaling
 
@@ -229,10 +230,10 @@ cost            = flatTerm + pctTerm × Stamina_1pctMax
 
 **`Movement::ComputeSpeedMultiplier(actor)`** — composite multiplier:
 ```
-burdenMult  = Interpolate(speedMultLowBurden, speedMultHighBurden, burdenBlend, speedCurve_k)
+burdenMult  = Interpolate(speedMultLowBurden, speedMultHighBurden, burdenBlend, burdenSpeedCurve_k)
               (only if bEnableBurdenSpeed)
 
-swimMult    = Interpolate(speedMultAboveWater, speedMultSubmerged, submergedLevel, 1.0)
+swimMult    = Interpolate(speedMultAboveWater, speedMultSubmerged, submergedLevel, submergedCurve_k)
               (only if bEnableSwimSpeed; submergedLevel via REL::ID(37448))
 
 exhaustMult = exhaustionSpeedMult
@@ -241,7 +242,7 @@ exhaustMult = exhaustionSpeedMult
 result      = burdenMult × swimMult × exhaustMult
 ```
 
-**Parameters (10):**
+**Parameters (12):**
 | Key | Type | Default | Range | Purpose |
 |---|---|---|---|---|
 | `bEnableBurdenSpeed` | bool | true | — | Master toggle for burden speed scaling |
@@ -249,9 +250,10 @@ result      = burdenMult × swimMult × exhaustMult
 | `bEnableExhaustionSpeed` | bool | true | — | Master toggle for exhaustion speed penalty |
 | `fSpeedMultLowBurden` | float | 1.10 | 0.1–2.0 | Speed mult at zero burden (slight bonus) |
 | `fSpeedMultHighBurden` | float | 0.70 | 0.1–1.0 | Speed mult at full burden |
-| `fSpeedCurve_k` | float | 0.50 | 0.0–1.0 | Burden speed curve shape |
+| `fBurdenSpeedCurve_k` | float | 0.50 | 0.0–1.0 | Burden speed curve shape |
 | `fSpeedMultAboveWater` | float | 1.00 | 0.1–1.5 | Speed mult when not submerged |
 | `fSpeedMultSubmerged` | float | 0.60 | 0.1–1.0 | Speed mult when fully submerged |
+| `fSubmergedCurve_k` | float | 0.20 | 0.0–1.0 | Swim speed curve shape |
 | `fExhaustionSpeedMult` | float | 0.70 | 0.1–1.0 | Speed mult while exhausted |
 | `bEnableDebugMovementLogging` | bool | true | — | Debug toggle |
 
@@ -281,10 +283,27 @@ PEPE: SB_JumpStamina  applied to TotalCost before return
 | ID | Offset | Name | Purpose |
 |---|---|---|---|
 | `38022` | `+0xC1/0xC9` | `SprintHook` | Replaces equipped-weight with `Movement::ComputeSprintDrain` |
-| `37257` | `+0x17F` | `JumpHook` | Applies `Movement::ComputeJumpCost` via `ApplyStaminaCost` |
+| `37257` | `+0x17F` | `JumpHook` | Applies `Movement::ComputeJumpCost` via `ApplyStaminaCost` + scales height via `ComputeJumpHeightMult` |
 | `37943` | `+0x51` | `SpeedHook` | Scales movement speed by `Movement::ComputeSpeedMultiplier` |
 
-**Parameters** for sprint/jump are in `CostsParams` (§9, `CostsParams.h`). Speed parameters are in `MovementSpeedParams` (§9).
+**Parameters** for sprint/jump are in `CostsParams` (§9, `CostsParams.h`). Speed parameters are in `MovementSpeedParams` (§9). Jump height parameters are in `JumpParams` (§9).
+
+#### 3.4.3 Jump Height Scaling
+
+**`Movement::ComputeJumpHeightMult(actor)`** — scales jump height by burden and exhaustion:
+```
+burdenMult  = Interpolate(fJumpHeightLowBurden, fJumpHeightHighBurden, burdenBlend, fJumpHeightCurve_k)
+              (only if bJumpHeightPlayer/NPC toggle allows)
+
+exhaustMult = fJumpHeightExhaustionMult
+              (only if actor is exhausted)
+
+result      = burdenMult × exhaustMult
+```
+
+Implemented as part of `JumpHook::ApplyJumpCost` — the engine's `GetScale` return value is multiplied by the height mult, so jump animation scaling, physics arc, and landing timing all respond naturally.
+
+**JumpParams** (8 params in `MovementSpeedParams.h`) control height curves, exhaustion penalty, and player-only jump deny. See §9.
 
 ### 3.5 BlockManager (DONE)
 
@@ -537,7 +556,7 @@ damageMult      = Interpolate(fDamageScaleLow, fDamageScaleHigh, staminaPct, fDa
 
 ## 4. Hook Summary
 
-### Installed code detours (10):
+### Installed code detours (10 + 1 VTABLE hook):
 
 | ID | Offset | Name | Purpose |
 |---|---|---|---|
@@ -551,6 +570,7 @@ damageMult      = Interpolate(fDamageScaleLow, fDamageScaleHigh, staminaPct, fDa
 | `38627` | `+0x4A8` | `BlockHook` | Block stamina cost, damage redirect, guard break stagger |
 | `37943` | `+0x51` | `SpeedHook` | Scale movement speed by `Movement::ComputeSpeedMultiplier` (burden/swim/exhaustion) |
 | `39003` / `49170` | `+0xBB` / `+0x27A` (+ NOP branches `0xE1`/`0x272`) | `AttackDenyHook` | Replaces engine HasStamina check — denies attacks when stamina insufficient (player + NPC) |
+| VTABLE `JumpHandler[0]` | index `0x04` | `JumpInputHandler` | Player-only jump cost + denial via `ProcessButton` VTABLE detour |
 
 Note: `DamageScalingHook` and `BlockHook` share the same hook point (`38627+0x4A8`). They chain via trampoline — DamageScalingHook scales damage first, then BlockHook processes block mechanics on the scaled values.
 
@@ -566,11 +586,11 @@ Note: `DamageScalingHook` and `BlockHook` share the same hook point (`38627+0x4A
 ### Denial hooks:
 
 | ID | Offset | Name | Status | Notes |
-|---|---|---|---|---|
+|---|---|---|---|---|---|
 | `39003` / `49170` | `+0xBB` / `+0x27A` (+ NOP branches `0xE1`/`0x272`) | `AttackDenyHook` | INSTALLED | Both player and NPC. Shared `HasStamina()` dispatches on per-actor-type toggles from `DenyParams`. Follows ScrambledBugs' `PowerAttackStaminaRequirement` approach. |
-| `42423` | `+0x114` | `JumpDenyHook` | NOT INSTALLED | AE call site crashes on 1.6.1170. SSE offset known (`41349+0x114`) but not ported. |
+| VTABLE `JumpHandler[0]` | index `0x04` | `JumpInputHandler` | INSTALLED | Player-only VTABLE hook on `PlayerControls::JumpHandler::ProcessButton`. Applies jump cost + denies jump if stamina insufficient (bypasses animation/graph). No AE call-site issue. |
 
-`AttackDenyHook` is fully implemented, tested, and active. `JumpDenyHook` remains deferred until a working AE call site is found.
+`AttackDenyHook` is fully implemented, tested, and active. `JumpInputHandler` provides player-only jump denial via VTABLE detour, replacing the dead `JumpDenyHook` code at `42423+0x114` that crashed on AE.
 
 ### Potential hook migration — `get_damage` inside Populate
 
@@ -650,10 +670,10 @@ Burden::Tracker::Update(actor)
 |---|---|---|
 | Attack denial (player) | **INSTALLED** | `AttackDenyHook` at `REL::ID(39003)` + `0xBB` (call detour) + `0xE1` (NOP branch). NOPs engine's player HasStamina conditional jump and replaces the GetAttackStamina call. |
 | Attack denial (NPC) | **INSTALLED** | `AttackDenyHook` at `REL::ID(49170)` + `0x27A` (call detour) + `0x272` (NOP branch). Same approach as player. |
-| Jump denial | NOT INSTALLED | AE call site at `42423+0x114` crashes on 1.6.1170. SSE offset `41349+0x114` known but unused. Code exists but is dead. |
+| Jump denial | **INSTALLED** — via `JumpInputHandler` VTABLE hook | `VTABLE_JumpHandler[0]` index 0x04. Player-only — intercepts `JumpHandler::ProcessButton` before animation/physics. Checks stamina against `Movement::ComputeJumpCost` + `bJumpDenyPlayer` toggle. No AE compatibility issue (VTABLE hook, not code-detour at `42423+0x114`). |
 | Bow fire deny | **DONE** — built into `BowFireHook` | Integrated into the cost hook. Per-actor toggles (`bBowDenyPlayer/NPC`) control denial independently of cost. |
 
-Both player and NPC attack denial share the same `HasStamina()` logic which checks per-actor-type toggles from `DenyParams` (`bEnableDenyPlayer`/`bEnableDenyNPC`). Return convention: `0.0F` = has stamina (allow), `>0.0F` = no stamina (deny — engine handles the penalty). Jump denial remains the only deferred denial feature.
+Both player and NPC attack denial share the same `HasStamina()` logic which checks per-actor-type toggles from `DenyParams` (`bEnableDenyPlayer`/`bEnableDenyNPC`). Return convention: `0.0F` = has stamina (allow), `>0.0F` = no stamina (deny — engine handles the penalty). Jump denial is installed via VTABLE (player-only) 
 
 ---
 
@@ -681,7 +701,7 @@ Burden state is dynamically recomputed on game load — no serialization needed.
 
 All settings are `Parameter<T>` structs in `src/Settings/Params/`. No shipped INI file with values — defaults are C++ `static constexpr`. `_Custom.ini` provides user overrides.
 
-### BurdenParams (20 params)
+### BurdenParams (25 params)
 - `fmaxEquippedWeightRatio` — ratio of carry weight used for max equipped weight
 - `fSlotBurdenMult_def/body/feet/head/hand` — slot multipliers for equipped burden
 - `iPlayerMaxSkill` — skill cap (default 100)
@@ -739,7 +759,7 @@ All settings are `Parameter<T>` structs in `src/Settings/Params/`. No shipped IN
 - `bEnableDenyPlayer` — enable attack denial for player (default true)
 - `bEnableDenyNPC` — enable attack denial for NPCs (default true)
 - `fMinStaminaCostMult` — stamina threshold fraction for action denial; actor must have stamina > `fMinStaminaCostMult × cost` to be allowed to act (default 0.30)
-- `bEnableDebugLogging` — enable `DenyLog()` output (default true)
+- `bEnableDebugLogging` (field `EnableDebugLogging`) — enable `DenyLog()` output (default true)
 
 Removed: `bPlayerAlwaysCanDoAction`, `bNpcAlwaysCanDoAction`, `fNpcRegenExemptionRate` — unused, deprecated in favor of per-feature toggles.
 
@@ -755,7 +775,7 @@ Removed: `bPlayerAlwaysCanDoAction`, `bNpcAlwaysCanDoAction`, `fNpcRegenExemptio
 - `fExhaustionPenaltyMagickaMult` — magicka regen multiplier while exhausted (default 0.0)
 - `bEnableDebugLogging` — shared debug toggle
 
-### BlockingParams (23 params)
+### BlockingParams (25 params)
 
 | Key | Default | Description |
 |---|---|---|
@@ -785,7 +805,7 @@ Removed: `bPlayerAlwaysCanDoAction`, `bNpcAlwaysCanDoAction`, `fNpcRegenExemptio
 | `fStaggerMagnitudeMax` | 2.0 | Max stagger magnitude |
 | `fStaggerMagnitudeCurve_k` | 0.50 | Stagger magnitude curve shape |
 
-### ParameterOverrides (15 params)
+### ParameterOverrides (16 params)
 - `fCombatStaminaRegenRateMult/Health/Magicka` — overrides for GMST combat regen mults
 - `fDamagedStaminaRegenDelay/Health/Magicka` — overrides for GMST damaged regen delays
 - `fSprintStaminaDrainMult` — override for sprint drain GMST
@@ -794,7 +814,7 @@ Removed: `bPlayerAlwaysCanDoAction`, `bNpcAlwaysCanDoAction`, `fNpcRegenExemptio
 - `fBlockSkillMult` (6.0), `fBlockPowerAttackMult` (0.66) — block skill + power attack
 - `fStaminaBlockDmgMult` (0.0), `fStaminaBlockStaggerMult` (0.0), `fStaminaBlockBase` (0.0) — engine block stamina drain
 
-### MovementSpeedParams (12 params)
+### MovementSpeedParams (13 params)
 
 | Key | Type | Default | Range | Purpose |
 |---|---|---|---|---|
@@ -803,13 +823,27 @@ Removed: `bPlayerAlwaysCanDoAction`, `bNpcAlwaysCanDoAction`, `fNpcRegenExemptio
 | `bEnableExhaustionSpeed` | bool | true | — | Master toggle for exhaustion speed penalty |
 | `fSpeedMultLowBurden` | float | 1.10 | 0.1–2.0 | Speed mult at zero burden (slight bonus) |
 | `fSpeedMultHighBurden` | float | 0.70 | 0.1–1.0 | Speed mult at full burden |
-| `fSpeedCurve_k` | float | 0.50 | 0.0–1.0 | Burden speed curve shape |
+| `fBurdenSpeedCurve_k` | float | 0.50 | 0.0–1.0 | Burden speed curve shape |
 | `fSpeedMultAboveWater` | float | 1.00 | 0.1–1.5 | Speed mult when not submerged |
 | `fSpeedMultSubmerged` | float | 0.60 | 0.1–1.0 | Speed mult when fully submerged |
+| `fSubmergedCurve_k` | float | 0.20 | 0.0–1.0 | Swim speed curve shape |
 | `fExhaustionSpeedMult` | float | 0.70 | 0.1–1.0 | Speed mult while exhausted |
 | `bEnableDebugMovementLogging` | bool | true | — | Debug toggle |
 | `bMovementSpeedPlayer` | bool | true | — | Per-actor toggle for player speed scaling |
 | `bMovementSpeedNPC` | bool | true | — | Per-actor toggle for NPC speed scaling |
+
+### JumpParams (8 params)
+
+| Key | Type | Default | Range | Purpose |
+|---|---|---|---|---|
+| `bJumpHeightPlayer` | bool | true | — | Enable burden-based jump height scaling for player |
+| `bJumpHeightNPC` | bool | true | — | Enable burden-based jump height scaling for NPCs |
+| `fJumpHeightLowBurden` | float | 1.00 | 0.1–2.0 | Jump height mult at zero burden blend (normal height) |
+| `fJumpHeightHighBurden` | float | 0.50 | 0.1–1.0 | Jump height mult at full burden blend |
+| `fJumpHeightCurve_k` | float | 0.50 | 0.0–1.0 | Jump height curve shape |
+| `fJumpHeightExhaustionMult` | float | 0.70 | 0.1–1.0 | Jump height multiplier while exhausted |
+| `bJumpDenyPlayer` | bool | true | — | Deny jump when insufficient stamina (player-only) |
+| `bEnableDebugJumpLogging` | bool | true | — | Debug logging for jump height + deny |
 
 ### Settings future work:
 - INI whitelist population (currently `EXPECTED_COUNT = 0`)
@@ -865,10 +899,12 @@ Removed: `bPlayerAlwaysCanDoAction`, `bNpcAlwaysCanDoAction`, `fNpcRegenExemptio
 | `Movement::ComputeSprintDrain` (frame-time scaled) | DONE |
 | `Movement::ComputeJumpCost` | DONE |
 | `Movement::ComputeSpeedMultiplier` — burden/swim/exhaustion | DONE |
+| `Movement::ComputeJumpHeightMult` — burden + exhaustion height scaling | DONE |
 | SprintDrainHook at 38022+0xC1/0xC9 | DONE |
 | ActionHook at 37257+0x17F | DONE |
 | SpeedHook at 37943+0x51 | DONE |
-| MovementSpeedParams (10 params) | DONE |
+| MovementSpeedParams (13 params) | DONE |
+| JumpParams (8 params) | DONE |
 | MovementHooks (3 hooks in single file) | DONE |
 
 ### Phase 3c — Perk Entry Point Extender Integration ✅
@@ -887,13 +923,13 @@ Removed: `bPlayerAlwaysCanDoAction`, `bNpcAlwaysCanDoAction`, `fNpcRegenExemptio
 | `RE::HandleEntryPoint` on `ComputeBowDrawHoldPenalty` — `SB_BowDrawHoldStamina` | DONE |
 | Hand detection refactored into `Utils::` namespace (`GetAttackHandInfo`, `AttackHandInfo`) for PEPE form args | DONE |
 
-### Phase 4 — Denial ✅ (Jump Denial Deferred)
+### Phase 4 — Denial ✅
 | Task | Status |
 |---|---|
 | AttackDenyHook — player (39003+0xBB + NOP 0xE1) | **INSTALLED** |
 | AttackDenyHook — NPC (49170+0x27A + NOP 0x272) | **INSTALLED** |
 | Bow fire deny (built into BowFireHook) | DONE |
-| JumpDenyHook at 42423+0x114 | NOT INSTALLED — AE call site crashes |
+| JumpInputHandler — VTABLE JumpHandler[0] index 0x04 (player-only jump cost + deny) | **DONE** (replaces dead JumpDenyHook at 42423+0x114) |
 
 ### Phase 5 — Blocking ✅ (Timed Block deferred)
 | Task | Status |
@@ -989,12 +1025,13 @@ Removed: `bPlayerAlwaysCanDoAction`, `bNpcAlwaysCanDoAction`, `fNpcRegenExemptio
 ## 12. Scope by Actor Type
 
 | Feature | Player | NPCs |
-|---|---|---|
+|---|---|---|---|
 | Burden tracking | ✓ (event-driven, cached, skill-polled) | ✓ (lazy per-hook, transient cache) |
 | Regen modification | ✓ (full formula) | ✓ (no weather component) |
 | Weather penalty | ✓ | ✗ |
 | Attack cost | ✓ (all weapon types + power) | ✓ |
 | Jump cost | ✓ | ✓ |
+| Jump height scaling | ✓ (burden + exhaustion curve) | ✓ (burden + exhaustion curve) |
 | Sprint drain | ✓ | ✓ |
 | Bow fire cost + deny | ✓ | ✓ |
 | Block stamina redirect | ✓ (burden cost + redirect + guard break) | ✗ (default off, toggled via `bBlockCostNPC`/`bBlockRedirectNPC`) |
@@ -1002,16 +1039,31 @@ Removed: `bPlayerAlwaysCanDoAction`, `bNpcAlwaysCanDoAction`, `fNpcRegenExemptio
 | Attack damage scaling | ✓ (stamina-based curve) | ✓ (stamina-based curve) |
 | Movement speed | ✓ (burden + swim + exhaustion) | ✓ (burden + exhaustion) |
 | Attack denial | ✓ (via `AttackDenyHook` at `39003+0xBB`/`0xE1`) | ✓ (via `AttackDenyHook` at `49170+0x27A`/`0x272`) |
-| Jump denial | ✗ (JumpDenyHook AE call site crashes) | ✗ |
+| Jump denial | ✓ (via `JumpInputHandler` VTABLE hook) | ✗ (NPCs don't use PlayerInputHandler, rarely jump) |
 
 ---
 
 ## 13. Key Open Items
 
-1. **Jump denial AE** — need working call site for AE 1.6.1170. SSE `41349+0x114` known working.
-2. ~~Exhaustion — state machine with timed duration, regen/damage penalties. Applies when ANY stamina drain hits 0 (sprint, power attack, block).~~ → DONE (see §3.8).
-3. **Timed block** — Valhalla Combat-style timed block window, commitment, perfect block, window penalty system. Dependencies: input hooks, state machine. Deferrable to separate plan.
-4. **Settings INI** — populate whitelist with all active params.
-5. **Console commands** — sb_get/set/list/reset/getburden via Papyrus + TestCommands.yaml.
-6. **`get_damage` hook migration** — verify AE offset at `RELOCATION_ID(42832, 44001) + 0x1A5` via pattern scan. If viable and formula needs simplify, could replace ProcessHit hook for cleaner propagation.
-7. ~~Perk integration~~ → **DONE** (PEPE, §3c). All 8 stamina cost/penalty functions wired to `kModPowerAttackStamina` entry point via PEPE `HandleEntryPoint` with `SB_*` categories. Modded perks can scale any cost by adding perk entries targeting the relevant category. The single entry point covers attack, bow, sprint, jump, block, and hold penalty costs. Future perk-specific mechanics (timed block windows, stamina refunds, conditional bonuses) would need additional perk entry points or custom hook logic beyond PEPE's scope.
+1. **Timed block** — Valhalla Combat-style timed block window, commitment, perfect block, window penalty system. Dependencies: input hooks, state machine. Deferrable to separate plan.
+2. **Settings INI** — populate whitelist with all active params.
+3. **Console commands** — sb_get/set/list/reset/getburden via Papyrus + TestCommands.yaml.
+4. ~~Perk integration~~ → **DONE** (PEPE, §3c). All 8 stamina cost/penalty functions wired to `kModPowerAttackStamina` entry point via PEPE `HandleEntryPoint` with `SB_*` categories. Modded perks can scale any cost by adding perk entries targeting the relevant category. The single entry point covers attack, bow, sprint, jump, block, and hold penalty costs. Future perk-specific mechanics (timed block windows, stamina refunds, conditional bonuses) would need additional perk entry points or custom hook logic beyond PEPE's scope.
+5. **Exhaustion regen formula** — consider replacing the current HMS triple-product multiplier structure with a formula that can dip below zero flat (i.e. amplify/drain beyond the maximum-multiplier boundary). Currently exhaustion applies a multiplicative penalty to the engine rate, but never pushes regen into negative territory. A deeper stamina-drain gameplay loop could trigger exhaustion-to-drain cascades.
+6. **Hold penalty scaling** — block/bow draw hold penalties currently scale with weapon-specific burden (`weaponBurden_block` / `weaponBurden_ranged`) only. Evaluate whether adding an optional blended-burden component would improve consistency with regular attack cost scaling.
+
+---
+
+## 14. Resolved Questions
+
+### 14.1 `get_damage` hook inside HitData::Populate
+**Status:** CANCELLED — retained ProcessHit hook.
+
+**Considered:** Moving damage scaling from `ProcessHit` (`REL::ID(38627) + 0x4A8`) to the `get_damage` call inside `HitData::Populate` (`RELOCATION_ID(42832, 44001) + 0x1A5`). This would let scaled `physicalDamage` propagate automatically through crit bonus, sneak attack, and other downstream Populate computations.
+
+**Rejected because:**
+- `get_damage` receives an opaque `void*` weapon — no access to the aggressor actor (needed for `GetActorValue(kStamina)`), `HitData` flags, or `attackDataSpell`
+- Spell-exclusion (`!hitData.weapon && hitData.attackDataSpell`) would be impossible
+- The AE offset is unverified and pattern-scanning is the only reliable approach
+- The existing ProcessHit hook at the shared `38627+0x4A8` chains correctly with other mods (PreludeToPurgatory confirmed) via `write_call<5>` trampoline ordering, so there's no compatibility pressure to move
+- The marginal improvement in crit-bonus precision doesn't justify losing HitData context
