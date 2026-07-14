@@ -58,7 +58,7 @@ src/
 
 **Current system:** `Parameter<T>` singletons (REX::Singleton) with typed `ForEach(F&&)` export. INI values are read by `Settings::INI::Read()` (SimpleIni with strict whitelist). Overrides via `_Custom.ini` (same stem, same dir).
 
-**Deviations from original plan:**
+**Notes:**
 - No SettingsRegistry was implemented. `Parameter<T>` + `_Custom.ini` is simpler and standard for Skyrim mods. This is the permanent system.
 - INI validation is currently a shell (`EXPECTED_COUNT = 0`). The shipped `StaminaAndBurden.ini` has no key-value pairs.
 - In-game settings (console commands, ImGui menu, MCM) are deferred — lowest priority.
@@ -776,16 +776,15 @@ Removed: `bPlayerAlwaysCanDoAction`, `bNpcAlwaysCanDoAction`, `fNpcRegenExemptio
 - `fExhaustionPenaltyMagickaMult` — magicka regen multiplier while exhausted (default 0.0)
 - `bEnableDebugLogging` — shared debug toggle
 
-### BlockingParams (25 params)
+### BlockingParams (24 params)
 
 | Key | Default | Description |
 |---|---|---|
 | `bEnableDebugLogging` | true | Guard debug log output |
 | `bBlockCostPlayer` | true | Apply stamina cost to player |
-| `bBlockCostNPC` | false | Apply stamina cost to NPCs |
-| `bBlockRedirectPlayer` | true | Apply damage redirect to player |
-| `bBlockRedirectNPC` | false | Apply damage redirect to NPCs |
-| `bGuardBreakEnabled` | true | Enable guard break stagger |
+| `bBlockCostNPC` | true | Apply stamina cost to NPCs |
+| `bBlockRedirectPlayer` | true | Apply damage redirect + guard break to player |
+| `bBlockRedirectNPC` | true | Apply damage redirect + guard break to NPCs |
 | `fBlockCost_LowBlockBurden` | 2.0 | Min flat stamina cost at zero block burden |
 | `fBlockCost_HighBlockBurden` | 30.0 | Max flat stamina cost at full block burden |
 | `fBlockCostCurve_k` | 0.80 | Flat cost curve shape |
@@ -815,23 +814,24 @@ Removed: `bPlayerAlwaysCanDoAction`, `bNpcAlwaysCanDoAction`, `fNpcRegenExemptio
 - `fBlockSkillMult` (6.0), `fBlockPowerAttackMult` (0.66) — block skill + power attack
 - `fStaminaBlockDmgMult` (0.0), `fStaminaBlockStaggerMult` (0.0), `fStaminaBlockBase` (0.0) — engine block stamina drain
 
-### MovementSpeedParams (13 params)
+### MovementSpeedParams (14 params)
 
 | Key | Type | Default | Range | Purpose |
 |---|---|---|---|---|
-| `bEnableBurdenSpeed` | bool | true | — | Master toggle for burden speed scaling |
-| `bEnableSwimSpeed` | bool | true | — | Master toggle for swim speed scaling |
-| `bEnableExhaustionSpeed` | bool | true | — | Master toggle for exhaustion speed penalty |
+| `bBurdenSpeedPlayer` | bool | true | — | Per-actor toggle: burden speed scaling for player |
+| `bBurdenSpeedNPC` | bool | true | — | Per-actor toggle: burden speed scaling for NPCs |
 | `fSpeedMultLowBurden` | float | 1.10 | 0.1–2.0 | Speed mult at zero burden (slight bonus) |
 | `fSpeedMultHighBurden` | float | 0.70 | 0.1–1.0 | Speed mult at full burden |
 | `fBurdenSpeedCurve_k` | float | 0.50 | 0.0–1.0 | Burden speed curve shape |
+| `bSwimSpeedPlayer` | bool | true | — | Per-actor toggle: swim speed scaling for player |
+| `bSwimSpeedNPC` | bool | true | — | Per-actor toggle: swim speed scaling for NPCs |
 | `fSpeedMultAboveWater` | float | 1.00 | 0.1–1.5 | Speed mult when not submerged |
 | `fSpeedMultSubmerged` | float | 0.60 | 0.1–1.0 | Speed mult when fully submerged |
 | `fSubmergedCurve_k` | float | 0.20 | 0.0–1.0 | Swim speed curve shape |
-| `fExhaustionSpeedMult` | float | 0.70 | 0.1–1.0 | Speed mult while exhausted |
+| `fExhaustionSpeedMult` | float | 0.70 | 0.1–1.0 | Speed mult while exhausted (gated by `bExhaustionPlayer`/`bExhaustionNPC`) |
 | `bEnableDebugMovementLogging` | bool | true | — | Debug toggle |
-| `bMovementSpeedPlayer` | bool | true | — | Per-actor toggle for player speed scaling |
-| `bMovementSpeedNPC` | bool | true | — | Per-actor toggle for NPC speed scaling |
+| `bMovementSpeedPlayer` | bool | true | — | Per-actor master toggle for player speed scaling |
+| `bMovementSpeedNPC` | bool | true | — | Per-actor master toggle for NPC speed scaling |
 
 ### JumpParams (8 params)
 
@@ -904,7 +904,7 @@ Removed: `bPlayerAlwaysCanDoAction`, `bNpcAlwaysCanDoAction`, `fNpcRegenExemptio
 | SprintDrainHook at 38022+0xC1/0xC9 | DONE |
 | ActionHook at 37257+0x17F | DONE |
 | SpeedHook at 37943+0x51 | DONE |
-| MovementSpeedParams (13 params) | DONE |
+| MovementSpeedParams (14 params) | DONE |
 | JumpParams (8 params) | DONE |
 | MovementHooks (3 hooks in single file) | DONE |
 
@@ -943,7 +943,7 @@ Removed: `bPlayerAlwaysCanDoAction`, `bNpcAlwaysCanDoAction`, `fNpcRegenExemptio
 | Guard break stagger — partial redirect + drain all stamina | DONE |
 | Stagger magnitude formula (damageBurden × inertiaFactor) | DONE |
 | Stagger direction formula (NiFastATan2, heading-relative) | DONE |
-| BlockingParams singleton (23 params) | DONE |
+| BlockingParams singleton (24 params) | DONE |
 | Engine GMST overrides (9 block-related) | DONE |
 | NPC toggles (`bBlockCostNPC`, `bBlockRedirectNPC`) | DONE |
 | Timed block (Valhalla-style) | DEFERRED — future consideration |
@@ -996,35 +996,7 @@ Removed: `bPlayerAlwaysCanDoAction`, `bNpcAlwaysCanDoAction`, `fNpcRegenExemptio
 | TrueHUD API integration | NOT STARTED |
 | Burden special resource bar | NOT STARTED |
 
----
-
-## 11. Deviations from Original Plan (Improvements)
-
-1. **No SettingsRegistry** — `Parameter<T>` + `_Custom.ini` is simpler and standard for Skyrim. Not a gap.
-2. **Per-movement-state min/max curves** instead of flat scalars — finer granularity for regen tuning.
-3. **burdenBlend** instead of separate burden × carryBurden product — smoother blend between equipped and carry burden.
-4. **Weapon burden tracking** (per-hand, 2h, ranged, block) — enables per-type attack cost curves.
-5. **Block burden** (shield/DW/2h/unarmed paths) — not in original plan at all.
-6. **Conjured weapon weight** — not in original plan.
-7. **Burn scaler** for kStaminaRateMult — not in original plan.
-8. **Weather penalty** implemented as part of RegenManager, not a separate WeatherManager.
-9. **Block/bow draw hold penalties** — continuous flat drain, not in original plan.
-10. **RegenDelayHook** — caches negative rate, drains per frame. Improves over inline DamageActorValue in RegenHook.
-11. **Heartbeat via `std::thread` + `make_heartbeat`** instead of WorldFrameHook — no hook needed, works on all AE versions.
-12. **`ComputeBurdenStaminaRegenRate`** as single source of truth — improves clarity and maintainability.
-13. **Damage scaling via ProcessHit** instead of `get_damage` inside Populate — ProcessHit provides full HitData context (flags, target, spell detection) at the cost of needing to manually scale `totalDamage` and `physicalDamage`. `get_damage` propagates automatically but lacks context and has unverified AE offset.
-14. **Uniform scaling of totalDamage and physicalDamage** — both fields multiplied by same `damageMult`, preserving crit bonus proportionally. Matches StaminaNPC behavior where crit bonus is derived from scaled `physicalDamage`.
-15. **BlockHook + DamageScalingHook share hook point** — both detour at `38627+0x4A8`. Chained via trampoline: DamageScalingHook scales damage first, then BlockHook processes block mechanics. No conflict — they execute sequentially.
-16. **BlockManager in `src/Combat/`** — not a separate `src/Blocking/` directory. Keeps combat-related modules (`BlockManager`, `DamageManager`) together.
-17. **Engine block GMST overrides** — `fShieldBaseFactor`, `fBlockSkillMult`, etc. overridden via `ParameterOverrides.h` at startup. Requires SSE Engine Fixes for correct weapon blocking.
-18. **Block skill embedded upstream** — `ComputeBlockBurden()` in BurdenManager produces `weaponBurden_block`, not a separate multiplier in BlockManager. Avoids double-counting.
-19. **Exhaustion implemented** — originally deferred as a block-specific feature, now implemented as a general stamina-0 state machine triggered from the regen delay hook. Applies cross-AV regen penalties and damage scaling. No action denial.
-20. **SpeedHook** — movement speed scaling by burden blend, swim depth, and exhaustion status. Not in original plan. Composite multiplier applied via dedicated hook at `37943+0x51`. Sprint/jump cost functions delegated from CostsManager to `Movement::` namespace.
-21. **Per-actor-type toggles** — every user-facing feature (regen, attack cost, bow cost, bow deny, sprint, jump, movement speed) has individual Player/NPC boolean toggle pairs in its respective param group. Replaces the removed global bypass params (`bPlayerAlwaysCanDoAction`, `bNpcAlwaysCanDoAction`, `fNpcRegenExemptionRate`). DenyParams contains four params: `bEnableDenyPlayer`, `bEnableDenyNPC`, `fMinStaminaCostMult`, and `EnableDebugLogging`.
-22. **PEPE integration** — all 8 stamina cost/penalty functions wired to `kModPowerAttackStamina` entry point via `RE::HandleEntryPoint`. Uses 7 `SB_*` category strings for per-cost-type targeting. Block uses same category on both sub-costs for correct proration. Hand detection refactored into `Utils::` namespace to supply condition form arguments. Vendored PEPE API v3, no external dependency.
-23. **Hold penalty blended-burden component** — block/bow draw hold penalties originally scaled by weapon-specific burden only. Added a percentage-of-max-stamina `burdenBlend` term matching the attack cost pattern, so total carry burden also contributes to hold drain. Uses 3 shared params (`HoldDrainLowBlended`, `HoldDrainHighBlended`, `HoldBlendedCurve_k`) — one curve shape, separate range for both hold types.
-
-## 12. Scope by Actor Type
+## 11. Scope by Actor Type
 
 | Feature | Player | NPCs |
 |---|---|---|---|
@@ -1036,7 +1008,7 @@ Removed: `bPlayerAlwaysCanDoAction`, `bNpcAlwaysCanDoAction`, `fNpcRegenExemptio
 | Jump height scaling | ✓ (burden + exhaustion curve) | ✓ (burden + exhaustion curve) |
 | Sprint drain | ✓ | ✓ |
 | Bow fire cost + deny | ✓ | ✓ |
-| Block stamina redirect | ✓ (burden cost + redirect + guard break) | ✗ (default off, toggled via `bBlockCostNPC`/`bBlockRedirectNPC`) |
+| Block stamina redirect + guard break | ✓ (burden cost + redirect + guard break) | ✓ (default on, toggle via `bBlockCostNPC`/`bBlockRedirectNPC`) |
 | Exhaustion | ✓ (default on) | ✓ (default off, toggle via `bExhaustionNPC`) |
 | Attack damage scaling | ✓ (stamina-based curve) | ✓ (stamina-based curve) |
 | Movement speed | ✓ (burden + swim + exhaustion) | ✓ (burden + exhaustion) |
@@ -1045,20 +1017,24 @@ Removed: `bPlayerAlwaysCanDoAction`, `bNpcAlwaysCanDoAction`, `fNpcRegenExemptio
 
 ---
 
-## 13. Key Open Items
+## 12. Key Open Items
 
 1. **Timed block** — Valhalla Combat-style timed block window, commitment, perfect block, window penalty system. Dependencies: input hooks, state machine. Deferrable to separate plan.
 2. **Settings INI** — populate whitelist with all active params.
 3. **Console commands** — sb_get/set/list/reset/getburden via Papyrus + TestCommands.yaml.
 4. ~~Perk integration~~ → **DONE** (PEPE, §3c). All 8 stamina cost/penalty functions wired to `kModPowerAttackStamina` entry point via PEPE `HandleEntryPoint` with `SB_*` categories. Modded perks can scale any cost by adding perk entries targeting the relevant category. The single entry point covers attack, bow, sprint, jump, block, and hold penalty costs. Future perk-specific mechanics (timed block windows, stamina refunds, conditional bonuses) would need additional perk entry points or custom hook logic beyond PEPE's scope.
 5. **Exhaustion regen formula** — consider replacing the current HMS triple-product multiplier structure with a formula that can dip below zero flat (i.e. amplify/drain beyond the maximum-multiplier boundary). Currently exhaustion applies a multiplicative penalty to the engine rate, but never pushes regen into negative territory. A deeper stamina-drain gameplay loop could trigger exhaustion-to-drain cascades.
+
+6. **Staff stamina cost** — extend the attack cost system to cover staves as a ranged weapon type. Staff fire would follow the same burden-based stamina cost pattern as bow fire (`ComputeBowFireCost`). Staves already have weapon weight in the engine. Requires: staff hand detection in `ComputeAttackCost`, decide PEPE category (share `SB_BowFireStamina` or new `SB_StaffStamina`).
+
+7. **Public S&B API** — design and vend a public API header (like PEPE/DMMF) exposing burden computation, formula utilities (`Interpolate`, `ComputeAttackCost`, etc.), per-actor queries (burden data, exhaustion state), and event hooks for other mods to build on. Enables companion mods (magic overhaul, dodge mods) without version coordination.
 ---
 
 
 
-## 14. Resolved Questions
+## 13. Resolved Questions
 
-### 14.1 `get_damage` hook inside HitData::Populate
+### 13.1 `get_damage` hook inside HitData::Populate
 **Status:** CANCELLED — retained ProcessHit hook.
 
 **Considered:** Moving damage scaling from `ProcessHit` (`REL::ID(38627) + 0x4A8`) to the `get_damage` call inside `HitData::Populate` (`RELOCATION_ID(42832, 44001) + 0x1A5`). This would let scaled `physicalDamage` propagate automatically through crit bonus, sneak attack, and other downstream Populate computations.
@@ -1070,9 +1046,27 @@ Removed: `bPlayerAlwaysCanDoAction`, `bNpcAlwaysCanDoAction`, `fNpcRegenExemptio
 - The existing ProcessHit hook at the shared `38627+0x4A8` chains correctly with other mods (PreludeToPurgatory confirmed) via `write_call<5>` trampoline ordering, so there's no compatibility pressure to move
 - The marginal improvement in crit-bonus precision doesn't justify losing HitData context
 
-### 14.2 Hold penalty scaling — blended-burden component
+### 13.2 Hold penalty scaling — blended-burden component
 **Status:** RESOLVED — added blended-burden component.
 
 **Considered:** Block/bow draw hold penalties originally scaled by weapon-specific burden only (`weaponBurden_block` / `weaponBurden_ranged`). Regular attack costs include a `burdenBlend` term (equipped + carry burden composite) via `ComputeBurdenAttackCost`. The question was whether hold penalties should match this pattern for consistency.
 
 **Decision:** Both hold penalties now include a `maxStamina × 1% × Interpolate(HoldDrainLowBlended, HoldDrainHighBlended, burdenBlend, HoldBlendedCurve_k)` term, matching the attack cost structure. 3 shared params (`HoldDrainLowBlended`, `HoldDrainHighBlended`, `HoldBlendedCurve_k`) added to `RegenMovementParams`. The curve shape is shared (`HoldBlendedCurve_k`) while the range is tunable via the low/high bounds.
+
+### 13.3 Exhaustion save serialization
+**Status:** DEFERRED — not serialized.
+
+**Considered:** Whether exhaustion state should persist across save/load. Exhaustion is short-lived (default 8s safe-timer) and only triggers when stamina hits 0.
+
+**Decision:** Not serialized. The edge case (hit 0 stamina → save after regen >1 → reload → lose exhaustion) is narrow, near-zero-impact, and trivial to work around (player can just toggle exhaustion off). Not worth serialization complexity.
+
+### 13.4 Magic overhaul — scope and integration
+**Status:** DEFERRED — no implementation.
+
+**Considered:** Whether to add burden-based spell stamina costs and magnitude scaling. Two integration approaches:
+- **In-house via DMMF** — S&B depends optionally on DMMF to call `SetCost`/`AddMagMultiplier` per `MagicCaster*`. Everything in one DLL.
+- **Companion mod** — separate "Magicka & Burden" DLL depending on both S&B's public API and DMMF. Decoupled release cycles.
+
+**Concern:** "Stamina AND Burden" — full magic manipulation may be scope creep. Staff stamina cost (staves as weapons) is a natural fit and tracked as §12.6. Full spellcasting stamina + magnitude scaling is a second major system requiring new VTable hooks, DMMF dependency, and ~15-20 new params.
+
+**Decision:** Staff stamina cost added as open item for consideration. Full magic overhaul deferred pending public API design and scope re-evaluation.
