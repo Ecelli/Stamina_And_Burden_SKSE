@@ -16,6 +16,10 @@ namespace Costs
 		Parameter<bool> bBowCostNPC{ true, false, true };
 		Parameter<bool> bBowDenyPlayer{ true, false, true };
 		Parameter<bool> bBowDenyNPC{ true, false, true };
+		Parameter<bool> bStaffCostPlayer{ true, false, true };
+		Parameter<bool> bStaffCostNPC{ true, false, true };
+		Parameter<bool> bStaffDenyPlayer{ true, false, true };
+		Parameter<bool> bStaffDenyNPC{ true, false, true };
 		Parameter<bool> bSprintCostPlayer{ true, false, true };
 		Parameter<bool> bSprintCostNPC{ true, false, true };
 		Parameter<bool> bJumpCostPlayer{ true, false, true };
@@ -23,24 +27,31 @@ namespace Costs
 
         Parameter<float> SprintDrainLowBurden{ 3.0f, 0.0f, 200.0f };
 		Parameter<float> SprintDrainHighBurden{ 15.0f, 0.0f, 200.0f };
-		Parameter<float> SprintDrainLowCarryBurdenPct{ 0.1f, 0.0f, 60.0f };
+		Parameter<float> SprintDrainLowCarryBurdenPct{ 0.5f, 0.0f, 60.0f };
 		Parameter<float> SprintDrainHighCarryBurdenPct{ 10.0f, 0.0f, 60.0f };
 		Parameter<float> SprintDrainBurdenCurve_k{ 0.8f, 0.0f, 1.0f };
 		Parameter<float> SprintDrainCarryBurdenCurve_k{ 0.9f, 0.0f, 1.0f };
 
-		Parameter<float> JumpCostLowBurden{ 3.0f, 0.0f, 200.0f };
-		Parameter<float> JumpCostHighBurden{ 15.0f, 0.0f, 200.0f };
+		Parameter<float> JumpCostLowBurden{ 5.0f, 0.0f, 200.0f };
+		Parameter<float> JumpCostHighBurden{ 20.0f, 0.0f, 200.0f };
 		Parameter<float> JumpCostLowCarryPct{ 0.5f, 0.0f, 60.0f };
-		Parameter<float> JumpCostHighCarryPct{ 8.0f, 0.0f, 60.0f };
+		Parameter<float> JumpCostHighCarryPct{ 10.0f, 0.0f, 60.0f };
 		Parameter<float> JumpCostBurdenCurve_k{ 0.8f, 0.0f, 1.0f };
 		Parameter<float> JumpCostCarryCurve_k{ 0.9f, 0.0f, 1.0f };
 
 		Parameter<float> BowFireLowBurden{ 10.0f, 0.0f, 200.0f };
-		Parameter<float> BowFireHighBurden{ 60.0f, 0.0f, 200.0f };
+		Parameter<float> BowFireHighBurden{ 30.0f, 0.0f, 200.0f };
 		Parameter<float> BowFireBurdenCurve_k{ 0.7f, 0.0f, 1.0f };
-		Parameter<float> BowFireLowCarryPct{ 2.0f, 0.0f, 60.0f };
-		Parameter<float> BowFireHighCarryPct{ 10.0f, 0.0f, 60.0f };
+		Parameter<float> BowFireLowCarryPct{ 1.0f, 0.0f, 60.0f };
+		Parameter<float> BowFireHighCarryPct{ 12.0f, 0.0f, 60.0f };
 		Parameter<float> BowFireCarryCurve_k{ 0.7f, 0.0f, 1.0f };
+
+		Parameter<float> StaffFireLowBurden{ 5.0f, 0.0f, 200.0f };
+		Parameter<float> StaffFireHighBurden{ 20.0f, 0.0f, 200.0f };
+		Parameter<float> StaffFireBurdenCurve_k{ 0.6f, 0.0f, 1.0f };
+		Parameter<float> StaffFireLowCarryPct{ 1.0f, 0.0f, 60.0f };
+		Parameter<float> StaffFireHighCarryPct{ 8.0f, 0.0f, 60.0f };
+		Parameter<float> StaffFireCarryCurve_k{ 0.7f, 0.0f, 1.0f };
 
 		template <typename F>
 		static void ForEach(F&& a_fn)
@@ -53,6 +64,10 @@ namespace Costs
 			a_fn("bBowCostNPC"sv, s.bBowCostNPC);
 			a_fn("bBowDenyPlayer"sv, s.bBowDenyPlayer);
 			a_fn("bBowDenyNPC"sv, s.bBowDenyNPC);
+			a_fn("bStaffCostPlayer"sv, s.bStaffCostPlayer);
+			a_fn("bStaffCostNPC"sv, s.bStaffCostNPC);
+			a_fn("bStaffDenyPlayer"sv, s.bStaffDenyPlayer);
+			a_fn("bStaffDenyNPC"sv, s.bStaffDenyNPC);
 			a_fn("bSprintCostPlayer"sv, s.bSprintCostPlayer);
 			a_fn("bSprintCostNPC"sv, s.bSprintCostNPC);
 			a_fn("bJumpCostPlayer"sv, s.bJumpCostPlayer);
@@ -75,6 +90,12 @@ namespace Costs
 			a_fn("fBowFireLowCarryPct"sv, s.BowFireLowCarryPct);
 			a_fn("fBowFireHighCarryPct"sv, s.BowFireHighCarryPct);
 			a_fn("fBowFireCarryCurve_k"sv, s.BowFireCarryCurve_k);
+			a_fn("fStaffFireLowBurden"sv, s.StaffFireLowBurden);
+			a_fn("fStaffFireHighBurden"sv, s.StaffFireHighBurden);
+			a_fn("fStaffFireBurdenCurve_k"sv, s.StaffFireBurdenCurve_k);
+			a_fn("fStaffFireLowCarryPct"sv, s.StaffFireLowCarryPct);
+			a_fn("fStaffFireHighCarryPct"sv, s.StaffFireHighCarryPct);
+			a_fn("fStaffFireCarryCurve_k"sv, s.StaffFireCarryCurve_k);
 		}
 	};
 

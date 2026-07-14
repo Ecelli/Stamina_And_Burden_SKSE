@@ -45,13 +45,24 @@ namespace Hooks
 			return;
 		}
 		auto* actor = a_this->GetCasterAsActor();
+
+		bool isPlayer = actor->IsPlayerRef();
+		auto* params = Costs::CostsParams::GetSingleton();
+		bool costEnabled = isPlayer ? params->bStaffCostPlayer.Get() : params->bStaffCostNPC.Get();
+		bool denyEnabled = isPlayer ? params->bStaffDenyPlayer.Get() : params->bStaffDenyNPC.Get();
+		denyEnabled = costEnabled && denyEnabled;
+
 		float cost = Costs::ComputeStaffFireCost(actor);
-		if (!Common::CanDoStaminaAction(actor, cost)) {
-			logger::info("CastDeny: {:x} stamina={:.1f} cost={:.1f} — suppressed",
+
+		if (denyEnabled && !Common::CanDoStaminaAction(actor, cost)) {
+			logger::info("StaffCastDeny: {:x} stamina={:.1f} cost={:.1f} — suppressed",
 				actor->GetFormID(), actor->GetActorValue(RE::ActorValue::kStamina), cost);
 			return;
 		}
-		Common::ApplyStaminaCost(actor, cost);
+
+		if (costEnabled)
+			Common::ApplyStaminaCost(actor, cost);
+
 		_func(a_this);
 	}
 
@@ -68,15 +79,22 @@ namespace Hooks
 		auto* actor = a_this->GetCasterAsActor();
 		auto* staff = GetCastingStaff(a_this);
 		if (staff && actor && a_this->state.any(RE::MagicCaster::State::kCasting)) {
+			bool isPlayer = actor->IsPlayerRef();
+			auto* params = Costs::CostsParams::GetSingleton();
+			bool costEnabled = isPlayer ? params->bStaffCostPlayer.Get() : params->bStaffCostNPC.Get();
+			bool denyEnabled = isPlayer ? params->bStaffDenyPlayer.Get() : params->bStaffDenyNPC.Get();
+			denyEnabled = costEnabled && denyEnabled;
+
 			float drain = Regen::ComputeStaffHoldPenalty(actor) * a_deltaTime;
 			if (drain > 0.0f) {
-				if (!Common::CanDoStaminaAction(actor, drain)) {
-					logger::info("ChannelDeny: {:x} stamina={:.1f} drain={:.3f} — interrupting",
+				if (denyEnabled && !Common::CanDoStaminaAction(actor, drain)) {
+					logger::info("StaffChannelDeny: {:x} stamina={:.1f} drain={:.3f} — interrupting",
 						actor->GetFormID(), actor->GetActorValue(RE::ActorValue::kStamina), drain);
 					a_this->InterruptCast(true);
 					return;
 				}
-				Common::ApplyStaminaCost(actor, drain);
+				if (costEnabled)
+					Common::ApplyStaminaCost(actor, drain);
 			}
 		}
 		_func(a_this, a_deltaTime);
