@@ -165,6 +165,12 @@ namespace Costs
 		return baseCost;
 	}
 
+	float ComputeStaffFireCost(RE::Actor* actor)
+	{
+		(void)actor;
+		return 10.0f;
+	}
+
 	float ComputeBowFireCost(RE::Actor* actor)
 	{
 		if (!actor)

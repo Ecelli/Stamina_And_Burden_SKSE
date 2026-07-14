@@ -91,6 +91,12 @@ namespace Regen
 		return penalty;
 	}
 
+	float ComputeStaffHoldPenalty(RE::Actor* actor)
+	{
+		(void)actor;
+		return 1.0f;
+	}
+
 	float ComputeBowDrawHoldPenalty(RE::Actor* actor)
 	{
 		if (!actor)
