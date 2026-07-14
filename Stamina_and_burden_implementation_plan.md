@@ -25,10 +25,10 @@ src/
 ├── Common/            # PCH, Utils.h, PerkCategories.h (DONE)
 │   ├── Utils.h/.cpp   # Hand detection types (LeftHandInfo, RightHandInfo, AttackHandInfo),
 │   │                  #   CanDoStaminaAction, ApplyStaminaCost, heartbeat, debug log macros
-│   └── PerkCategories.h # 7 PEPE category constants (SB_*) + PEPE_STAMINA_ENTRY_POINT
+│   └── PerkCategories.h # 9 PEPE category constants (SB_*) + PEPE_STAMINA_ENTRY_POINT
 ├── Data/              # ModObjectManager, Lookup.h (shell — EXPECTED_COUNT=0)
 ├── Export/            # SKSEPlugin.cpp — entrypoint, PEPE RequestInterface() at kDataLoaded (DONE)
-├── Hooks/             # 10 code detours + 4 event sinks + 1 uninstalled deny (DONE)
+├── Hooks/             # 10 code detours + 2 VTABLE hooks + 4 event sinks + 1 uninstalled deny (DONE)
 ├── Movement/          # Movement speed (burden/swim/exhaustion) + sprint/jump cost functions (DONE)
 │   ├── MovementManager        # ComputeSpeedMultiplier — burden, swim depth, exhaustion speed scaling
 │   └── MovementCostManager    # ComputeSprintDrain, ComputeJumpCost + PEPE calls
@@ -75,11 +75,11 @@ src/
 - `Burden::` — burden computation functions
 - `Burden::Tracker` — actor registry with 2-tier cache (tracked + transient)
 
-**ActorBurdenData struct** (20 fields):
+**ActorBurdenData struct** (21 fields):
 ```
 actor, maxCarryWeight, carryWeight, equippedWeight, maxEquippedWeight,
 carryBurden, burden, burdenBlend,
-lightSkill, heavySkill, oneHandedSkill, twoHandedSkill, marksmanSkill, blockSkill, conjurationSkill,
+lightSkill, heavySkill, oneHandedSkill, twoHandedSkill, marksmanSkill, blockSkill, conjurationSkill, staffSkill,
 weaponBurden_rh, weaponBurden_lh, weaponBurden_2h, weaponBurden_ranged, weaponBurden_block
 ```
 
@@ -96,6 +96,8 @@ Blends equipped burden and carry burden into a single factor for cost/regen curv
 - Conjured weapon weight computed from conjuration skill
 - Block burden with shield/DW/2h/unarmed paths, dual-wield penalty, blended block skill
 - `actor` field added so formulas can get maxStamina directly
+- Staves tracked via `kStaff` cases in `ComputeRightHandBurden`/`ComputeLeftHandBurden`, reusing `weaponBurden_rh/lh` fields and skill-weighted by `staffSkill` (reads `kEnchanting`)
+- `GetWeaponHandlingInfo` gains explicit `kStaff` case `{ weaponBurden_rh, staffSkill }` — previously fell to default returning skill=0 for block burden computation
 
 **Triggers (3):**
 1. Event sinks — equip/container change → `Tracker::Update(actor)` → `AddTask` deferred
@@ -125,8 +127,9 @@ if drainMult > 0:
   scaler       = ComputeBurnScaler(actor)      // maps kStaminaRateMult onto [0,1]
   rate        -= burnBase × drainMult × scaler
 
-rate          -= ComputeBlockHoldPenalty(actor)    // PEPE: SB_BlockHoldStamina
-rate          -= ComputeBowDrawHoldPenalty(actor)  // PEPE: SB_BowDrawHoldStamina
+rate          -= ComputeBlockHoldPenalty(actor)     // PEPE: SB_BlockHoldStamina
+rate          -= ComputeBowDrawHoldPenalty(actor)   // PEPE: SB_BowDrawHoldStamina
+rate          -= ComputeStaffHoldPenalty(actor, hand) // PEPE: SB_StaffHoldStamina
 ```
 
 **`ComputeStaminaRegenMult(actor)` — the regen multiplier:**
@@ -160,6 +163,7 @@ LowBonus=2.0 (debuffed mult → amplified drain), HighBonus=0.2 (buffed mult →
 - `GetEngineStaminaRate` — `GetBaseStaminaRate × combatMult × kStaminaRateMult × 0.01`
 - `ComputeBlockHoldPenalty` — continuous flat drain while blocking, burden-scaled. PEPE: `SB_BlockHoldStamina` applied to penalty before returning.
 - `ComputeBowDrawHoldPenalty` — continuous flat drain while bow drawn, weapon-burden-scaled. PEPE: `SB_BowDrawHoldStamina` applied to penalty before returning.
+- `ComputeStaffHoldPenalty(actor, leftHand)` — continuous flat drain while staff-casting (concentration beams or charge-up), weapon-burden-scaled by `weaponBurden_rh/lh` plus `burdenBlend` component. PEPE: `SB_StaffHoldStamina` applied to penalty before returning.
 - `ComputeWeatherPenalty` — `WeatherRainPenalty` or `WeatherSnowPenalty` from `WeatherParams`
 - `GetCanRegenStamina` — false if blocking, bow drawn/attached, or in attack state
 - `GetMovementState` — swimming → running → sneaking → walking → static priority
@@ -180,8 +184,9 @@ LowBonus=2.0 (debuffed mult → amplified drain), HighBonus=0.2 (buffed mult →
 
 **Public API:**
 ```
-float ComputeAttackCost(actor, data)  — returns stamina per attack
-float ComputeBowFireCost(actor)       — returns stamina per shot
+float ComputeAttackCost(actor, data)       — returns stamina per attack
+float ComputeBowFireCost(actor)            — returns stamina per shot
+float ComputeStaffFireCost(actor, leftHand) — returns stamina per staff cast
 ```
 
 **Cost formula pattern (all types use the same structure):**
@@ -206,13 +211,29 @@ cost            = flatTerm + pctTerm × Stamina_1pctMax
 - All types multiplied by `attackData->data.staminaMult`
 - PEPE: `SB_AttackStamina` applied to cost after staminaMult multiply, before return
 
+**Staff fire cost — same formula pattern:**
+```
+Stamina_1pctMax     = 0.01 × maxStamina
+weaponBurden        = leftHand ? weaponBurden_lh : weaponBurden_rh
+StaffFireBurdenFlat = Interpolate(StaffFireLowBurden, StaffFireHighBurden, weaponBurden, k)
+StaffFireCarryPct   = Interpolate(StaffFireLowCarryPct, StaffFireHighCarryPct, burdenBlend, k)
+cost                = StaffFireBurdenFlat + StaffFireCarryPct × Stamina_1pctMax
+```
+- `StaffFireBurdenFlat` scales with hand-specific weapon burden (skill-weighted via `staffSkill`)
+- `StaffFireCarryPct` scales with `burdenBlend` (equipped + carry blend, matching updated bow fire)
+- Result is a percentage of max stamina
+- Deny is built into `StartCastingHook` — per-actor toggles (`bStaffDenyPlayer/NPC`), suppresses cast start if stamina insufficient
+- Hold drain is built into `CasterUpdateHook` — per-frame drain while casting, per-actor toggles, interrupts concentration beam if stamina exhausted
+
 **Sprint drain** is frame-time scaled (`× GetSecondsSinceLastFrame()`) and includes weather penalty integration (`engineRate × weatherPenalty`).
 
 **Improvements over original plan:**
 - Original plan described a single `attackCost = maxStamina × (fAttackCostBase + weaponWeight × fAttackCostWeightMult) × (1 - skill / fAttackCostSkillDivisor) × (1 + burdenPenalty × burdenRatio)`. Actual system uses `flatTerm + pctTerm × 1%maxStamina` with per-type params — more granular and tuneable.
 - Original plan described game-setting writes for movement costs. Actual system hooks sprint drain directly (`38022 + 0xC1/0xC9`) and jump cost directly (`37257 + 0x17F`) — per-actor, no global setting manipulation.
 - Bow fire cost + deny (not in original plan) built into BowFireHook.
+- Staff fire cost + deny (not in original plan) built into vtable hooks on `ActorMagicCaster`. Staffs treated as weapons (physical implements), not magic.
 - PEPE: `SB_BowFireStamina` applied to cost after computation, before return.
+- PEPE: `SB_StaffFireStamina` applied to staff fire cost, `SB_StaffHoldStamina` applied to hold drain penalty.
 
 ### 3.4 Movement (DONE)
 
@@ -556,7 +577,7 @@ damageMult      = Interpolate(fDamageScaleLow, fDamageScaleHigh, staminaPct, fDa
 
 ## 4. Hook Summary
 
-### Installed code detours (10 + 1 VTABLE hook):
+### Installed code detours (10 + 3 VTABLE hooks):
 
 | ID | Offset | Name | Purpose |
 |---|---|---|---|
@@ -571,6 +592,8 @@ damageMult      = Interpolate(fDamageScaleLow, fDamageScaleHigh, staminaPct, fDa
 | `37943` | `+0x51` | `SpeedHook` | Scale movement speed by `Movement::ComputeSpeedMultiplier` (burden/swim/exhaustion) |
 | `39003` / `49170` | `+0xBB` / `+0x27A` (+ NOP branches `0xE1`/`0x272`) | `AttackDenyHook` | Replaces engine HasStamina check — denies attacks when stamina insufficient (player + NPC) |
 | VTABLE `JumpHandler[0]` | index `0x04` | `JumpInputHandler` | Player-only jump cost + denial via `ProcessButton` VTABLE detour |
+| VTABLE `ActorMagicCaster::VTABLE[0]` | index `0x06` | `StartCastingHook` | Staff fire cost + deny on cast start. VTABLE hook — no trampoline needed |
+| VTABLE `ActorMagicCaster::VTABLE[0]` | index `0x1D` | `CasterUpdateHook` | Staff hold drain + deny per frame while casting. VTABLE hook — no trampoline needed |
 
 Note: `DamageScalingHook` and `BlockHook` share the same hook point (`38627+0x4A8`). They chain via trampoline — DamageScalingHook scales damage first, then BlockHook processes block mechanics on the scaled values.
 
@@ -598,7 +621,7 @@ An alternative hook point exists at `RELOCATION_ID(42832, 44001) + 0x1A5` — th
 
 ### PEPE integration (not a hook — Perk Entry Point Extender):
 
-PEPE `HandleEntryPoint` calls are placed inside 8 compute functions, using `PEPE_STAMINA_ENTRY_POINT` (= `kModPowerAttackStamina`) and 7 category strings:
+PEPE `HandleEntryPoint` calls are placed inside 10 compute functions, using `PEPE_STAMINA_ENTRY_POINT` (= `kModPowerAttackStamina`) and 9 category strings:
 
 | Category | Compute function | Variable scaled | Form arg |
 |---|---|---|---|
@@ -610,6 +633,8 @@ PEPE `HandleEntryPoint` calls are placed inside 8 compute functions, using `PEPE
 | `SB_BlockStamina` | `ComputeDamageRedirectStaminaCost` | `redirectCost` | Shield or blocking weapon |
 | `SB_BlockHoldStamina` | `ComputeBlockHoldPenalty` | `penalty` | Shield or blocking weapon |
 | `SB_BowDrawHoldStamina` | `ComputeBowDrawHoldPenalty` | `penalty` | Bow weapon |
+| `SB_StaffFireStamina` | `ComputeStaffFireCost` | `TotalCost` | Staff weapon in casting hand |
+| `SB_StaffHoldStamina` | `ComputeStaffHoldPenalty` | `penalty` | Staff weapon in casting hand |
 
 `SB_BlockStamina` is applied to both block sub-costs (base + redirect) independently so proration math stays correct. `RequestInterface()` called at `kDataLoaded` with nullptr guard logging.
 
@@ -654,6 +679,8 @@ Per-action (each cost passes through PEPE HandleEntryPoint before consumption):
     BowFireHook (on bow release) → ComputeBowFireCost(actor) → [PEPE SB_BowFireStamina] → ApplyStaminaCost
     DamageScalingHook (on hit) → ComputeStaminaDamageMult(attacker) → scale HitData
     BlockHook (on blocked hit) → [PEPE SB_BlockStamina × 2] on base cost + redirect cost → redirect or guard break
+    StartCastingHook (on staff cast start) → GetCastingStaffHand → ComputeStaffFireCost(actor, leftHand) → [PEPE SB_StaffFireStamina] → ApplyStaminaCost
+    CasterUpdateHook (per frame while staff casting) → GetCastingStaffHand → ComputeStaffHoldPenalty(actor, leftHand) × deltaTime → [PEPE SB_StaffHoldStamina] → ApplyStaminaCost / InterruptCast
 ```
 
 ### Future flow (Console, HUD):
@@ -672,6 +699,8 @@ Burden::Tracker::Update(actor)
 | Attack denial (NPC) | **INSTALLED** | `AttackDenyHook` at `REL::ID(49170)` + `0x27A` (call detour) + `0x272` (NOP branch). Same approach as player. |
 | Jump denial | **INSTALLED** — via `JumpInputHandler` VTABLE hook | `VTABLE_JumpHandler[0]` index 0x04. Player-only — intercepts `JumpHandler::ProcessButton` before animation/physics. Checks stamina against `Movement::ComputeJumpCost` + `bJumpDenyPlayer` toggle. No AE compatibility issue (VTABLE hook, not code-detour at `42423+0x114`). |
 | Bow fire deny | **DONE** — built into `BowFireHook` | Integrated into the cost hook. Per-actor toggles (`bBowDenyPlayer/NPC`) control denial independently of cost. |
+| Staff fire deny | **DONE** — built into `StartCastingHook` | VTABLE hook on `ActorMagicCaster::StartCastImpl`. Per-actor toggles (`bStaffDenyPlayer/NPC`). Suppresses cast start if stamina insufficient. |
+| Staff channel deny | **DONE** — built into `CasterUpdateHook` | VTABLE hook on `ActorMagicCaster::Update`. Per-actor toggles (`bStaffDenyPlayer/NPC`). Interrupts concentration beam via `InterruptCast(true)` when stamina exhausted. |
 
 Both player and NPC attack denial share the same `HasStamina()` logic which checks per-actor-type toggles from `DenyParams` (`bEnableDenyPlayer`/`bEnableDenyNPC`). Return convention: `0.0F` = has stamina (allow), `>0.0F` = no stamina (deny — engine handles the penalty). Jump denial is installed via VTABLE (player-only) 
 
@@ -723,12 +752,13 @@ All settings are `Parameter<T>` structs in `src/Settings/Params/`. No shipped IN
 - `fMagickaRegenMult_LowStamina/HighStamina/k` — stamina → magicka regen curve
 - `bEnableDebugLogging`
 
-### RegenMovementParams (20 params)
+### RegenMovementParams (23 params)
 - `fRegenStatic_max/min`, `fRegenWalking_max/min`, `fRegenSneaking_max/min`, `fRegenRunning_max/min`, `fRegenSwimming_max/min` — per-state curves
 - `fMovementRegenCurve_k` — shared curve shape
 - `fBowDrawLowBurden/HighBurden/Curve_k` — bow draw hold penalty (weapon-burden component)
 - `fBlockHoldLowBurden/HighBurden/Curve_k` — block hold penalty (weapon-burden component)
-- `fHoldDrainLowBlended/HighBlended` + `fHoldBlendedCurve_k` — shared blended-burden component (pct of max stamina/sec) added to both hold penalties
+- `fStaffHoldLowBurden/HighBurden/Curve_k` — staff hold penalty (weapon-burden component)
+- `fHoldDrainLowBlended/HighBlended` + `fHoldBlendedCurve_k` — shared blended-burden component (pct of max stamina/sec) added to block, bow, and staff hold penalties
 
 ### NegativeRegen (5 params)
 - `fBurnRate_LowBonus/HighBonus/Curve_k/LowBound/HighBound` — burn scaler mapping
@@ -736,16 +766,19 @@ All settings are `Parameter<T>` structs in `src/Settings/Params/`. No shipped IN
 ### WeatherParams (3 params)
 - `fWeatherRainPenalty`, `fWeatherSnowPenalty`, `bWeatherEnabled`
 
-### CostsParams (29 params)
+### CostsParams (39 params)
 - `bAttackCostPlayer/NPC` — per-actor toggles for attack stamina cost
 - `bBowCostPlayer/NPC` — per-actor toggles for bow fire stamina cost
 - `bBowDenyPlayer/NPC` — per-actor toggles for bow fire denial on insufficient stamina
+- `bStaffCostPlayer/NPC` — per-actor toggles for staff fire stamina cost
+- `bStaffDenyPlayer/NPC` — per-actor toggles for staff fire/channel denial on insufficient stamina
 - `bSprintCostPlayer/NPC` — per-actor toggles for sprint drain
 - `bJumpCostPlayer/NPC` — per-actor toggles for jump cost
 - `bEnableDebugLogging`
 - `fSprintDrainLowBurden/HighBurden/LowCarryBurdenPct/HighCarryBurdenPct/BurdenCurve_k/CarryBurdenCurve_k`
 - `fJumpCostLowBurden/HighBurden/LowCarryPct/HighCarryPct/BurdenCurve_k/CarryCurve_k`
 - `fBowFireLowBurden/HighBurden/BurdenCurve_k/LowCarryPct/HighCarryPct/CarryCurve_k`
+- `fStaffFireLowBurden/HighBurden/BurdenCurve_k/LowCarryPct/HighCarryPct/CarryCurve_k`
 
 ### AttackCostParams (25 params)
 - `fAttackLowCarryPct/HighCarryPct/CarryCurve_k` — shared carry burden component
@@ -894,6 +927,19 @@ Removed: `bPlayerAlwaysCanDoAction`, `bNpcAlwaysCanDoAction`, `fNpcRegenExemptio
 | BowFireHook at 42859+0x138 | DONE |
 | CostsParams, AttackCostParams | DONE |
 
+#### Phase 3a — Staff Stamina Cost ✅
+| Task | Status |
+|---|---|
+| `CastStaffResult` enum + `GetCastingStaffHand` helper | DONE |
+| `StartCastingHook` — VTABLE ActorMagicCaster index 0x06 | DONE |
+| `CasterUpdateHook` — VTABLE ActorMagicCaster index 0x1D | DONE |
+| `ComputeStaffFireCost(actor, leftHand)` — weapon burden + burdenBlend | DONE |
+| `ComputeStaffHoldPenalty(actor, leftHand)` — weapon burden + burdenBlend | DONE |
+| Staff fire cost/deny toggles + fire params in CostsParams (10 params) | DONE |
+| Staff hold params in RegenMovementParams (3 params) | DONE |
+| PEPE: `SB_StaffFireStamina`, `SB_StaffHoldStamina` | DONE |
+| Per-hand burden tracking for staves (`staffSkill` + `kStaff` cases) | DONE |
+
 ### Phase 3b — Movement ✅
 | Task | Status |
 |---|---|
@@ -1012,6 +1058,8 @@ Removed: `bPlayerAlwaysCanDoAction`, `bNpcAlwaysCanDoAction`, `fNpcRegenExemptio
 | Exhaustion | ✓ (default on) | ✓ (default off, toggle via `bExhaustionNPC`) |
 | Attack damage scaling | ✓ (stamina-based curve) | ✓ (stamina-based curve) |
 | Movement speed | ✓ (burden + swim + exhaustion) | ✓ (burden + exhaustion) |
+| Staff fire cost + deny | ✓ (default on) | ✓ (default on) |
+| Staff hold drain + deny | ✓ (default on) | ✓ (default on) |
 | Attack denial | ✓ (via `AttackDenyHook` at `39003+0xBB`/`0xE1`) | ✓ (via `AttackDenyHook` at `49170+0x27A`/`0x272`) |
 | Jump denial | ✓ (via `JumpInputHandler` VTABLE hook) | ✗ (NPCs don't use PlayerInputHandler, rarely jump) |
 
@@ -1025,7 +1073,7 @@ Removed: `bPlayerAlwaysCanDoAction`, `bNpcAlwaysCanDoAction`, `fNpcRegenExemptio
 4. ~~Perk integration~~ → **DONE** (PEPE, §3c). All 8 stamina cost/penalty functions wired to `kModPowerAttackStamina` entry point via PEPE `HandleEntryPoint` with `SB_*` categories. Modded perks can scale any cost by adding perk entries targeting the relevant category. The single entry point covers attack, bow, sprint, jump, block, and hold penalty costs. Future perk-specific mechanics (timed block windows, stamina refunds, conditional bonuses) would need additional perk entry points or custom hook logic beyond PEPE's scope.
 5. **Exhaustion regen formula** — consider replacing the current HMS triple-product multiplier structure with a formula that can dip below zero flat (i.e. amplify/drain beyond the maximum-multiplier boundary). Currently exhaustion applies a multiplicative penalty to the engine rate, but never pushes regen into negative territory. A deeper stamina-drain gameplay loop could trigger exhaustion-to-drain cascades.
 
-6. **Staff stamina cost** — extend the attack cost system to cover staves as a ranged weapon type. Staff fire would follow the same burden-based stamina cost pattern as bow fire (`ComputeBowFireCost`). Staves already have weapon weight in the engine. Requires: staff hand detection in `ComputeAttackCost`, decide PEPE category (share `SB_BowFireStamina` or new `SB_StaffStamina`).
+6. **Staff stamina cost** — DONE. Two vtable hooks on `ActorMagicCaster::VTABLE[0]` (indices 0x06 and 0x1D) intercept staff casting for fire cost + hold drain. Staffs are treated as weapons — uses `weaponBurden_rh/lh` (skill-weighted by `staffSkill` from `kEnchanting`) and `burdenBlend`. PEPE: `SB_StaffFireStamina`, `SB_StaffHoldStamina`. Per-actor toggles for cost + deny. Staves in each hand tracked independently (dual-wield support).
 
 7. **Public S&B API** — design and vend a public API header (like PEPE/DMMF) exposing burden computation, formula utilities (`Interpolate`, `ComputeAttackCost`, etc.), per-actor queries (burden data, exhaustion state), and event hooks for other mods to build on. Enables companion mods (magic overhaul, dodge mods) without version coordination.
 ---
@@ -1067,6 +1115,6 @@ Removed: `bPlayerAlwaysCanDoAction`, `bNpcAlwaysCanDoAction`, `fNpcRegenExemptio
 - **In-house via DMMF** — S&B depends optionally on DMMF to call `SetCost`/`AddMagMultiplier` per `MagicCaster*`. Everything in one DLL.
 - **Companion mod** — separate "Magicka & Burden" DLL depending on both S&B's public API and DMMF. Decoupled release cycles.
 
-**Concern:** "Stamina AND Burden" — full magic manipulation may be scope creep. Staff stamina cost (staves as weapons) is a natural fit and tracked as §12.6. Full spellcasting stamina + magnitude scaling is a second major system requiring new VTable hooks, DMMF dependency, and ~15-20 new params.
+**Concern:** "Stamina AND Burden" — full magic manipulation may be scope creep. Staff stamina cost (staves as weapons) was a natural fit and is now DONE (see Phase 3a). Full spellcasting stamina + magnitude scaling is a second major system requiring new VTable hooks, DMMF dependency, and ~15-20 new params.
 
-**Decision:** Staff stamina cost added as open item for consideration. Full magic overhaul deferred pending public API design and scope re-evaluation.
+**Decision:** Staff stamina cost implemented (Phase 3a). Full magic overhaul deferred pending public API design and scope re-evaluation.
