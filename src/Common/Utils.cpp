@@ -11,7 +11,8 @@ namespace Utils
 		if (!form)
 			return info;
 		if (auto* weap = form->As<RE::TESObjectWEAP>()) {
-			info.type = LeftHandType::kWeapon;
+			info.type = weap->GetWeaponType() == RE::WEAPON_TYPE::kStaff ?
+				LeftHandType::kStaff : LeftHandType::kWeapon;
 			info.weapon = weap;
 		} else if (auto* shield = form->As<RE::TESObjectARMO>(); shield && shield->IsShield()) {
 			info.type = LeftHandType::kShield;
@@ -36,6 +37,8 @@ namespace Utils
 			info.type = RightHandType::kBow;
 		else if (type == RE::WEAPON_TYPE::kTwoHandSword || type == RE::WEAPON_TYPE::kTwoHandAxe)
 			info.type = RightHandType::kTwoHanded;
+		else if (type == RE::WEAPON_TYPE::kStaff)
+			info.type = RightHandType::kStaff;
 		else
 			info.type = RightHandType::kOneHanded;
 		info.weapon = weap;

@@ -18,7 +18,8 @@ namespace Utils
 	{
 		kEmpty,
 		kWeapon,
-		kShield
+		kShield,
+		kStaff
 	};
 
 	enum class RightHandType
@@ -27,7 +28,8 @@ namespace Utils
 		kOneHanded,
 		kTwoHanded,
 		kBow,
-		kHandToHand
+		kHandToHand,
+		kStaff
 	};
 
 	struct LeftHandInfo
