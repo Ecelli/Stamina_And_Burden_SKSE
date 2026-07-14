@@ -40,6 +40,7 @@ namespace Hooks {
 		AttackDenyHook::Install();
 		JumpInputHandler::Install();
 		StartCastingHook::Install();
+		CasterUpdateHook::Install();
 
 		return true;
 	}
