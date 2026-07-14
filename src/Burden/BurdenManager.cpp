@@ -268,6 +268,8 @@ namespace Burden
 			return { d.weaponBurden_rh, d.oneHandedSkill };
 		case Utils::RightHandType::kHandToHand:
 			return { d.weaponBurden_rh, d.blockSkill };
+		case Utils::RightHandType::kStaff:
+			return { d.weaponBurden_rh, d.staffSkill };
 		default:
 			return { d.weaponBurden_rh, 0 };
 		}

@@ -7,23 +7,33 @@
 
 namespace
 {
-	RE::TESObjectWEAP* GetCastingStaff(RE::ActorMagicCaster* a_this)
+	enum class CastStaffResult
+	{
+		kNotStaff,
+		kLeftHand,
+		kRightHand
+	};
+
+	CastStaffResult GetCastingStaffHand(RE::ActorMagicCaster* a_this)
 	{
 		auto* actor = a_this->GetCasterAsActor();
 		if (!actor)
-			return nullptr;
+			return CastStaffResult::kNotStaff;
 
 		auto source = a_this->GetCastingSource();
-		if (source != RE::MagicSystem::CastingSource::kLeftHand &&
-			source != RE::MagicSystem::CastingSource::kRightHand)
-			return nullptr;
-
-		bool leftHand = (source == RE::MagicSystem::CastingSource::kLeftHand);
-		auto* form = actor->GetEquippedObject(leftHand);
-		auto* weap = form ? form->As<RE::TESObjectWEAP>() : nullptr;
-		if (weap && weap->GetWeaponType() == RE::WEAPON_TYPE::kStaff)
-			return weap;
-		return nullptr;
+		if (source == RE::MagicSystem::CastingSource::kLeftHand) {
+			auto* form = actor->GetEquippedObject(true);
+			auto* weap = form ? form->As<RE::TESObjectWEAP>() : nullptr;
+			if (weap && weap->GetWeaponType() == RE::WEAPON_TYPE::kStaff)
+				return CastStaffResult::kLeftHand;
+		}
+		if (source == RE::MagicSystem::CastingSource::kRightHand) {
+			auto* form = actor->GetEquippedObject(false);
+			auto* weap = form ? form->As<RE::TESObjectWEAP>() : nullptr;
+			if (weap && weap->GetWeaponType() == RE::WEAPON_TYPE::kStaff)
+				return CastStaffResult::kRightHand;
+		}
+		return CastStaffResult::kNotStaff;
 	}
 }
 
@@ -39,15 +49,13 @@ namespace Hooks
 
 	void StartCastingHook::Thunk(RE::ActorMagicCaster* a_this)
 	{
-		auto* staff = GetCastingStaff(a_this);
-		if (!staff) {
+		auto result = GetCastingStaffHand(a_this);
+		if (result == CastStaffResult::kNotStaff) {
 			_func(a_this);
 			return;
 		}
 		auto* actor = a_this->GetCasterAsActor();
-
-		auto source = a_this->GetCastingSource();
-		bool leftHand = (source == RE::MagicSystem::CastingSource::kLeftHand);
+		bool leftHand = (result == CastStaffResult::kLeftHand);
 
 		bool isPlayer = actor->IsPlayerRef();
 		auto* params = Costs::CostsParams::GetSingleton();
@@ -80,10 +88,9 @@ namespace Hooks
 	void CasterUpdateHook::Thunk(RE::ActorMagicCaster* a_this, float a_deltaTime)
 	{
 		auto* actor = a_this->GetCasterAsActor();
-		auto* staff = GetCastingStaff(a_this);
-		if (staff && actor && a_this->state.any(RE::MagicCaster::State::kCasting)) {
-			auto source = a_this->GetCastingSource();
-			bool leftHand = (source == RE::MagicSystem::CastingSource::kLeftHand);
+		auto result = GetCastingStaffHand(a_this);
+		if (result != CastStaffResult::kNotStaff && actor && a_this->state.any(RE::MagicCaster::State::kCasting)) {
+			bool leftHand = (result == CastStaffResult::kLeftHand);
 
 			bool isPlayer = actor->IsPlayerRef();
 			auto* params = Costs::CostsParams::GetSingleton();
