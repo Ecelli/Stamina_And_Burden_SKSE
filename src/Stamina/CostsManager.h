@@ -11,5 +11,5 @@ namespace Costs
 {
 	float ComputeAttackCost(RE::Actor* actor, RE::BGSAttackData* attackData);
 	float ComputeBowFireCost(RE::Actor* actor);
-	float ComputeStaffFireCost(RE::Actor* actor);
+	float ComputeStaffFireCost(RE::Actor* actor, bool leftHand);
 }

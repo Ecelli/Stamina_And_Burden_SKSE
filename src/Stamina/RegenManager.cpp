@@ -91,10 +91,34 @@ namespace Regen
 		return penalty;
 	}
 
-	float ComputeStaffHoldPenalty(RE::Actor* actor)
+	float ComputeStaffHoldPenalty(RE::Actor* actor, bool leftHand)
 	{
-		(void)actor;
-		return 1.0f;
+		if (!actor)
+			return 0.0f;
+
+		auto& data = Burden::Tracker::GetOrComputeBurden(actor);
+		auto* params = RegenMovementParams::GetSingleton();
+
+		float weaponBurden = leftHand ? data.weaponBurden_lh : data.weaponBurden_rh;
+		float penalty = Math::Interpolate(
+			params->StaffHoldLowBurden.Get(),
+			params->StaffHoldHighBurden.Get(),
+			weaponBurden,
+			params->StaffHoldCurve_k.Get());
+
+		float maxStamina = actor->GetActorValueMax(RE::ActorValue::kStamina);
+		penalty += maxStamina * 0.01f * Math::Interpolate(
+			params->HoldDrainLowBlended.Get(),
+			params->HoldDrainHighBlended.Get(),
+			data.burdenBlend,
+			params->HoldBlendedCurve_k.Get());
+
+		RE::HandleEntryPoint(PEPE_STAMINA_ENTRY_POINT, actor, penalty, PEPE::Group::StaffHoldStamina,
+			Utils::GetAttackHandInfo(actor, leftHand, false).form);
+
+		RegenLog("ComputeStaffHoldPenalty: hand={} weapBurden={:.3f} blend={:.3f} penalty={:.3f}/s",
+			leftHand ? 'L' : 'R', weaponBurden, data.burdenBlend, penalty);
+		return penalty;
 	}
 
 	float ComputeBowDrawHoldPenalty(RE::Actor* actor)

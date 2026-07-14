@@ -12,6 +12,8 @@ namespace PEPE::Group
 	inline constexpr auto BlockStamina         = "SB_BlockStamina";
 	inline constexpr auto BowDrawHoldStamina   = "SB_BowDrawHoldStamina";
 	inline constexpr auto BlockHoldStamina     = "SB_BlockHoldStamina";
+	inline constexpr auto StaffFireStamina     = "SB_StaffFireStamina";
+	inline constexpr auto StaffHoldStamina     = "SB_StaffHoldStamina";
 }
 
 inline constexpr auto PEPE_STAMINA_ENTRY_POINT = RE::PerkEntryPoint::kModPowerAttackStamina;

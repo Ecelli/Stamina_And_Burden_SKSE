@@ -46,13 +46,16 @@ namespace Hooks
 		}
 		auto* actor = a_this->GetCasterAsActor();
 
+		auto source = a_this->GetCastingSource();
+		bool leftHand = (source == RE::MagicSystem::CastingSource::kLeftHand);
+
 		bool isPlayer = actor->IsPlayerRef();
 		auto* params = Costs::CostsParams::GetSingleton();
 		bool costEnabled = isPlayer ? params->bStaffCostPlayer.Get() : params->bStaffCostNPC.Get();
 		bool denyEnabled = isPlayer ? params->bStaffDenyPlayer.Get() : params->bStaffDenyNPC.Get();
 		denyEnabled = costEnabled && denyEnabled;
 
-		float cost = Costs::ComputeStaffFireCost(actor);
+		float cost = Costs::ComputeStaffFireCost(actor, leftHand);
 
 		if (denyEnabled && !Common::CanDoStaminaAction(actor, cost)) {
 			logger::info("StaffCastDeny: {:x} stamina={:.1f} cost={:.1f} — suppressed",
@@ -79,13 +82,16 @@ namespace Hooks
 		auto* actor = a_this->GetCasterAsActor();
 		auto* staff = GetCastingStaff(a_this);
 		if (staff && actor && a_this->state.any(RE::MagicCaster::State::kCasting)) {
+			auto source = a_this->GetCastingSource();
+			bool leftHand = (source == RE::MagicSystem::CastingSource::kLeftHand);
+
 			bool isPlayer = actor->IsPlayerRef();
 			auto* params = Costs::CostsParams::GetSingleton();
 			bool costEnabled = isPlayer ? params->bStaffCostPlayer.Get() : params->bStaffCostNPC.Get();
 			bool denyEnabled = isPlayer ? params->bStaffDenyPlayer.Get() : params->bStaffDenyNPC.Get();
 			denyEnabled = costEnabled && denyEnabled;
 
-			float drain = Regen::ComputeStaffHoldPenalty(actor) * a_deltaTime;
+			float drain = Regen::ComputeStaffHoldPenalty(actor, leftHand) * a_deltaTime;
 			if (drain > 0.0f) {
 				if (denyEnabled && !Common::CanDoStaminaAction(actor, drain)) {
 					logger::info("StaffChannelDeny: {:x} stamina={:.1f} drain={:.3f} — interrupting",
