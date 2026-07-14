@@ -165,6 +165,38 @@ namespace Costs
 		return baseCost;
 	}
 
+	float ComputeStaffFireCost(RE::Actor* actor, bool leftHand)
+	{
+		if (!actor)
+			return 0.0f;
+
+		auto& burden = Burden::Tracker::GetOrComputeBurden(actor);
+		auto* params = CostsParams::GetSingleton();
+
+		float Stamina_1pctMax = 0.01f * actor->GetActorValueMax(RE::ActorValue::kStamina);
+		float weaponBurden = leftHand ? burden.weaponBurden_lh : burden.weaponBurden_rh;
+		float StaffFireBurdenFlat = Math::Interpolate(
+			params->StaffFireLowBurden.Get(),
+			params->StaffFireHighBurden.Get(),
+			weaponBurden,
+			params->StaffFireBurdenCurve_k.Get());
+		float StaffFireCarryPct = Math::Interpolate(
+			params->StaffFireLowCarryPct.Get(),
+			params->StaffFireHighCarryPct.Get(),
+			burden.burdenBlend,
+			params->StaffFireCarryCurve_k.Get());
+
+		float TotalCost = StaffFireBurdenFlat + StaffFireCarryPct * Stamina_1pctMax;
+
+		RE::HandleEntryPoint(PEPE_STAMINA_ENTRY_POINT, actor, TotalCost, PEPE::Group::StaffFireStamina,
+			Utils::GetAttackHandInfo(actor, leftHand, false).form);
+
+		Costs::CostLog("ComputeStaffFireCost: hand={} burden={:.3f} carry={:.3f} -> {:.3f} for {:x}",
+			leftHand ? 'L' : 'R', weaponBurden, burden.burdenBlend, TotalCost, actor->GetFormID());
+
+		return TotalCost;
+	}
+
 	float ComputeBowFireCost(RE::Actor* actor)
 	{
 		if (!actor)
@@ -182,7 +214,7 @@ namespace Costs
 		float BowFireCarryPct = Math::Interpolate(
 			params->BowFireLowCarryPct.Get(),
 			params->BowFireHighCarryPct.Get(),
-			burden.carryBurden,
+			burden.burdenBlend,
 			params->BowFireCarryCurve_k.Get());
 
 		float TotalCost = BowFireBurdenFlat + BowFireCarryPct * Stamina_1pctMax;
@@ -191,7 +223,7 @@ namespace Costs
 			Utils::GetAttackHandInfo(actor, false, false).form);
 
 		Costs::CostLog("ComputeBowFireCost: burden={:.3f} carry={:.3f} -> {:.3f} for {:x}",
-			burden.burden, burden.carryBurden, TotalCost, actor->GetFormID());
+			burden.burden, burden.burdenBlend, TotalCost, actor->GetFormID());
 
 		return TotalCost;
 	}

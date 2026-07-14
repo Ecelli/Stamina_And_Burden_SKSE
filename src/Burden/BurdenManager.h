@@ -28,6 +28,7 @@ namespace Burden
 		int marksmanSkill{ -1 };
 		int blockSkill{ -1 };
 		int conjurationSkill{ -1 };
+		int staffSkill{ -1 };
 		float weaponBurden_rh{ 0.0f };
 		float weaponBurden_lh{ 0.0f };
 		float weaponBurden_2h{ 0.0f };

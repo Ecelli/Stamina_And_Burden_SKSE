@@ -7,6 +7,7 @@
 #include "Hooks/BlockHook.h"
 #include "Hooks/DenyHooks.h"
 #include "Hooks/DamageScalingHook.h"
+#include "Hooks/StaffCastingHook.h"
 
 namespace Hooks {
 	bool Install() {
@@ -38,6 +39,8 @@ namespace Hooks {
 		MovementHooks::InstallSpeed();
 		AttackDenyHook::Install();
 		JumpInputHandler::Install();
+		StartCastingHook::Install();
+		CasterUpdateHook::Install();
 
 		return true;
 	}

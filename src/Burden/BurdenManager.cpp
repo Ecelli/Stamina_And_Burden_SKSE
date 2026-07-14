@@ -162,6 +162,12 @@ namespace
 			data.weaponBurden_rh = Math::Clamp01(BurdenParams::GetSingleton()->UnarmedWeight.Get()
 				/ data.maxEquippedWeight);
 			break;
+		case Utils::RightHandType::kStaff:
+			{
+				float w = Burden::ResolveWeaponWeight(info.weapon, data.conjurationSkill);
+				data.weaponBurden_rh = Math::Clamp01(Burden::ScaleWeaponWeight(w, data.staffSkill) / data.maxEquippedWeight);
+				break;
+			}
 		default:
 			break;
 		}
@@ -171,6 +177,12 @@ namespace
 	{
 		auto info = Utils::GetLeftHandInfo(actor);
 		switch (info.type) {
+		case Utils::LeftHandType::kStaff:
+			{
+				float w = Burden::ResolveWeaponWeight(info.weapon, data.conjurationSkill);
+				data.weaponBurden_lh = Math::Clamp01(Burden::ScaleWeaponWeight(w, data.staffSkill) / data.maxEquippedWeight);
+				break;
+			}
 		case Utils::LeftHandType::kWeapon:
 			data.weaponBurden_lh = Math::Clamp01(Burden::ScaleWeaponWeight(
 				Burden::ResolveWeaponWeight(info.weapon, data.conjurationSkill),
@@ -216,14 +228,17 @@ namespace
 
 		// Block for DW or only left weapon.
 		if (leftInfo.HasWeapon()) {
+            int skill;
 			auto rightInfo = Utils::GetRightHandInfo(actor);
 			if (rightInfo.HasWeapon()) {
 				float dwPenalty = params->DualWieldBlockPenalty.Get();
+                skill = rightInfo.type == Utils::RightHandType::kStaff ? data.staffSkill : data.oneHandedSkill;
 				return Math::Clamp01(dwPenalty * 0.5f
 					* (data.weaponBurden_lh + data.weaponBurden_rh)
-					* blockMult(data.oneHandedSkill));
+					* blockMult(skill));
 			} else {
-				return Math::Clamp01(data.weaponBurden_lh * blockMult(data.oneHandedSkill));
+                skill = leftInfo.type == Utils::LeftHandType::kStaff ? data.staffSkill : data.oneHandedSkill;
+				return Math::Clamp01(data.weaponBurden_lh * blockMult(skill));
 			}
 		}
 
@@ -253,6 +268,8 @@ namespace Burden
 			return { d.weaponBurden_rh, d.oneHandedSkill };
 		case Utils::RightHandType::kHandToHand:
 			return { d.weaponBurden_rh, d.blockSkill };
+		case Utils::RightHandType::kStaff:
+			return { d.weaponBurden_rh, d.staffSkill };
 		default:
 			return { d.weaponBurden_rh, 0 };
 		}
@@ -329,6 +346,7 @@ namespace Burden
 		data.marksmanSkill = static_cast<int>(actor->GetActorValue(RE::ActorValue::kArchery));
 		data.blockSkill = static_cast<int>(actor->GetActorValue(RE::ActorValue::kBlock));
 		data.conjurationSkill = static_cast<int>(actor->GetActorValue(RE::ActorValue::kConjuration));
+		data.staffSkill = static_cast<int>(actor->GetActorValue(RE::ActorValue::kEnchanting));
 
 		ComputeRightHandBurden(actor, data);
 		ComputeLeftHandBurden(actor, data);

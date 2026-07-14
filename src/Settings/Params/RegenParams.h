@@ -96,8 +96,13 @@ namespace Regen
 		Parameter<float> BlockHoldHighBurden{ 30.0f, 0.0f, 50.0f };
 		Parameter<float> BlockHoldCurve_k{ 0.8f, 0.0f, 1.0f };
 
-		// Hold-drain blended burden component (pct of max stamina/sec, shared across block/bow hold)
-		Parameter<float> HoldDrainLowBlended{ 0.0f, 0.0f, 10.0f };
+		// Staff-hold penalty (flat stamina/sec, weapon burden-scaled)
+		Parameter<float> StaffHoldLowBurden{ 0.5f, 0.0f, 50.0f };
+		Parameter<float> StaffHoldHighBurden{ 8.0f, 0.0f, 50.0f };
+		Parameter<float> StaffHoldCurve_k{ 0.7f, 0.0f, 1.0f };
+
+		// Hold-drain blended burden component (pct of max stamina/sec, shared across block/bow/staff hold)
+		Parameter<float> HoldDrainLowBlended{ 0.2f, 0.0f, 10.0f };
 		Parameter<float> HoldDrainHighBlended{ 2.0f, 0.0f, 10.0f };
 		Parameter<float> HoldBlendedCurve_k{ 0.8f, 0.0f, 1.0f };
 
@@ -122,6 +127,9 @@ namespace Regen
 			a_fn("fBlockHoldLowBurden"sv, s.BlockHoldLowBurden);
 			a_fn("fBlockHoldHighBurden"sv, s.BlockHoldHighBurden);
 			a_fn("fBlockHoldCurve_k"sv, s.BlockHoldCurve_k);
+			a_fn("fStaffHoldLowBurden"sv, s.StaffHoldLowBurden);
+			a_fn("fStaffHoldHighBurden"sv, s.StaffHoldHighBurden);
+			a_fn("fStaffHoldCurve_k"sv, s.StaffHoldCurve_k);
 			a_fn("fHoldDrainLowBlended"sv, s.HoldDrainLowBlended);
 			a_fn("fHoldDrainHighBlended"sv, s.HoldDrainHighBlended);
 			a_fn("fHoldBlendedCurve_k"sv, s.HoldBlendedCurve_k);
