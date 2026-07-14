@@ -1,6 +1,7 @@
 #include "AttackCostHook.h"
 #include "Stamina/CostsManager.h"
 #include "Settings/Params/CostsParams.h"
+#include "Common/Utils.h"
 
 #include <RE/RTTI.h>
 
@@ -23,13 +24,13 @@ namespace Hooks
 		if (!actor)
 			return _func(a_this, a_attack);
 
-		auto* params = Costs::CostsParams::GetSingleton();
-		bool enabled = actor->IsPlayerRef() ? params->bAttackCostPlayer.Get() : params->bAttackCostNPC.Get();
-		if (!enabled)
+		auto* costParams = Costs::CostsParams::GetSingleton();
+		bool costEnabled = actor->IsPlayerRef() ? costParams->bAttackCostPlayer.Get() : costParams->bAttackCostNPC.Get();
+		if (!costEnabled)
 			return _func(a_this, a_attack);
 
-		// NOTE: cost already drained in AttackDenyHook — return 0 to prevent engine double-drain
-		// return Costs::ComputeAttackCost(actor, a_attack); // If we need to fix it
+		float cost = Costs::ComputeAttackCost(actor, a_attack);
+		Common::ApplyStaminaCost(actor, cost);
 		return 0.0f;
 	}
 }
