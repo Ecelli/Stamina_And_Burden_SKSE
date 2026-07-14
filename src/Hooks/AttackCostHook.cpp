@@ -7,6 +7,10 @@
 
 namespace Hooks
 {
+	// Hook point discovered via exhausting-combat (Styyxus, GPL-3.0)
+	// https://www.nexusmods.com/skyrimspecialedition/mods/181654
+	// exhausting-combat's ManageAttackStamina used as reference for hook return
+	// convention (return 0.0f to zero engine cost); cost formula is original.
 	void AttackCostHook::Install()
 	{
 		// AE: REL::ID(38603) + 0x171 inside ActorValueOwner::GetAttackStaminaCost

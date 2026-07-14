@@ -57,6 +57,8 @@ namespace Hooks
 		if (!regenEnabled)
 			return out;
 
+		// Regeneration-Overhaul formula used as reference for expected __m128 structure
+		// and AV-switch dispatch; regen computation is original.
 		// 2. Multiply by our formula
 		switch (a_av) {
 		case 26: // Stamina
@@ -84,6 +86,8 @@ namespace Hooks
 		return _mm_setr_ps(rate, 0.0f, 0.0f, 0.0f);
 	}
 
+	// Hook point and __m128 function signature discovered via Regeneration-Overhaul (Zzyxzz)
+	// https://www.nexusmods.com/skyrimspecialedition/mods/168926
 	void RegenHook::Install()
 	{
 		// ID 38452 + 0x2B6 (AE) — found via diagnostic analysis
@@ -97,6 +101,8 @@ namespace Hooks
 		logger::info("  >Installed regen hook (ID 38452 + 0x2B6)");
 	}
 
+	// Fenix Stamina (Fenix31415) regen delay bypass used as reference for
+	// understanding the expected call structure; drain logic is original.
 	bool RegenDelayHook::InterceptUpdateRegenDelay(
 		RE::Actor* a_actor, RE::ActorValue a_av, float a_passedTime)
 	{
@@ -116,6 +122,9 @@ namespace Hooks
 		return _original(a_actor, a_av, a_passedTime);
 	}
 
+	// Regen delay bypass approach discovered via Fenix Stamina (Fenix31415, MIT)
+	// https://github.com/clayne/StaminaNPC
+	// Fenix Stamina hooked the SE equivalent REL::ID(37510) + 0x1b for update_RegenDelay
 	void RegenDelayHook::Install()
 	{
 		REL::Relocation<std::uintptr_t> callSite{ REL::ID(38452), 0x02C };

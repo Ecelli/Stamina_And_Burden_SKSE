@@ -5,6 +5,10 @@
 
 namespace Hooks
 {
+	// Hook point discovered via exhausting-combat (Styyxus, GPL-3.0)
+	// https://www.nexusmods.com/skyrimspecialedition/mods/181654
+	// exhausting-combat's FireArrowHook used as reference for the cost+deny
+	// pattern at this call site; cost computation is original.
 	void BowFireHook::Install()
 	{
 		// AE: REL::ID(42859) + 0x138 inside FireArrow (or caller thereof)

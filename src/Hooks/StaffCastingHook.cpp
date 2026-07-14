@@ -39,6 +39,10 @@ namespace
 
 namespace Hooks
 {
+	// VTABLE hook approach and cast-structure reference discovered via
+	// exhausting-combat (Styyxus, GPL-3.0)
+	// https://www.nexusmods.com/skyrimspecialedition/mods/181654
+	// Scope narrowed to staves only; cost/deny logic is original.
 	void StartCastingHook::Install()
 	{
 		// vtable hook on ActorMagicCaster::StartCasting (index 0x06)
@@ -77,6 +81,10 @@ namespace Hooks
 		_func(a_this);
 	}
 
+	// VTABLE hook approach discovered via exhausting-combat (Styyxus, GPL-3.0)
+	// https://www.nexusmods.com/skyrimspecialedition/mods/181654
+	// exhausting-combat's CasterUpdateHook used as reference for per-frame
+	// channel drain; staff-only scope and penaly formula are original.
 	void CasterUpdateHook::Install()
 	{
 		// vtable hook on ActorMagicCaster::Update (index 0x1D)

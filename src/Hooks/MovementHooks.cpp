@@ -8,6 +8,8 @@
 namespace
 {
 	// ── Speed: REL::ID(37943) + 0x51 ──
+	// Hook point discovered via WadeInWaterRedux (Zzyxzz, MIT)
+	// https://www.nexusmods.com/skyrimspecialedition/mods/151353
 	struct SpeedHook
 	{
 		static void Install()
@@ -42,6 +44,9 @@ namespace
 	};
 
 	// ── Sprint: REL::ID(38022) + 0xC1 / +0xC9 ──
+	// Two-hook technique (replace equipped weight + passthrough) discovered via
+	// Stamina-Regenerates-While-Sprinting (Yahim0, MIT)
+	// https://www.nexusmods.com/skyrimspecialedition/mods/128208
 	struct SprintHook
 	{
 		static void Install()
@@ -89,6 +94,10 @@ namespace
 	};
 
 	// ── Jump: REL::ID(37257) + 0x17F ──
+	// Hook point discovered via exhausting-combat (Styyxus, GPL-3.0)
+	// https://www.nexusmods.com/skyrimspecialedition/mods/181654
+	// exhausting-combat's JumpGetScaleHook used as reference for call site
+	// structure; cost and height multiplier formulas are original.
 	struct JumpHook
 	{
 		static void Install()
