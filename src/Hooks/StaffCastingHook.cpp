@@ -3,6 +3,30 @@
 #include "Stamina/CostsManager.h"
 #include "Stamina/RegenManager.h"
 
+#include <RE/T/TESObjectWEAP.h>
+
+namespace
+{
+	RE::TESObjectWEAP* GetCastingStaff(RE::ActorMagicCaster* a_this)
+	{
+		auto* actor = a_this->GetCasterAsActor();
+		if (!actor)
+			return nullptr;
+
+		auto source = a_this->GetCastingSource();
+		if (source != RE::MagicSystem::CastingSource::kLeftHand &&
+			source != RE::MagicSystem::CastingSource::kRightHand)
+			return nullptr;
+
+		bool leftHand = (source == RE::MagicSystem::CastingSource::kLeftHand);
+		auto* form = actor->GetEquippedObject(leftHand);
+		auto* weap = form ? form->As<RE::TESObjectWEAP>() : nullptr;
+		if (weap && weap->GetWeaponType() == RE::WEAPON_TYPE::kStaff)
+			return weap;
+		return nullptr;
+	}
+}
+
 namespace Hooks
 {
 	void StartCastingHook::Install()
@@ -15,11 +39,12 @@ namespace Hooks
 
 	void StartCastingHook::Thunk(RE::ActorMagicCaster* a_this)
 	{
-		auto* actor = a_this->GetCasterAsActor();
-		if (!actor) {
+		auto* staff = GetCastingStaff(a_this);
+		if (!staff) {
 			_func(a_this);
 			return;
 		}
+		auto* actor = a_this->GetCasterAsActor();
 		float cost = Costs::ComputeStaffFireCost(actor);
 		if (!Common::CanDoStaminaAction(actor, cost)) {
 			logger::info("CastDeny: {:x} stamina={:.1f} cost={:.1f} — suppressed",
@@ -41,7 +66,8 @@ namespace Hooks
 	void CasterUpdateHook::Thunk(RE::ActorMagicCaster* a_this, float a_deltaTime)
 	{
 		auto* actor = a_this->GetCasterAsActor();
-		if (actor && a_this->state.any(RE::MagicCaster::State::kCasting)) {
+		auto* staff = GetCastingStaff(a_this);
+		if (staff && actor && a_this->state.any(RE::MagicCaster::State::kCasting)) {
 			float drain = Regen::ComputeStaffHoldPenalty(actor) * a_deltaTime;
 			if (drain > 0.0f) {
 				if (!Common::CanDoStaminaAction(actor, drain)) {
