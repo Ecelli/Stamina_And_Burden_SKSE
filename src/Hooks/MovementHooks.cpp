@@ -100,9 +100,11 @@ namespace
 
 		static float ApplyJumpCost(RE::Actor* actor)
 		{
-			if (actor && !actor->IsPlayerRef()) {
+			if (actor) {
 				auto* params = Costs::CostsParams::GetSingleton();
-				if (params->bJumpCostNPC.Get())
+				bool isPlayer = actor->IsPlayerRef();
+				bool costEnabled = isPlayer ? params->bJumpCostPlayer.Get() : params->bJumpCostNPC.Get();
+				if (costEnabled)
 					Common::ApplyStaminaCost(actor, Movement::ComputeJumpCost(actor));
 			}
 

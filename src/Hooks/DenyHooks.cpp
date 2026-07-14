@@ -22,8 +22,6 @@ namespace
 					player->GetActorValue(RE::ActorValue::kStamina), cost);
 				return false;
 			}
-
-			Common::ApplyStaminaCost(player, cost);
 		}
 
 		return true;
@@ -90,16 +88,11 @@ namespace Hooks
         bool denyEnabled = isPlayer ? denyParams->bEnableDenyPlayer.Get() : denyParams->bEnableDenyNPC.Get();
         float cost = Costs::ComputeAttackCost(actor, attackData);
 
-        if (!denyEnabled) {
-            Common::ApplyStaminaCost(actor, cost);
+        if (!denyEnabled)
             return 0.0F;
-        }
 
-		if (Common::CanDoStaminaAction(actor, cost)) {
-            // NOTE: cost drained here; AttackCostHook returns 0 to avoid double-drain
-            Common::ApplyStaminaCost(actor, cost);
+		if (Common::CanDoStaminaAction(actor, cost))
             return 0.0f; // CAN DO
-        }
 
         Deny::DenyLog("AttackDeny: denied {:x}, stamina={:.1f} cost={:.1f}",
             actor->GetFormID(),
