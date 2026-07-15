@@ -1075,6 +1075,27 @@ Removed: `bPlayerAlwaysCanDoAction`, `bNpcAlwaysCanDoAction`, `fNpcRegenExemptio
 
 5. **Staff stamina cost** — DONE. Two vtable hooks on `ActorMagicCaster::VTABLE[0]` (indices 0x06 and 0x1D) intercept staff casting for fire cost + hold drain. Staffs are treated as weapons — uses `weaponBurden_rh/lh` (skill-weighted by `staffSkill` from `kEnchanting`) and `burdenBlend`. PEPE: `SB_StaffFireStamina`, `SB_StaffHoldStamina`. Per-actor toggles for cost + deny. Staves in each hand tracked independently (dual-wield support).
 
+6. **Burden display in inventory menu** — append burden info to the carry weight text in the inventory menu's bottom bar (`CarryWeightValue` TextField). Two implementation options investigated:
+
+   **Attempted: Direct Scaleform from C++ (FAILED — hangs)**
+   Registered `SKSE::GetScaleformInterface()->Register(callback, "InventoryMenu")` callback. Navigated from `bottomBar->obj` → `playerInfoCard` → `CarryWeightValue` via `GFxValue::GetMember`, then called `SetText`. Used `AddTask` to re-apply each frame (ActionScript overwrites the text). **Result:** Game hangs. Root cause: `GFxValue::GetMember`/`SetText` must be called inside Scaleform's update context. The `Register` callback fires inside that context, but `AddTask` runs outside it (main game thread, not during Scaleform render). Also, `UI::GetMenu<InventoryMenu>()` accesses `menuMap` (`BSTHashMap`) which may have thread-safety issues outside UI message processing.
+
+   **Option A: Papyrus + UI class (simpler)**
+   - C++ side: add `GetBurden(actor)` Papyrus binding (trivial — wraps `Burden::Tracker::GetOrComputeBurden`)
+   - Papyrus side: quest script with `OnUpdate` calling `UI.SetMenuProperty("InventoryMenu", "_root.bottomBar_mc.playerInfoCard.CarryWeightValue", "text", current + burdenSuffix)`
+   - `UI.SetMenuProperty`/`UI.Invoke` are documented thread-safe (dispatch to main thread internally)
+   - Pros: simple, uses existing engine APIs, no Scaleform threading issues
+   - Cons: polls every frame from Papyrus VM, requires quest script + binding
+
+   **Option B: C++ GFxFunctionHandler + Accept pattern (robust)**
+   - Create `GFxFunctionHandler` subclass, override `Call(Params&)`
+   - Register via `InventoryMenu::Accept(CallbackProcessor*)` — ActionScript calls our handler when it updates carry weight text
+   - We append burden info in the callback
+   - Pros: fires at exactly the right time (intercepts ActionScript update), no polling
+   - Cons: requires understanding InventoryMenu's internal Accept wiring, more code, must identify the correct ActionScript callback name
+
+   **Open question:** Which approach to pursue? Papyrus is simpler and less error-prone. GFxFunctionHandler is more robust but requires reverse-engineering the menu's Scaleform wiring.
+
 7. **Public S&B API** — design and vend a public API header (like PEPE/DMMF) exposing burden computation, formula utilities (`Interpolate`, `ComputeAttackCost`, etc.), per-actor queries (burden data, exhaustion state), and event hooks for other mods to build on. Enables companion mods (magic overhaul, dodge mods) without version coordination.
 ---
 
