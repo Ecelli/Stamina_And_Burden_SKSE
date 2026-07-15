@@ -48,6 +48,6 @@ namespace Hooks
 		static bool InterceptUpdateRegenDelay(RE::Actor* a_actor, RE::ActorValue a_av, float a_passedTime);
 	};
 
-	void TaskPlayerFullStaminaMonitor();
+	void PlayerFullStaminaMonitor();
 	void ClearRegenDrainCache();
 }

@@ -21,6 +21,7 @@ engine call sites and expected function signatures.
 | Movement speed       | https://www.nexusmods.com/skyrimspecialedition/mods/151353 | Zzyxzz            | MIT                |
 | Sprint drain         | https://www.nexusmods.com/skyrimspecialedition/mods/128208 | Yahim0            | MIT                |
 | Damage scaling       | https://www.nexusmods.com/skyrimspecialedition/mods/91626  | Borgut1337        | Apache-2.0         |
+| World frame hook     | https://www.nexusmods.com/skyrimspecialedition/mods/34549  | SimonMagus696     | GPL-3.0            |
 
 ## Dependencies (used at build time or runtime)
 
