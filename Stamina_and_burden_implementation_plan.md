@@ -24,11 +24,11 @@ src/
 │   └── DamageManager  # Stamina-conditional damage scaling
 ├── Common/            # PCH, Utils.h, PerkCategories.h (DONE)
 │   ├── Utils.h/.cpp   # Hand detection types (LeftHandInfo, RightHandInfo, AttackHandInfo),
-│   │                  #   CanDoStaminaAction, ApplyStaminaCost, heartbeat, debug log macros
+│   │                  #   CanDoStaminaAction, ApplyStaminaCost, debug log macros
 │   └── PerkCategories.h # 9 PEPE category constants (SB_*) + PEPE_STAMINA_ENTRY_POINT
 ├── Data/              # ModObjectManager, Lookup.h (shell — EXPECTED_COUNT=0)
 ├── Export/            # SKSEPlugin.cpp — entrypoint, PEPE RequestInterface() at kDataLoaded (DONE)
-├── Hooks/             # 10 code detours + 2 VTABLE hooks + 4 event sinks + 1 uninstalled deny (DONE)
+├── Hooks/             # 11 code detours + 1 world frame hook + 2 VTABLE hooks + 4 event sinks (DONE)
 ├── Movement/          # Movement speed (burden/swim/exhaustion) + sprint/jump cost functions (DONE)
 │   ├── MovementManager        # ComputeSpeedMultiplier — burden, swim depth, exhaustion speed scaling
 │   └── MovementCostManager    # ComputeSprintDrain, ComputeJumpCost + PEPE calls
@@ -101,8 +101,8 @@ Blends equipped burden and carry burden into a single factor for cost/regen curv
 
 **Triggers (3):**
 1. Event sinks — equip/container change → `Tracker::Update(actor)` → `AddTask` deferred
-2. Heartbeat polling — 200ms detached thread → `TaskTrackBurdenParams()` → compares 7 cached skills + carryWeight
-3. Game load — `TESLoadGameEvent` → `OnGameLoad()` clears maps, re-registers player, starts heartbeats
+2. World frame hook — every 6th frame → `PollTrackedActorParams()` → compares 7 cached skills + carryWeight
+3. Game load — `TESLoadGameEvent` → `OnGameLoad()` clears maps, re-register player
 
 ### 3.2 RegenManager (DONE)
 
@@ -110,7 +110,7 @@ Blends equipped burden and carry burden into a single factor for cost/regen curv
 
 **Single source of truth:** `ComputeBurdenStaminaRegenRate(actor)` — computes the effective stamina rate (regeneration or drain) in stamina per second. Used by:
 - `RegenHook::InterceptAVRegen` — returns this value as the per-frame regen rate
-- `TaskPlayerFullStaminaMonitor` — drains 0.1 when full stamina + negative rate
+- `PlayerFullStaminaMonitor` — drains 0.1 when full stamina + negative rate
 
 **Formula:**
 ```
@@ -601,7 +601,7 @@ Note: `DamageScalingHook` and `BlockHook` share the same hook point (`38627+0x4A
 
 | Event | Handler | Purpose |
 |---|---|---|
-| `TESLoadGameEvent` | `LoadGameHandler` | `OnGameLoad()` — clear maps, re-register player, start heartbeats |
+| `TESLoadGameEvent` | `LoadGameHandler` | `OnGameLoad()` — clear maps, re-register player |
 | `TESEquipEvent` | `EquipHandler` | `Tracker::Update(actor)` — deferred burden recalc |
 | `TESContainerChangedEvent` | `ContainerHandler` | `Tracker::Update(actor)` — deferred burden recalc |
 | `TESActorLocationChangeEvent` | `WorldspaceChangeHandler` | Clear transient NPC cache on worldspace change |
@@ -644,9 +644,10 @@ PEPE `HandleEntryPoint` calls are placed inside 10 compute functions, using `PEP
 > Without a matching category, PEPE skips the entry. The condition target form
 > (weapon/shield) is passed so perks can condition on equipment type.
 
-### Heartbeat polling:
-- 200ms detached thread (`Common::make_heartbeat`) — polls tracked actor params for skill/weight changes
-- 200ms detached thread — `TaskPlayerFullStaminaMonitor`, drains 0.1 if player at full stamina with negative regen rate
+### World frame hook polling:
+- `WorldFrameHook` at `REL::ID(36564) + 0x6E` — fires every 6th frame (~100–240ms)
+- `PollTrackedActorParams` — compares 7 cached skills + carryWeight per tracked actor
+- `PlayerFullStaminaMonitor` — drains 0.1 if player at full stamina with negative regen rate
 
 ---
 
@@ -660,8 +661,8 @@ Game Event (equip/container/game load)
 Burden::Tracker::Update/OnGameLoad → UpdateBurden(actor)
     │
     ├── Event sinks (equip, container, worldspace, load)
-    ├── Heartbeat 200ms: TaskTrackBurdenParams (skill/weight polling)
-    ├── Heartbeat 200ms: TaskPlayerFullStaminaMonitor
+    ├── World frame hook (every 6th frame): PollTrackedActorParams (skill/weight polling)
+    ├── World frame hook (every 6th frame): PlayerFullStaminaMonitor
     └── Game load → ExhaustionManager::ClearAll()
 
 Per-frame (all actors processed by engine):
@@ -914,7 +915,7 @@ Removed: `bPlayerAlwaysCanDoAction`, `bNpcAlwaysCanDoAction`, `fNpcRegenExemptio
 | Health/magicka regen from stamina% | DONE |
 | RegenHook at 38452+0x2B6 | DONE |
 | RegenDelayHook at 38452+0x02C | DONE |
-| Full-stamina monitor heartbeat | DONE |
+| Full-stamina monitor (world frame hook) | DONE |
 | RegenMovementParams, WeatherParams, NegativeRegen | DONE |
 
 ### Phase 3 — Attack Costs ✅
@@ -1071,9 +1072,8 @@ Removed: `bPlayerAlwaysCanDoAction`, `bNpcAlwaysCanDoAction`, `fNpcRegenExemptio
 2. **Settings INI** — populate whitelist with all active params.
 3. **Console commands** — sb_get/set/list/reset/getburden via Papyrus + TestCommands.yaml.
 4. ~~Perk integration~~ → **DONE** (PEPE, §3c). All 8 stamina cost/penalty functions wired to `kModPowerAttackStamina` entry point via PEPE `HandleEntryPoint` with `SB_*` categories. Modded perks can scale any cost by adding perk entries targeting the relevant category. The single entry point covers attack, bow, sprint, jump, block, and hold penalty costs. Future perk-specific mechanics (timed block windows, stamina refunds, conditional bonuses) would need additional perk entry points or custom hook logic beyond PEPE's scope.
-5. **Exhaustion regen formula** — consider replacing the current HMS triple-product multiplier structure with a formula that can dip below zero flat (i.e. amplify/drain beyond the maximum-multiplier boundary). Currently exhaustion applies a multiplicative penalty to the engine rate, but never pushes regen into negative territory. A deeper stamina-drain gameplay loop could trigger exhaustion-to-drain cascades.
 
-6. **Staff stamina cost** — DONE. Two vtable hooks on `ActorMagicCaster::VTABLE[0]` (indices 0x06 and 0x1D) intercept staff casting for fire cost + hold drain. Staffs are treated as weapons — uses `weaponBurden_rh/lh` (skill-weighted by `staffSkill` from `kEnchanting`) and `burdenBlend`. PEPE: `SB_StaffFireStamina`, `SB_StaffHoldStamina`. Per-actor toggles for cost + deny. Staves in each hand tracked independently (dual-wield support).
+5. **Staff stamina cost** — DONE. Two vtable hooks on `ActorMagicCaster::VTABLE[0]` (indices 0x06 and 0x1D) intercept staff casting for fire cost + hold drain. Staffs are treated as weapons — uses `weaponBurden_rh/lh` (skill-weighted by `staffSkill` from `kEnchanting`) and `burdenBlend`. PEPE: `SB_StaffFireStamina`, `SB_StaffHoldStamina`. Per-actor toggles for cost + deny. Staves in each hand tracked independently (dual-wield support).
 
 7. **Public S&B API** — design and vend a public API header (like PEPE/DMMF) exposing burden computation, formula utilities (`Interpolate`, `ComputeAttackCost`, etc.), per-actor queries (burden data, exhaustion state), and event hooks for other mods to build on. Enables companion mods (magic overhaul, dodge mods) without version coordination.
 ---
@@ -1118,3 +1118,15 @@ Removed: `bPlayerAlwaysCanDoAction`, `bNpcAlwaysCanDoAction`, `fNpcRegenExemptio
 **Concern:** "Stamina AND Burden" — full magic manipulation may be scope creep. Staff stamina cost (staves as weapons) was a natural fit and is now DONE (see Phase 3a). Full spellcasting stamina + magnitude scaling is a second major system requiring new VTable hooks, DMMF dependency, and ~15-20 new params.
 
 **Decision:** Staff stamina cost implemented (Phase 3a). Full magic overhaul deferred pending public API design and scope re-evaluation.
+
+### 13.5 Exhaustion drain — health/magicka negative regen
+**Status:** CANCELLED — scope boundary.
+
+**Considered:** Allowing exhaustion to push health/magicka regen below zero, creating active drain during exhaustion (not just halted regen).
+
+**Rejected because:**
+- **Collapses decision space.** The current design creates a genuine choice: use a potion (immediate exit, no burst) or hold out (suffer 8s of penalties for a 25% stamina burst). Health/magicka drain makes exhaustion potentially lethal or build-disabling, forcing potion use and making the burst reward dead.
+- **Regen multiplier inversion.** A negative multiplier scales with engine base rate — players with higher regen perks/effects drain faster when exhausted, punishing investment in regen. A flat drain avoids this but disconnects from actor stats.
+- **Scope creep.** S&B is a stamina mod. Magicka drain is a magic-system mechanic. §13.4 already outlines a companion "Magicka & Burden" mod that would own magic exhaustion, spell costs, magnitude scaling, and magicka-specific drain mechanics. Baking magic pressure into S&B duplicates that work and couples the mods.
+
+**Decision:** Exhaustion penalties stay as multiplicative multipliers (damage, stamina regen, health regen, magicka regen). No drain mechanics. The companion mod can design its own magic exhaustion state with drain if desired.
