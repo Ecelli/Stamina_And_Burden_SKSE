@@ -90,6 +90,16 @@ void Exhaustion::SetStaminaBarGrayIfPlayer(RE::Actor* a_actor)
 {
 	if (!a_actor || !a_actor->IsPlayerRef())
 		return;
+
+	if (g_trueHUDAvailable && g_trueHUD) {
+		g_trueHUD->OverrideBarColor(
+			a_actor->GetHandle(),
+			RE::ActorValue::kStamina,
+			TRUEHUD_API::BarColorType::BarColor,
+			0x7d7e7d);
+		return;
+	}
+
 	if (auto* ui = RE::UI::GetSingleton())
 		if (auto hud = ui->GetMenu<RE::HUDMenu>())
 			if (hud->stamina)
@@ -100,6 +110,15 @@ void Exhaustion::ResetStaminaBarColorIfPlayer(RE::Actor* a_actor)
 {
 	if (!a_actor || !a_actor->IsPlayerRef())
 		return;
+
+	if (g_trueHUDAvailable && g_trueHUD) {
+		g_trueHUD->RevertBarColor(
+			a_actor->GetHandle(),
+			RE::ActorValue::kStamina,
+			TRUEHUD_API::BarColorType::BarColor);
+		return;
+	}
+
 	if (auto* ui = RE::UI::GetSingleton()) {
 		if (auto hud = ui->GetMenu<RE::HUDMenu>()) {
 			if (hud->stamina) {
