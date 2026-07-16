@@ -9,6 +9,7 @@
 #include "Common/Utils.h"
 #include "API/PerkEntryPointExtenderAPI.h"
 #include "Hooks/DenyHooks.h"
+#include "Stamina/ExhaustionManager.h"
 
 static void MessageEventCallback(SKSE::MessagingInterface::Message* a_msg)
 {
@@ -22,6 +23,17 @@ static void MessageEventCallback(SKSE::MessagingInterface::Message* a_msg)
 			logger::warn("  >PEPE not found — perk categories will be inactive");
 		} else {
 			logger::info("  >PEPE interface resolved");
+		}
+
+		SECTION_SEPARATOR;
+		Exhaustion::g_trueHUD = reinterpret_cast<TRUEHUD_API::IVTrueHUD2*>(
+			TRUEHUD_API::RequestPluginAPI(TRUEHUD_API::InterfaceVersion::V2));
+		if (Exhaustion::g_trueHUD) {
+			Exhaustion::g_trueHUDAvailable = true;
+			logger::info("  >TrueHUD interface resolved — exhaustion will recolor the stamina bar");
+		} else {
+			Exhaustion::g_trueHUDAvailable = false;
+			logger::info("  >TrueHUD not found — exhaustion will use tint fallback");
 		}
 
 		SECTION_SEPARATOR;

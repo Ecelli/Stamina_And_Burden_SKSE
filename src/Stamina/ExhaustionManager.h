@@ -1,9 +1,12 @@
 #pragma once
 
 #include <unordered_map>
+#include "API/TrueHUDAPI.h"
 
 namespace Exhaustion
 {
+	inline TRUEHUD_API::IVTrueHUD2* g_trueHUD = nullptr;
+	inline bool g_trueHUDAvailable = false;
     struct ExhaustionState
 	{
 		bool isExhausted = false;
@@ -27,4 +30,6 @@ namespace Exhaustion
 	void CheckForAndTriggerExhaustion(RE::Actor* a_actor, float a_deltaTime);
 	float GetExhaustionDamageMultiplier(RE::Actor* a_actor);
 	float GetExhaustionRegenMult(RE::Actor* a_actor, RE::ActorValue a_av);
+	void SetStaminaBarGrayIfPlayer(RE::Actor* a_actor);
+	void ResetStaminaBarColorIfPlayer(RE::Actor* a_actor);
 }
