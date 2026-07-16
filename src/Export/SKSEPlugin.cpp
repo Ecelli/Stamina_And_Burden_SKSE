@@ -3,6 +3,7 @@
 #include "Hooks/Hooks.h"
 #include "Papyrus/Papyrus.h"
 #include "Settings/Params/SettingsOverride.h"
+#include "Settings/Params/SBSettingsINI.h"
 #include "Serialization/Serde.h"
 #include "Settings/INI/INISettings.h"
 #include "Settings/JSON/JSONSettings.h"
@@ -101,6 +102,7 @@ extern "C" DLLEXPORT bool SKSEAPI SKSEPlugin_Load(const SKSE::LoadInterface * a_
 	if (!Settings::INI::Read()) {
 		SKSE::stl::report_and_fail("Failed to load INI settings. Check the log for more information."sv);
 	}
+	SBSettingsINI::Initialize();
 	SECTION_SEPARATOR;
 	if (!Hooks::Install()) {
 		SKSE::stl::report_and_fail("Failed to install hooks. Check the log for more information."sv);
