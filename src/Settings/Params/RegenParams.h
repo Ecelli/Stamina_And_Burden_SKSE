@@ -40,30 +40,30 @@ namespace Regen
 		template <typename F>
 		static void ForEach(F&& a_fn)
 		{
-			auto& s = GetSingleton();
+			auto* s = GetSingleton();
 			a_fn("Debug");
-			a_fn("bEnableDebugLogging"sv, s.EnableDebugLogging);
+			a_fn("bEnableDebugLogging"sv, s->EnableDebugLogging);
 			a_fn("Toggles");
-			a_fn("bRegenPlayer"sv, s.bRegenPlayer);
-			a_fn("bRegenNPC"sv, s.bRegenNPC);
+			a_fn("bRegenPlayer"sv, s->bRegenPlayer);
+			a_fn("bRegenNPC"sv, s->bRegenNPC);
 			a_fn("Stamina Regen");
-			a_fn("fStaminaRegenMult_LowHealth"sv, s.StaminaRegenMult_LowHealth);
-			a_fn("fStaminaRegenMult_HighHealth"sv, s.StaminaRegenMult_HighHealth);
-			a_fn("fStaminaRegenMult_LowStamina"sv, s.StaminaRegenMult_LowStamina);
-			a_fn("fStaminaRegenMult_HighStamina"sv, s.StaminaRegenMult_HighStamina);
-			a_fn("fStaminaRegenMult_LowMagicka"sv, s.StaminaRegenMult_LowMagicka);
-			a_fn("fStaminaRegenMult_HighMagicka"sv, s.StaminaRegenMult_HighMagicka);
-			a_fn("fStaminaRegenCurve_kStamina"sv, s.StaminaRegenCurve_kStamina);
-			a_fn("fStaminaRegenCurve_kMagicka"sv, s.StaminaRegenCurve_kMagicka);
-			a_fn("fStaminaRegenCurve_kHealth"sv, s.StaminaRegenCurve_kHealth);
+			a_fn("fStaminaRegenMult_LowHealth"sv, s->StaminaRegenMult_LowHealth);
+			a_fn("fStaminaRegenMult_HighHealth"sv, s->StaminaRegenMult_HighHealth);
+			a_fn("fStaminaRegenMult_LowStamina"sv, s->StaminaRegenMult_LowStamina);
+			a_fn("fStaminaRegenMult_HighStamina"sv, s->StaminaRegenMult_HighStamina);
+			a_fn("fStaminaRegenMult_LowMagicka"sv, s->StaminaRegenMult_LowMagicka);
+			a_fn("fStaminaRegenMult_HighMagicka"sv, s->StaminaRegenMult_HighMagicka);
+			a_fn("fStaminaRegenCurve_kStamina"sv, s->StaminaRegenCurve_kStamina);
+			a_fn("fStaminaRegenCurve_kMagicka"sv, s->StaminaRegenCurve_kMagicka);
+			a_fn("fStaminaRegenCurve_kHealth"sv, s->StaminaRegenCurve_kHealth);
 			a_fn("Health Regen");
-			a_fn("fHealthRegenMult_LowStamina"sv, s.HealthRegenMult_LowStamina);
-			a_fn("fHealthRegenMult_HighStamina"sv, s.HealthRegenMult_HighStamina);
-			a_fn("fHealthRegenCurve_k"sv, s.HealthRegenCurve_k);
+			a_fn("fHealthRegenMult_LowStamina"sv, s->HealthRegenMult_LowStamina);
+			a_fn("fHealthRegenMult_HighStamina"sv, s->HealthRegenMult_HighStamina);
+			a_fn("fHealthRegenCurve_k"sv, s->HealthRegenCurve_k);
 			a_fn("Magicka Regen");
-			a_fn("fMagickaRegenMult_LowStamina"sv, s.MagickaRegenMult_LowStamina);
-			a_fn("fMagickaRegenMult_HighStamina"sv, s.MagickaRegenMult_HighStamina);
-			a_fn("fMagickaRegenCurve_k"sv, s.MagickaRegenCurve_k);
+			a_fn("fMagickaRegenMult_LowStamina"sv, s->MagickaRegenMult_LowStamina);
+			a_fn("fMagickaRegenMult_HighStamina"sv, s->MagickaRegenMult_HighStamina);
+			a_fn("fMagickaRegenCurve_k"sv, s->MagickaRegenCurve_k);
 		}
 	};
 
@@ -104,33 +104,33 @@ namespace Regen
 		template <typename F>
 		static void ForEach(F&& a_fn)
 		{
-			auto& s = GetSingleton();
+			auto* s = GetSingleton();
 			a_fn("Movement Regeneration");
-			a_fn("fRegenStatic_max"sv, s.RegenStatic_max);
-			a_fn("fRegenStatic_min"sv, s.RegenStatic_min);
-			a_fn("fRegenWalking_max"sv, s.RegenWalking_max);
-			a_fn("fRegenWalking_min"sv, s.RegenWalking_min);
-			a_fn("fRegenSneaking_max"sv, s.RegenSneaking_max);
-			a_fn("fRegenSneaking_min"sv, s.RegenSneaking_min);
-			a_fn("fRegenRunning_max"sv, s.RegenRunning_max);
-			a_fn("fRegenRunning_min"sv, s.RegenRunning_min);
-			a_fn("fRegenSwimming_max"sv, s.RegenSwimming_max);
-			a_fn("fRegenSwimming_min"sv, s.RegenSwimming_min);
-			a_fn("fMovementRegenCurve_k"sv, s.MovementRegenCurve_k);
+			a_fn("fRegenStatic_max"sv, s->RegenStatic_max);
+			a_fn("fRegenStatic_min"sv, s->RegenStatic_min);
+			a_fn("fRegenWalking_max"sv, s->RegenWalking_max);
+			a_fn("fRegenWalking_min"sv, s->RegenWalking_min);
+			a_fn("fRegenSneaking_max"sv, s->RegenSneaking_max);
+			a_fn("fRegenSneaking_min"sv, s->RegenSneaking_min);
+			a_fn("fRegenRunning_max"sv, s->RegenRunning_max);
+			a_fn("fRegenRunning_min"sv, s->RegenRunning_min);
+			a_fn("fRegenSwimming_max"sv, s->RegenSwimming_max);
+			a_fn("fRegenSwimming_min"sv, s->RegenSwimming_min);
+			a_fn("fMovementRegenCurve_k"sv, s->MovementRegenCurve_k);
 			a_fn("Hold Penalties");
-			a_fn("fBowDrawLowBurden"sv, s.BowDrawLowBurden);
-			a_fn("fBowDrawHighBurden"sv, s.BowDrawHighBurden);
-			a_fn("fBowDrawCurve_k"sv, s.BowDrawCurve_k);
-			a_fn("fBlockHoldLowBurden"sv, s.BlockHoldLowBurden);
-			a_fn("fBlockHoldHighBurden"sv, s.BlockHoldHighBurden);
-			a_fn("fBlockHoldCurve_k"sv, s.BlockHoldCurve_k);
-			a_fn("fStaffHoldLowBurden"sv, s.StaffHoldLowBurden);
-			a_fn("fStaffHoldHighBurden"sv, s.StaffHoldHighBurden);
-			a_fn("fStaffHoldCurve_k"sv, s.StaffHoldCurve_k);
+			a_fn("fBowDrawLowBurden"sv, s->BowDrawLowBurden);
+			a_fn("fBowDrawHighBurden"sv, s->BowDrawHighBurden);
+			a_fn("fBowDrawCurve_k"sv, s->BowDrawCurve_k);
+			a_fn("fBlockHoldLowBurden"sv, s->BlockHoldLowBurden);
+			a_fn("fBlockHoldHighBurden"sv, s->BlockHoldHighBurden);
+			a_fn("fBlockHoldCurve_k"sv, s->BlockHoldCurve_k);
+			a_fn("fStaffHoldLowBurden"sv, s->StaffHoldLowBurden);
+			a_fn("fStaffHoldHighBurden"sv, s->StaffHoldHighBurden);
+			a_fn("fStaffHoldCurve_k"sv, s->StaffHoldCurve_k);
 			a_fn("Blended Drain Hold");
-			a_fn("fHoldDrainLowBlended"sv, s.HoldDrainLowBlended);
-			a_fn("fHoldDrainHighBlended"sv, s.HoldDrainHighBlended);
-			a_fn("fHoldBlendedCurve_k"sv, s.HoldBlendedCurve_k);
+			a_fn("fHoldDrainLowBlended"sv, s->HoldDrainLowBlended);
+			a_fn("fHoldDrainHighBlended"sv, s->HoldDrainHighBlended);
+			a_fn("fHoldBlendedCurve_k"sv, s->HoldBlendedCurve_k);
 		}
 	};
 
@@ -148,12 +148,12 @@ namespace Regen
 		template <typename F>
 		static void ForEach(F&& a_fn)
 		{
-			auto& s = GetSingleton();
-			a_fn("fBurnRate_LowBonus"sv, s.BurnRate_LowBonus);
-			a_fn("fBurnRate_HighBonus"sv, s.BurnRate_HighBonus);
-			a_fn("fBurnRate_Curve_k"sv, s.BurnRate_Curve_k);
-			a_fn("fBurnRate_LowBound"sv, s.BurnRate_LowBound);
-			a_fn("fBurnRate_HighBound"sv, s.BurnRate_HighBound);
+			auto* s = GetSingleton();
+			a_fn("fBurnRate_LowBonus"sv, s->BurnRate_LowBonus);
+			a_fn("fBurnRate_HighBonus"sv, s->BurnRate_HighBonus);
+			a_fn("fBurnRate_Curve_k"sv, s->BurnRate_Curve_k);
+			a_fn("fBurnRate_LowBound"sv, s->BurnRate_LowBound);
+			a_fn("fBurnRate_HighBound"sv, s->BurnRate_HighBound);
 		}
 	};
 
@@ -172,12 +172,12 @@ namespace Regen
 		template <typename F>
 		static void ForEach(F&& a_fn)
 		{
-			auto& s = GetSingleton();
+			auto* s = GetSingleton();
 			a_fn("Toggle");
-			a_fn("bWeatherEnabled"sv, s.WeatherEnabled);
+			a_fn("bWeatherEnabled"sv, s->WeatherEnabled);
 			a_fn("Penalties");
-			a_fn("fWeatherRainPenalty"sv, s.WeatherRainPenalty);
-			a_fn("fWeatherSnowPenalty"sv, s.WeatherSnowPenalty);
+			a_fn("fWeatherRainPenalty"sv, s->WeatherRainPenalty);
+			a_fn("fWeatherSnowPenalty"sv, s->WeatherSnowPenalty);
 		}
 	};
 }

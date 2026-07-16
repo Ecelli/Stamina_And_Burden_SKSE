@@ -31,26 +31,26 @@ struct MovementSpeedParams : REX::Singleton<MovementSpeedParams>
 	template <typename F>
 	static void ForEach(F&& a_fn)
 	{
-		auto& s = GetSingleton();
+		auto* s = GetSingleton();
 		a_fn("Debug");
-		a_fn("bEnableDebugMovementLogging"sv, s.EnableDebugLogging);
+		a_fn("bEnableDebugMovementLogging"sv, s->EnableDebugLogging);
 		a_fn("Toggles");
-		a_fn("bMovementSpeedPlayer"sv, s.bMovementSpeedPlayer);
-		a_fn("bMovementSpeedNPC"sv, s.bMovementSpeedNPC);
+		a_fn("bMovementSpeedPlayer"sv, s->bMovementSpeedPlayer);
+		a_fn("bMovementSpeedNPC"sv, s->bMovementSpeedNPC);
 		a_fn("Burden Speed");
-		a_fn("bBurdenSpeedPlayer"sv, s.bBurdenSpeedPlayer);
-		a_fn("bBurdenSpeedNPC"sv, s.bBurdenSpeedNPC);
-		a_fn("fSpeedMultLowBurden"sv, s.speedMultLowBurden);
-		a_fn("fSpeedMultHighBurden"sv, s.speedMultHighBurden);
-		a_fn("fBurdenSpeedCurve_k"sv, s.burdenSpeedCurve_k);
+		a_fn("bBurdenSpeedPlayer"sv, s->bBurdenSpeedPlayer);
+		a_fn("bBurdenSpeedNPC"sv, s->bBurdenSpeedNPC);
+		a_fn("fSpeedMultLowBurden"sv, s->speedMultLowBurden);
+		a_fn("fSpeedMultHighBurden"sv, s->speedMultHighBurden);
+		a_fn("fBurdenSpeedCurve_k"sv, s->burdenSpeedCurve_k);
 		a_fn("Swim Speed");
-		a_fn("bSwimSpeedPlayer"sv, s.bSwimSpeedPlayer);
-		a_fn("bSwimSpeedNPC"sv, s.bSwimSpeedNPC);
-		a_fn("fSpeedMultAboveWater"sv, s.speedMultAboveWater);
-		a_fn("fSpeedMultSubmerged"sv, s.speedMultSubmerged);
-		a_fn("fSubmergedCurve_k"sv, s.submergedCurve_k);
+		a_fn("bSwimSpeedPlayer"sv, s->bSwimSpeedPlayer);
+		a_fn("bSwimSpeedNPC"sv, s->bSwimSpeedNPC);
+		a_fn("fSpeedMultAboveWater"sv, s->speedMultAboveWater);
+		a_fn("fSpeedMultSubmerged"sv, s->speedMultSubmerged);
+		a_fn("fSubmergedCurve_k"sv, s->submergedCurve_k);
 		a_fn("Exhaustion");
-		a_fn("fExhaustionSpeedMult"sv, s.exhaustionSpeedMult);
+		a_fn("fExhaustionSpeedMult"sv, s->exhaustionSpeedMult);
 	}
 };
 
@@ -73,17 +73,17 @@ struct JumpParams : REX::Singleton<JumpParams>
 	template <typename F>
 	static void ForEach(F&& a_fn)
 	{
-		auto& s = GetSingleton();
+		auto* s = GetSingleton();
 		a_fn("Toggles");
-		a_fn("bJumpHeightPlayer"sv, s.bJumpHeightPlayer);
-		a_fn("bJumpHeightNPC"sv, s.bJumpHeightNPC);
-		a_fn("bJumpDenyPlayer"sv, s.bJumpDenyPlayer);
+		a_fn("bJumpHeightPlayer"sv, s->bJumpHeightPlayer);
+		a_fn("bJumpHeightNPC"sv, s->bJumpHeightNPC);
+		a_fn("bJumpDenyPlayer"sv, s->bJumpDenyPlayer);
 		a_fn("Debug");
-		a_fn("bEnableDebugJumpLogging"sv, s.EnableDebugJumpLogging);
+		a_fn("bEnableDebugJumpLogging"sv, s->EnableDebugJumpLogging);
 		a_fn("Height");
-		a_fn("fJumpHeightLowBurden"sv, s.fJumpHeightLowBurden);
-		a_fn("fJumpHeightHighBurden"sv, s.fJumpHeightHighBurden);
-		a_fn("fJumpHeightCurve_k"sv, s.fJumpHeightCurve_k);
-		a_fn("fJumpHeightExhaustionMult"sv, s.fJumpHeightExhaustionMult);
+		a_fn("fJumpHeightLowBurden"sv, s->fJumpHeightLowBurden);
+		a_fn("fJumpHeightHighBurden"sv, s->fJumpHeightHighBurden);
+		a_fn("fJumpHeightCurve_k"sv, s->fJumpHeightCurve_k);
+		a_fn("fJumpHeightExhaustionMult"sv, s->fJumpHeightExhaustionMult);
 	}
 };

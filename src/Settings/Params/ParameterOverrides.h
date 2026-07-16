@@ -33,27 +33,27 @@ struct ParameterOverrides : REX::Singleton<ParameterOverrides>
 	template <typename F>
 	static void ForEach(F&& a_fn)
 	{
-		auto& s = GetSingleton();
+		auto* s = GetSingleton();
 		a_fn("Combat Regen");
-		a_fn("fCombatStaminaRegenRateMult"sv, s.CombatStaminaRegenRateMult);
-		a_fn("fCombatHealthRegenRateMult"sv, s.CombatHealthRegenRateMult);
-		a_fn("fCombatMagickaRegenRateMult"sv, s.CombatMagickaRegenRateMult);
+		a_fn("fCombatStaminaRegenRateMult"sv, s->CombatStaminaRegenRateMult);
+		a_fn("fCombatHealthRegenRateMult"sv, s->CombatHealthRegenRateMult);
+		a_fn("fCombatMagickaRegenRateMult"sv, s->CombatMagickaRegenRateMult);
 		a_fn("Regen Delays");
-		a_fn("fDamagedStaminaRegenDelay"sv, s.DamagedStaminaRegenDelay);
-		a_fn("fDamagedHealthRegenDelay"sv, s.DamagedHealthRegenDelay);
-		a_fn("fDamagedMagickaRegenDelay"sv, s.DamagedMagickaRegenDelay);
+		a_fn("fDamagedStaminaRegenDelay"sv, s->DamagedStaminaRegenDelay);
+		a_fn("fDamagedHealthRegenDelay"sv, s->DamagedHealthRegenDelay);
+		a_fn("fDamagedMagickaRegenDelay"sv, s->DamagedMagickaRegenDelay);
 		a_fn("Sprint");
-		a_fn("fSprintStaminaDrainMult"sv, s.SprintStaminaDrainMult);
+		a_fn("fSprintStaminaDrainMult"sv, s->SprintStaminaDrainMult);
 		a_fn("Block Formula");
-		a_fn("fShieldBaseFactor"sv, s.fShieldBaseFactor);
-		a_fn("fShieldScalingFactor"sv, s.fShieldScalingFactor);
-		a_fn("fBlockWeaponBase"sv, s.fBlockWeaponBase);
-		a_fn("fBlockWeaponScaling"sv, s.fBlockWeaponScaling);
-		a_fn("fBlockSkillMult"sv, s.fBlockSkillMult);
-		a_fn("fBlockPowerAttackMult"sv, s.fBlockPowerAttackMult);
+		a_fn("fShieldBaseFactor"sv, s->fShieldBaseFactor);
+		a_fn("fShieldScalingFactor"sv, s->fShieldScalingFactor);
+		a_fn("fBlockWeaponBase"sv, s->fBlockWeaponBase);
+		a_fn("fBlockWeaponScaling"sv, s->fBlockWeaponScaling);
+		a_fn("fBlockSkillMult"sv, s->fBlockSkillMult);
+		a_fn("fBlockPowerAttackMult"sv, s->fBlockPowerAttackMult);
 		a_fn("Engine Block");
-		a_fn("fStaminaBlockDmgMult"sv, s.fStaminaBlockDmgMult);
-		a_fn("fStaminaBlockStaggerMult"sv, s.fStaminaBlockStaggerMult);
-		a_fn("fStaminaBlockBase"sv, s.fStaminaBlockBase);
+		a_fn("fStaminaBlockDmgMult"sv, s->fStaminaBlockDmgMult);
+		a_fn("fStaminaBlockStaggerMult"sv, s->fStaminaBlockStaggerMult);
+		a_fn("fStaminaBlockBase"sv, s->fStaminaBlockBase);
 	}
 };

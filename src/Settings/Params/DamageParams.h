@@ -21,16 +21,16 @@ namespace Damage
 		template <typename F>
 		static void ForEach(F&& a_fn)
 		{
-			auto& s = GetSingleton();
+			auto* s = GetSingleton();
 			a_fn("Debug");
-			a_fn("bEnableDebugLogging"sv, s.EnableDebugLogging);
+			a_fn("bEnableDebugLogging"sv, s->EnableDebugLogging);
 			a_fn("Toggles");
-			a_fn("bDamageScalingPlayer"sv, s.bDamageScalingPlayer);
-			a_fn("bDamageScalingNPC"sv, s.bDamageScalingNPC);
+			a_fn("bDamageScalingPlayer"sv, s->bDamageScalingPlayer);
+			a_fn("bDamageScalingNPC"sv, s->bDamageScalingNPC);
 			a_fn("Scaling");
-			a_fn("fDamageScaleLow"sv, s.fDamageScaleLow);
-			a_fn("fDamageScaleHigh"sv, s.fDamageScaleHigh);
-			a_fn("fDamageScaleCurve_k"sv, s.fDamageScaleCurve_k);
+			a_fn("fDamageScaleLow"sv, s->fDamageScaleLow);
+			a_fn("fDamageScaleHigh"sv, s->fDamageScaleHigh);
+			a_fn("fDamageScaleCurve_k"sv, s->fDamageScaleCurve_k);
 		}
 	};
 }

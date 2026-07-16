@@ -41,35 +41,35 @@ namespace Blocking
 		template <typename F>
 		static void ForEach(F&& a_fn)
 		{
-			auto& s = GetSingleton();
+			auto* s = GetSingleton();
 			a_fn("Debug");
-			a_fn("bEnableDebugLogging"sv, s.EnableDebugLogging);
+			a_fn("bEnableDebugLogging"sv, s->EnableDebugLogging);
 			a_fn("Block Cost");
-			a_fn("bBlockCostPlayer"sv, s.bBlockCostPlayer);
-			a_fn("bBlockCostNPC"sv, s.bBlockCostNPC);
-			a_fn("fBlockCost_LowBlockBurden"sv, s.fBlockCost_LowBlockBurden);
-			a_fn("fBlockCost_HighBlockBurden"sv, s.fBlockCost_HighBlockBurden);
-			a_fn("fBlockCostCurve_k"sv, s.fBlockCostCurve_k);
-			a_fn("fBlockCostPct_LowBlended"sv, s.fBlockCostPct_LowBlended);
-			a_fn("fBlockCostPct_HighBlended"sv, s.fBlockCostPct_HighBlended);
-			a_fn("fBlockCostPctCurve_k"sv, s.fBlockCostPctCurve_k);
+			a_fn("bBlockCostPlayer"sv, s->bBlockCostPlayer);
+			a_fn("bBlockCostNPC"sv, s->bBlockCostNPC);
+			a_fn("fBlockCost_LowBlockBurden"sv, s->fBlockCost_LowBlockBurden);
+			a_fn("fBlockCost_HighBlockBurden"sv, s->fBlockCost_HighBlockBurden);
+			a_fn("fBlockCostCurve_k"sv, s->fBlockCostCurve_k);
+			a_fn("fBlockCostPct_LowBlended"sv, s->fBlockCostPct_LowBlended);
+			a_fn("fBlockCostPct_HighBlended"sv, s->fBlockCostPct_HighBlended);
+			a_fn("fBlockCostPctCurve_k"sv, s->fBlockCostPctCurve_k);
 			a_fn("Redirect");
-			a_fn("bBlockRedirectPlayer"sv, s.bBlockRedirectPlayer);
-			a_fn("bBlockRedirectNPC"sv, s.bBlockRedirectNPC);
-			a_fn("fBlockRedirectMult_LowBurden"sv, s.fBlockRedirectMult_LowBurden);
-			a_fn("fBlockRedirectMult_HighBurden"sv, s.fBlockRedirectMult_HighBurden);
-			a_fn("fBlockRedirectMultCurve_k"sv, s.fBlockRedirectMultCurve_k);
-			a_fn("fBlockRedirectMultPct_LowBurden"sv, s.fBlockRedirectMultPct_LowBurden);
-			a_fn("fBlockRedirectMultPct_HighBurden"sv, s.fBlockRedirectMultPct_HighBurden);
-			a_fn("fBlockRedirectMultPctCurve_k"sv, s.fBlockRedirectMultPctCurve_k);
+			a_fn("bBlockRedirectPlayer"sv, s->bBlockRedirectPlayer);
+			a_fn("bBlockRedirectNPC"sv, s->bBlockRedirectNPC);
+			a_fn("fBlockRedirectMult_LowBurden"sv, s->fBlockRedirectMult_LowBurden);
+			a_fn("fBlockRedirectMult_HighBurden"sv, s->fBlockRedirectMult_HighBurden);
+			a_fn("fBlockRedirectMultCurve_k"sv, s->fBlockRedirectMultCurve_k);
+			a_fn("fBlockRedirectMultPct_LowBurden"sv, s->fBlockRedirectMultPct_LowBurden);
+			a_fn("fBlockRedirectMultPct_HighBurden"sv, s->fBlockRedirectMultPct_HighBurden);
+			a_fn("fBlockRedirectMultPctCurve_k"sv, s->fBlockRedirectMultPctCurve_k);
 			a_fn("Stagger");
-			a_fn("fStaggerPowerAttackMult"sv, s.fStaggerPowerAttackMult);
-			a_fn("fStaggerInertiaFactor_LowBurden"sv, s.fStaggerInertiaFactor_LowBurden);
-			a_fn("fStaggerInertiaFactor_HighBurden"sv, s.fStaggerInertiaFactor_HighBurden);
-			a_fn("fStaggerInertiaFactorCurve_k"sv, s.fStaggerInertiaFactorCurve_k);
-			a_fn("fStaggerMagnitudeMin"sv, s.fStaggerMagnitudeMin);
-			a_fn("fStaggerMagnitudeMax"sv, s.fStaggerMagnitudeMax);
-			a_fn("fStaggerMagnitudeCurve_k"sv, s.fStaggerMagnitudeCurve_k);
+			a_fn("fStaggerPowerAttackMult"sv, s->fStaggerPowerAttackMult);
+			a_fn("fStaggerInertiaFactor_LowBurden"sv, s->fStaggerInertiaFactor_LowBurden);
+			a_fn("fStaggerInertiaFactor_HighBurden"sv, s->fStaggerInertiaFactor_HighBurden);
+			a_fn("fStaggerInertiaFactorCurve_k"sv, s->fStaggerInertiaFactorCurve_k);
+			a_fn("fStaggerMagnitudeMin"sv, s->fStaggerMagnitudeMin);
+			a_fn("fStaggerMagnitudeMax"sv, s->fStaggerMagnitudeMax);
+			a_fn("fStaggerMagnitudeCurve_k"sv, s->fStaggerMagnitudeCurve_k);
 		}
 	};
 }

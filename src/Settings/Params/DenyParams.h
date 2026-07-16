@@ -19,14 +19,14 @@ namespace Deny
 		template <typename F>
 		static void ForEach(F&& a_fn)
 		{
-			auto& s = GetSingleton();
+			auto* s = GetSingleton();
 			a_fn("Debug");
-			a_fn("bEnableDebugLogging"sv, s.EnableDebugLogging);
+			a_fn("bEnableDebugLogging"sv, s->EnableDebugLogging);
 			a_fn("Toggles");
-			a_fn("bEnableDenyPlayer"sv, s.bEnableDenyPlayer);
-			a_fn("bEnableDenyNPC"sv, s.bEnableDenyNPC);
+			a_fn("bEnableDenyPlayer"sv, s->bEnableDenyPlayer);
+			a_fn("bEnableDenyNPC"sv, s->bEnableDenyNPC);
 			a_fn("Threshold");
-			a_fn("fMinStaminaCostMult"sv, s.fMinStaminaCostMult);
+			a_fn("fMinStaminaCostMult"sv, s->fMinStaminaCostMult);
 		}
 	};
 }

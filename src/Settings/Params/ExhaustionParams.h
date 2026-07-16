@@ -25,20 +25,20 @@ struct ExhaustionParams : REX::Singleton<ExhaustionParams>
 	template <typename F>
 	static void ForEach(F&& a_fn)
 	{
-		auto& s = GetSingleton();
+		auto* s = GetSingleton();
 		a_fn("Debug");
-		a_fn("bEnableDebugLogging"sv, s.bEnableDebugLogging);
+		a_fn("bEnableDebugLogging"sv, s->bEnableDebugLogging);
 		a_fn("Toggles");
-		a_fn("bExhaustionPlayer"sv, s.bExhaustionPlayer);
-		a_fn("bExhaustionNPC"sv, s.bExhaustionNPC);
+		a_fn("bExhaustionPlayer"sv, s->bExhaustionPlayer);
+		a_fn("bExhaustionNPC"sv, s->bExhaustionNPC);
 		a_fn("Recovery");
-		a_fn("fExhaustionDuration"sv, s.fExhaustionDuration);
-		a_fn("fExhaustionBurstStamina"sv, s.fExhaustionBurstStamina);
-		a_fn("fExhaustionThresholdStamina"sv, s.fExhaustionThresholdStamina);
+		a_fn("fExhaustionDuration"sv, s->fExhaustionDuration);
+		a_fn("fExhaustionBurstStamina"sv, s->fExhaustionBurstStamina);
+		a_fn("fExhaustionThresholdStamina"sv, s->fExhaustionThresholdStamina);
 		a_fn("Penalties");
-		a_fn("fExhaustionPenaltyDamageMult"sv, s.fExhaustionPenaltyDamageMult);
-		a_fn("fExhaustionPenaltyStaminaMult"sv, s.fExhaustionPenaltyStaminaMult);
-		a_fn("fExhaustionPenaltyHealthMult"sv, s.fExhaustionPenaltyHealthMult);
-		a_fn("fExhaustionPenaltyMagickaMult"sv, s.fExhaustionPenaltyMagickaMult);
+		a_fn("fExhaustionPenaltyDamageMult"sv, s->fExhaustionPenaltyDamageMult);
+		a_fn("fExhaustionPenaltyStaminaMult"sv, s->fExhaustionPenaltyStaminaMult);
+		a_fn("fExhaustionPenaltyHealthMult"sv, s->fExhaustionPenaltyHealthMult);
+		a_fn("fExhaustionPenaltyMagickaMult"sv, s->fExhaustionPenaltyMagickaMult);
 	}
 };
