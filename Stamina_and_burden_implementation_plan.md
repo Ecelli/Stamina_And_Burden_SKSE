@@ -1018,7 +1018,7 @@ Removed: `bPlayerAlwaysCanDoAction`, `bNpcAlwaysCanDoAction`, `fNpcRegenExemptio
 | Papyrus bindings | NOT STARTED |
 | Save serialization | NOT STARTED |
 | INI configuration entries | NOT STARTED |
-| Visual/audio feedback | NOT STARTED |
+| Visual feedback — TrueHUD stamina bar recolor (grey tint while exhausted) | DONE — `ExhaustionManager.h/cpp` dual-path: TrueHUD `OverrideBarColor` + tint fallback |
 
 ### Phase 8 — Settings & Console (DEFERRED — lowest priority)
 | Task | Status |
