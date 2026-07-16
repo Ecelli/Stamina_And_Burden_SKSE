@@ -8,6 +8,7 @@
     "boost-stl-interfaces",
     "clib-util",
     "fmt",
+    "imgui",
     "jsoncpp",
     "rsm-binary-io",
     "spdlog",

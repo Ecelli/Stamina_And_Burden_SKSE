@@ -51,11 +51,13 @@ SKSEPlugin_Add(
 
 find_path(CLIB_UTIL_INCLUDE_DIRS "ClibUtil/utils.hpp")
 find_package(jsoncpp CONFIG REQUIRED)
+find_package(imgui CONFIG REQUIRED)
 
 target_link_libraries(
 		"${PROJECT_NAME}"
 		PRIVATE
 			JsonCpp::JsonCpp
+			imgui::imgui
 )
 
 target_include_directories(
