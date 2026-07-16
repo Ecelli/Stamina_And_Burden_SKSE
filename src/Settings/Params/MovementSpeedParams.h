@@ -7,10 +7,6 @@ struct MovementSpeedParams : REX::Singleton<MovementSpeedParams>
 	// ===== Debug =====
 	Parameter<bool> EnableDebugLogging{ true, false, true };
 
-	// ===== Toggles =====
-	Parameter<bool> bMovementSpeedPlayer{ true, false, true };
-	Parameter<bool> bMovementSpeedNPC{ true, false, true };
-
 	// ===== Burden Speed =====
 	Parameter<bool>  bBurdenSpeedPlayer{ true, false, true };
 	Parameter<bool>  bBurdenSpeedNPC{ true, false, true };
@@ -34,9 +30,6 @@ struct MovementSpeedParams : REX::Singleton<MovementSpeedParams>
 		auto* s = GetSingleton();
 		a_fn("Debug");
 		a_fn("bEnableDebugMovementLogging"sv, s->EnableDebugLogging);
-		a_fn("Toggles");
-		a_fn("bMovementSpeedPlayer"sv, s->bMovementSpeedPlayer);
-		a_fn("bMovementSpeedNPC"sv, s->bMovementSpeedNPC);
 		a_fn("Burden Speed");
 		a_fn("bBurdenSpeedPlayer"sv, s->bBurdenSpeedPlayer);
 		a_fn("bBurdenSpeedNPC"sv, s->bBurdenSpeedNPC);
