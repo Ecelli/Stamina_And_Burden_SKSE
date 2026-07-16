@@ -1,5 +1,6 @@
 #include "DenyHooks.h"
 #include "Movement/MovementCostManager.h"
+#include "Settings/Params/CostsParams.h"
 #include "Stamina/CostsManager.h"
 #include "Common/Utils.h"
 #include <RE/J/JumpHandler.h>
@@ -78,7 +79,7 @@ namespace Hooks
 		if (!actor) return 0.0F;
 
         bool isPlayer = actor->IsPlayerRef();
-        auto* costParams = Costs::CostsParams::GetSingleton();
+        auto* costParams = Costs::AttackCostParams::GetSingleton();
         auto* denyParams = Deny::DenyParams::GetSingleton();
 
         bool costEnabled = isPlayer ? costParams->bAttackCostPlayer.Get() : costParams->bAttackCostNPC.Get();

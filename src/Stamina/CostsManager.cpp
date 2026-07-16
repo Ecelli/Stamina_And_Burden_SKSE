@@ -171,7 +171,7 @@ namespace Costs
 			return 0.0f;
 
 		auto& burden = Burden::Tracker::GetOrComputeBurden(actor);
-		auto* params = CostsParams::GetSingleton();
+		auto* params = AttackCostParams::GetSingleton();
 
 		float Stamina_1pctMax = 0.01f * actor->GetActorValueMax(RE::ActorValue::kStamina);
 		float weaponBurden = leftHand ? burden.weaponBurden_lh : burden.weaponBurden_rh;
@@ -203,7 +203,7 @@ namespace Costs
 			return 0.0f;
 
 		auto& burden = Burden::Tracker::GetOrComputeBurden(actor);
-		auto* params = CostsParams::GetSingleton();
+		auto* params = AttackCostParams::GetSingleton();
 
 		float Stamina_1pctMax = 0.01f * actor->GetActorValueMax(RE::ActorValue::kStamina);
 		float BowFireBurdenFlat = Math::Interpolate(

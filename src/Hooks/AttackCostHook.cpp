@@ -28,7 +28,7 @@ namespace Hooks
 		if (!actor)
 			return _func(a_this, a_attack);
 
-		auto* costParams = Costs::CostsParams::GetSingleton();
+		auto* costParams = Costs::AttackCostParams::GetSingleton();
 		bool costEnabled = actor->IsPlayerRef() ? costParams->bAttackCostPlayer.Get() : costParams->bAttackCostNPC.Get();
 		if (!costEnabled)
 			return _func(a_this, a_attack);

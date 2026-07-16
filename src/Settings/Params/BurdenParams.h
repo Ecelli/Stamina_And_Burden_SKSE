@@ -19,7 +19,6 @@ struct BurdenParams : REX::Singleton<BurdenParams>
 	Parameter<float> SkillBurdenMult_maxHeavy{ 2.5f, 0.2f, 10.0f };
 	Parameter<float> SkillBurdenMult_minLight{ 0.6f, 0.2f, 10.0f };
 	Parameter<float> SkillBurdenMult_maxLight{ 2.0f, 0.2f, 10.0f };
-	Parameter<float> SteedStoneBurdenMult{ 0.3f, 0.0f, 2.0f };
 
 	// ===== Weapon =====
 	Parameter<float> WeaponWeightMult_LowSkill{ 3.0f, 0.1f, 10.0f };
@@ -39,6 +38,9 @@ struct BurdenParams : REX::Singleton<BurdenParams>
 	Parameter<float> DualWieldBlockPenalty{ 1.5f, 1.0f, 3.0f };
 	Parameter<float> UnarmedWeight{ 3.0f, 0.0f, 50.0f };
 
+	// ===== Effects =====
+	Parameter<float> SteedStoneBurdenMult{ 0.3f, 0.0f, 2.0f };
+
 	template <typename F>
 	static void ForEach(F&& a_fn)
 	{
@@ -57,7 +59,6 @@ struct BurdenParams : REX::Singleton<BurdenParams>
 		a_fn("fSkillBurdenMult_maxHeavy"sv, s.SkillBurdenMult_maxHeavy);
 		a_fn("fSkillBurdenMult_minLight"sv, s.SkillBurdenMult_minLight);
 		a_fn("fSkillBurdenMult_maxLight"sv, s.SkillBurdenMult_maxLight);
-		a_fn("fSteedStoneBurdenMult"sv, s.SteedStoneBurdenMult);
 		a_fn("Weapon");
 		a_fn("fWeaponWeightMult_LowSkill"sv, s.WeaponWeightMult_LowSkill);
 		a_fn("fWeaponWeightMult_HighSkill"sv, s.WeaponWeightMult_HighSkill);
@@ -73,5 +74,7 @@ struct BurdenParams : REX::Singleton<BurdenParams>
 		a_fn("fBlockWeightMult_Curve_k"sv, s.BlockWeightMult_Curve_k);
 		a_fn("fDualWieldBlockPenalty"sv, s.DualWieldBlockPenalty);
 		a_fn("fUnarmedWeight"sv, s.UnarmedWeight);
+		a_fn("Effects");
+		a_fn("fSteedStoneBurdenMult"sv, s.SteedStoneBurdenMult);
 	}
 };

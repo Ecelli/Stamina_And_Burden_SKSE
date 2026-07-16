@@ -29,34 +29,6 @@ namespace Costs
 		Parameter<float> JumpCostBurdenCurve_k{ 0.8f, 0.0f, 1.0f };
 		Parameter<float> JumpCostCarryCurve_k{ 0.9f, 0.0f, 1.0f };
 
-		// ===== Bow =====
-		Parameter<bool>  bBowCostPlayer{ true, false, true };
-		Parameter<bool>  bBowCostNPC{ true, false, true };
-		Parameter<bool>  bBowDenyPlayer{ true, false, true };
-		Parameter<bool>  bBowDenyNPC{ true, false, true };
-		Parameter<float> BowFireLowBurden{ 10.0f, 0.0f, 200.0f };
-		Parameter<float> BowFireHighBurden{ 30.0f, 0.0f, 200.0f };
-		Parameter<float> BowFireBurdenCurve_k{ 0.7f, 0.0f, 1.0f };
-		Parameter<float> BowFireLowCarryPct{ 1.0f, 0.0f, 60.0f };
-		Parameter<float> BowFireHighCarryPct{ 12.0f, 0.0f, 60.0f };
-		Parameter<float> BowFireCarryCurve_k{ 0.7f, 0.0f, 1.0f };
-
-		// ===== Staff =====
-		Parameter<bool>  bStaffCostPlayer{ true, false, true };
-		Parameter<bool>  bStaffCostNPC{ true, false, true };
-		Parameter<bool>  bStaffDenyPlayer{ true, false, true };
-		Parameter<bool>  bStaffDenyNPC{ true, false, true };
-		Parameter<float> StaffFireLowBurden{ 5.0f, 0.0f, 200.0f };
-		Parameter<float> StaffFireHighBurden{ 20.0f, 0.0f, 200.0f };
-		Parameter<float> StaffFireBurdenCurve_k{ 0.6f, 0.0f, 1.0f };
-		Parameter<float> StaffFireLowCarryPct{ 1.0f, 0.0f, 60.0f };
-		Parameter<float> StaffFireHighCarryPct{ 8.0f, 0.0f, 60.0f };
-		Parameter<float> StaffFireCarryCurve_k{ 0.7f, 0.0f, 1.0f };
-
-		// ===== Attack =====
-		Parameter<bool>  bAttackCostPlayer{ true, false, true };
-		Parameter<bool>  bAttackCostNPC{ true, false, true };
-
 		template <typename F>
 		static void ForEach(F&& a_fn)
 		{
@@ -81,37 +53,16 @@ namespace Costs
 			a_fn("fJumpCostHighCarryPct"sv, s.JumpCostHighCarryPct);
 			a_fn("fJumpCostBurdenCurve_k"sv, s.JumpCostBurdenCurve_k);
 			a_fn("fJumpCostCarryCurve_k"sv, s.JumpCostCarryCurve_k);
-			a_fn("Bow");
-			a_fn("bBowCostPlayer"sv, s.bBowCostPlayer);
-			a_fn("bBowCostNPC"sv, s.bBowCostNPC);
-			a_fn("bBowDenyPlayer"sv, s.bBowDenyPlayer);
-			a_fn("bBowDenyNPC"sv, s.bBowDenyNPC);
-			a_fn("fBowFireLowBurden"sv, s.BowFireLowBurden);
-			a_fn("fBowFireHighBurden"sv, s.BowFireHighBurden);
-			a_fn("fBowFireBurdenCurve_k"sv, s.BowFireBurdenCurve_k);
-			a_fn("fBowFireLowCarryPct"sv, s.BowFireLowCarryPct);
-			a_fn("fBowFireHighCarryPct"sv, s.BowFireHighCarryPct);
-			a_fn("fBowFireCarryCurve_k"sv, s.BowFireCarryCurve_k);
-			a_fn("Staff");
-			a_fn("bStaffCostPlayer"sv, s.bStaffCostPlayer);
-			a_fn("bStaffCostNPC"sv, s.bStaffCostNPC);
-			a_fn("bStaffDenyPlayer"sv, s.bStaffDenyPlayer);
-			a_fn("bStaffDenyNPC"sv, s.bStaffDenyNPC);
-			a_fn("fStaffFireLowBurden"sv, s.StaffFireLowBurden);
-			a_fn("fStaffFireHighBurden"sv, s.StaffFireHighBurden);
-			a_fn("fStaffFireBurdenCurve_k"sv, s.StaffFireBurdenCurve_k);
-			a_fn("fStaffFireLowCarryPct"sv, s.StaffFireLowCarryPct);
-			a_fn("fStaffFireHighCarryPct"sv, s.StaffFireHighCarryPct);
-			a_fn("fStaffFireCarryCurve_k"sv, s.StaffFireCarryCurve_k);
-			a_fn("Attack");
-			a_fn("bAttackCostPlayer"sv, s.bAttackCostPlayer);
-			a_fn("bAttackCostNPC"sv, s.bAttackCostNPC);
 		}
 	};
 
 	struct AttackCostParams : REX::Singleton<AttackCostParams>
 	{
-		// ===== Carry Burden =====
+		// ===== Attack Toggles =====
+		Parameter<bool> bAttackCostPlayer{ true, false, true };
+		Parameter<bool> bAttackCostNPC{ true, false, true };
+
+		// ===== Burden =====
 		Parameter<float> AttackLowCarryPct{ 1.0f, 0.0f, 60.0f };
 		Parameter<float> AttackHighCarryPct{ 10.0f, 0.0f, 60.0f };
 		Parameter<float> AttackCarryCurve_k{ 0.9f, 0.0f, 1.0f };
@@ -150,11 +101,38 @@ namespace Costs
 		Parameter<float> BashWeaponBurdenCurve_k{ 0.8f, 0.0f, 1.0f };
 		Parameter<float> BashWeaponPowerMult{ 2.0f, 1.0f, 10.0f };
 
+       		// ===== Bow =====
+		Parameter<bool>  bBowCostPlayer{ true, false, true };
+		Parameter<bool>  bBowCostNPC{ true, false, true };
+		Parameter<bool>  bBowDenyPlayer{ true, false, true };
+		Parameter<bool>  bBowDenyNPC{ true, false, true };
+		Parameter<float> BowFireLowBurden{ 10.0f, 0.0f, 200.0f };
+		Parameter<float> BowFireHighBurden{ 30.0f, 0.0f, 200.0f };
+		Parameter<float> BowFireBurdenCurve_k{ 0.7f, 0.0f, 1.0f };
+		Parameter<float> BowFireLowCarryPct{ 1.0f, 0.0f, 60.0f };
+		Parameter<float> BowFireHighCarryPct{ 12.0f, 0.0f, 60.0f };
+		Parameter<float> BowFireCarryCurve_k{ 0.7f, 0.0f, 1.0f };
+
+		// ===== Staff =====
+		Parameter<bool>  bStaffCostPlayer{ true, false, true };
+		Parameter<bool>  bStaffCostNPC{ true, false, true };
+		Parameter<bool>  bStaffDenyPlayer{ true, false, true };
+		Parameter<bool>  bStaffDenyNPC{ true, false, true };
+		Parameter<float> StaffFireLowBurden{ 5.0f, 0.0f, 200.0f };
+		Parameter<float> StaffFireHighBurden{ 20.0f, 0.0f, 200.0f };
+		Parameter<float> StaffFireBurdenCurve_k{ 0.6f, 0.0f, 1.0f };
+		Parameter<float> StaffFireLowCarryPct{ 1.0f, 0.0f, 60.0f };
+		Parameter<float> StaffFireHighCarryPct{ 8.0f, 0.0f, 60.0f };
+		Parameter<float> StaffFireCarryCurve_k{ 0.7f, 0.0f, 1.0f };
+ 
 		template <typename F>
 		static void ForEach(F&& a_fn)
 		{
 			auto& s = GetSingleton();
-			a_fn("Carry Burden");
+			a_fn("Attack Toggles");
+			a_fn("bAttackCostPlayer"sv, s.bAttackCostPlayer);
+			a_fn("bAttackCostNPC"sv, s.bAttackCostNPC);
+			a_fn("Burden");
 			a_fn("fAttackLowCarryPct"sv, s.AttackLowCarryPct);
 			a_fn("fAttackHighCarryPct"sv, s.AttackHighCarryPct);
 			a_fn("fAttackCarryCurve_k"sv, s.AttackCarryCurve_k);
@@ -186,6 +164,28 @@ namespace Costs
 			a_fn("fBashWeaponHighBurden"sv, s.BashWeaponHighBurden);
 			a_fn("fBashWeaponBurdenCurve_k"sv, s.BashWeaponBurdenCurve_k);
 			a_fn("fBashWeaponPowerMult"sv, s.BashWeaponPowerMult);
+			a_fn("Bow");
+			a_fn("bBowCostPlayer"sv, s.bBowCostPlayer);
+			a_fn("bBowCostNPC"sv, s.bBowCostNPC);
+			a_fn("bBowDenyPlayer"sv, s.bBowDenyPlayer);
+			a_fn("bBowDenyNPC"sv, s.bBowDenyNPC);
+			a_fn("fBowFireLowBurden"sv, s.BowFireLowBurden);
+			a_fn("fBowFireHighBurden"sv, s.BowFireHighBurden);
+			a_fn("fBowFireBurdenCurve_k"sv, s.BowFireBurdenCurve_k);
+			a_fn("fBowFireLowCarryPct"sv, s.BowFireLowCarryPct);
+			a_fn("fBowFireHighCarryPct"sv, s.BowFireHighCarryPct);
+			a_fn("fBowFireCarryCurve_k"sv, s.BowFireCarryCurve_k);
+			a_fn("Staff");
+			a_fn("bStaffCostPlayer"sv, s.bStaffCostPlayer);
+			a_fn("bStaffCostNPC"sv, s.bStaffCostNPC);
+			a_fn("bStaffDenyPlayer"sv, s.bStaffDenyPlayer);
+			a_fn("bStaffDenyNPC"sv, s.bStaffDenyNPC);
+			a_fn("fStaffFireLowBurden"sv, s.StaffFireLowBurden);
+			a_fn("fStaffFireHighBurden"sv, s.StaffFireHighBurden);
+			a_fn("fStaffFireBurdenCurve_k"sv, s.StaffFireBurdenCurve_k);
+			a_fn("fStaffFireLowCarryPct"sv, s.StaffFireLowCarryPct);
+			a_fn("fStaffFireHighCarryPct"sv, s.StaffFireHighCarryPct);
+			a_fn("fStaffFireCarryCurve_k"sv, s.StaffFireCarryCurve_k);
 		}
 	};
 }

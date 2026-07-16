@@ -30,7 +30,7 @@ namespace Hooks
 			return _func(a_weapon, a_source, a_overwriteAmmo, a_ammoEnch, a_poison);
 
 		bool isPlayer = actor->IsPlayerRef();
-		auto* params = Costs::CostsParams::GetSingleton();
+		auto* params = Costs::AttackCostParams::GetSingleton();
 		bool costEnabled = isPlayer ? params->bBowCostPlayer.Get() : params->bBowCostNPC.Get();
 		bool denyEnabled = isPlayer ? params->bBowDenyPlayer.Get() : params->bBowDenyNPC.Get();
 		denyEnabled = costEnabled && denyEnabled;
