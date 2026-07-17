@@ -26,9 +26,9 @@ struct ExhaustionParams : REX::Singleton<ExhaustionParams>
 	static void ForEach(F&& a_fn)
 	{
 		auto* s = GetSingleton();
-		a_fn("Debug");
+		a_fn("Exhaustion Debug");
 		a_fn("bEnableDebugLogging"sv, s->bEnableDebugLogging);
-		a_fn("Toggles");
+		a_fn("Exhaustion Toggles");
 		a_fn("bExhaustionPlayer"sv, s->bExhaustionPlayer);
 		a_fn("bExhaustionNPC"sv, s->bExhaustionNPC);
 		a_fn("Recovery");

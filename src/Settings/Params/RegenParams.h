@@ -41,9 +41,9 @@ namespace Regen
 		static void ForEach(F&& a_fn)
 		{
 			auto* s = GetSingleton();
-			a_fn("Debug");
+			a_fn("Regeneration Debug");
 			a_fn("bEnableDebugLogging"sv, s->EnableDebugLogging);
-			a_fn("Toggles");
+			a_fn("Regeneration Toggles");
 			a_fn("bRegenPlayer"sv, s->bRegenPlayer);
 			a_fn("bRegenNPC"sv, s->bRegenNPC);
 			a_fn("Stamina Regen");
@@ -127,7 +127,7 @@ namespace Regen
 			a_fn("fStaffHoldLowBurden"sv, s->StaffHoldLowBurden);
 			a_fn("fStaffHoldHighBurden"sv, s->StaffHoldHighBurden);
 			a_fn("fStaffHoldCurve_k"sv, s->StaffHoldCurve_k);
-			a_fn("Blended Drain Hold");
+			a_fn("Burden Hold Penalties");
 			a_fn("fHoldDrainLowBlended"sv, s->HoldDrainLowBlended);
 			a_fn("fHoldDrainHighBlended"sv, s->HoldDrainHighBlended);
 			a_fn("fHoldBlendedCurve_k"sv, s->HoldBlendedCurve_k);
@@ -174,9 +174,9 @@ namespace Regen
 		static void ForEach(F&& a_fn)
 		{
 			auto* s = GetSingleton();
-			a_fn("Toggle");
+			a_fn("Weather Toggle");
 			a_fn("bWeatherEnabled"sv, s->WeatherEnabled);
-			a_fn("Penalties");
+			a_fn("Weather Penalties");
 			a_fn("fWeatherRainPenalty"sv, s->WeatherRainPenalty);
 			a_fn("fWeatherSnowPenalty"sv, s->WeatherSnowPenalty);
 		}

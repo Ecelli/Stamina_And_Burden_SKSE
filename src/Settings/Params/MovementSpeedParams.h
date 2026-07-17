@@ -28,7 +28,7 @@ struct MovementSpeedParams : REX::Singleton<MovementSpeedParams>
 	static void ForEach(F&& a_fn)
 	{
 		auto* s = GetSingleton();
-		a_fn("Debug");
+		a_fn("Speed Debug");
 		a_fn("bEnableDebugMovementLogging"sv, s->EnableDebugLogging);
 		a_fn("Burden Speed");
 		a_fn("bBurdenSpeedPlayer"sv, s->bBurdenSpeedPlayer);

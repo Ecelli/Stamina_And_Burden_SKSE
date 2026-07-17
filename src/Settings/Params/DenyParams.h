@@ -20,12 +20,12 @@ namespace Deny
 		static void ForEach(F&& a_fn)
 		{
 			auto* s = GetSingleton();
-			a_fn("Debug");
+			a_fn("Deny Debug");
 			a_fn("bEnableDebugLogging"sv, s->EnableDebugLogging);
-			a_fn("Toggles");
+			a_fn("Deny Toggles");
 			a_fn("bEnableDenyPlayer"sv, s->bEnableDenyPlayer);
 			a_fn("bEnableDenyNPC"sv, s->bEnableDenyNPC);
-			a_fn("Threshold");
+			a_fn("Stamina Threshold");
 			a_fn("fMinStaminaCostMult"sv, s->fMinStaminaCostMult);
 		}
 	};
