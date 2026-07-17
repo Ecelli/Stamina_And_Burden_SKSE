@@ -9,6 +9,7 @@
 #include "Settings/Params/ParameterOverrides.h"
 #include "Settings/Params/RegenParams.h"
 #include "Settings/Params/BlockingParams.h"
+#include "Settings/Params/SBSettingsINI.h"
 
 static SBMenuTool s_instance;
 
@@ -30,7 +31,7 @@ namespace
 	{
 		bool prevOpen = false;
 		bool hasSections = false;
-        // Call on the iterator given as parameter using an annonymous function
+        // Call on the iterator given as parameter using an anonymous function
 		a_forEachFn([&](auto&&... a_args) {
             // On the full parameter list we have headers (args == 1)
 			if constexpr (sizeof...(a_args) == 1) {
@@ -54,6 +55,11 @@ namespace
 		if (prevOpen)
 			FUCK::TreePop();
 	}
+}
+
+void SBMenuTool::OnClose()
+{
+	SBSettingsINI::Save();
 }
 
 void SBMenuTool::Draw()

@@ -8,7 +8,7 @@ struct SBMenuTool : FUCK::ITool
 
 	void Draw() override;
 	void OnOpen() override {}
-	void OnClose() override {}
+	void OnClose() override;
 
 	static SBMenuTool& GetSingleton();
 };
