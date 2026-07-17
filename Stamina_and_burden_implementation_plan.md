@@ -60,12 +60,11 @@ src/
 
 ## 2. Configuration Architecture
 
-**Current system:** `Parameter<T>` singletons (REX::Singleton) with typed `ForEach(F&&)` export. INI values are read by `Settings::INI::Read()` (SimpleIni with strict whitelist). Overrides via `_Custom.ini` (same stem, same dir).
+**Current system:** `Parameter<T>` singletons (REX::Singleton) with typed `ForEach(F&&)` export. Settings managed via `SBSettingsINI` (Load/Save/SaveOverwrite) with `StaminaAndBurden_Settings.ini`. In-game menu via FUCK (`SBMenuTool`).
 
 **Notes:**
-- No SettingsRegistry was implemented. `Parameter<T>` + `_Custom.ini` is simpler and standard for Skyrim mods. This is the permanent system.
-- INI validation is currently a shell (`EXPECTED_COUNT = 0`). The shipped `StaminaAndBurden.ini` has no key-value pairs.
-- In-game settings (console commands, ImGui menu, MCM) are deferred — lowest priority.
+- No SettingsRegistry was implemented. `Parameter<T>` + `SBSettingsINI` is simpler and standard for Skyrim mods. This is the permanent system.
+- In-game settings (console commands, ImGui menu via FUCK, MCM) are deferred — lowest priority.
 
 ---
 
@@ -133,8 +132,14 @@ if drainMult > 0:
 
 rate          -= ComputeBlockHoldPenalty(actor)     // PEPE: SB_BlockHoldStamina
 rate          -= ComputeBowDrawHoldPenalty(actor)   // PEPE: SB_BowDrawHoldStamina
-rate          -= ComputeStaffHoldPenalty(actor, hand) // PEPE: SB_StaffHoldStamina
+// NOTE: ComputeStaffHoldPenalty CANNOT be applied here. See deviation note below.
 ```
+
+**Staff hold penalty — :**
+`ComputeStaffHoldPenalty` is not applied inside `ComputeBurdenStaminaRegenRate` (unlike block/bow hold penalties). This is intentional because:
+1. Staff casting state is not detectable from `RE::Actor*` alone during the regen loop — it requires the `ActorMagicCaster*` which is only available inside the VTABLE hook.
+2. The hook approach (`CasterUpdateHook` on `ActorMagicCaster::VTABLE[0]` index `0x1D`) enables `InterruptCast(true)` when stamina depletes, which the regen-rate approach cannot provide.
+3. The drain is frame-accurate via `deltaTime` from the hook, vs. a regen-rate approximation.
 
 **`ComputeStaminaRegenMult(actor)` — the regen multiplier:**
 ```
@@ -167,9 +172,9 @@ LowBonus=2.0 (debuffed mult → amplified drain), HighBonus=0.2 (buffed mult →
 - `GetEngineStaminaRate` — `GetBaseStaminaRate × combatMult × kStaminaRateMult × 0.01`
 - `ComputeBlockHoldPenalty` — continuous flat drain while blocking, burden-scaled. PEPE: `SB_BlockHoldStamina` applied to penalty before returning.
 - `ComputeBowDrawHoldPenalty` — continuous flat drain while bow drawn, weapon-burden-scaled. PEPE: `SB_BowDrawHoldStamina` applied to penalty before returning.
-- `ComputeStaffHoldPenalty(actor, leftHand)` — continuous flat drain while staff-casting (concentration beams or charge-up), weapon-burden-scaled by `weaponBurden_rh/lh` plus `burdenBlend` component. PEPE: `SB_StaffHoldStamina` applied to penalty before returning.
+- `ComputeStaffHoldPenalty(actor, leftHand)` — continuous flat drain while staff-casting (concentration beams or charge-up), weapon-burden-scaled by `weaponBurden_rh/lh` plus `burdenBlend` component. PEPE: `SB_StaffHoldStamina` applied to penalty before returning. **Called from `CasterUpdateHook` (VTABLE hook), not from `ComputeBurdenStaminaRegenRate`.** See Staff hold penalty  note above.
 - `ComputeWeatherPenalty` — `WeatherRainPenalty` or `WeatherSnowPenalty` from `WeatherParams`
-- `GetCanRegenStamina` — false if blocking, bow drawn/attached, or in attack state
+- `GetCanRegenStamina` — false if blocking, bow drawn/attached, or in attack state. Does not detect staff casting (not available from `RE::Actor*` alone — see staff hold penalty note).
 - `GetMovementState` — swimming → running → sneaking → walking → static priority
 - `ComputeHealthRegenMult` / `ComputeMagickaRegenMult` — stamina% → health/magicka regen curves
 
@@ -733,7 +738,7 @@ Burden state is dynamically recomputed on game load — no serialization needed.
 
 ## 9. Settings (Parameter Groups)
 
-All settings are `Parameter<T>` structs in `src/Settings/Params/`. No shipped INI file with values — defaults are C++ `static constexpr`. `_Custom.ini` provides user overrides.
+All settings are `Parameter<T>` structs in `src/Settings/Params/`. No shipped INI file with values — defaults are C++ `static constexpr`. User overrides via the in-game menu or direct editing of `StaminaAndBurden_Settings.ini`.
 
 ### BurdenParams (25 params)
 - `fmaxEquippedWeightRatio` — ratio of carry weight used for max equipped weight
@@ -1072,8 +1077,6 @@ Single `FUCK::ITool` registered at `kDataLoaded` via `FUCK::RegisterTool()`. Opt
 |---|---|
 | Bind query functions | NOT STARTED |
 | Clean up UnitTest_Serialization stubs | NOT STARTED |
-| Clean up stale Settings::INI files | NOT STARTED |
-| Clean up unreferenced `TaskUpdatePlayerBurdenLog` | NOT STARTED |
 
 ### Phase 10 — HUD Burden Widget (NOT STARTED — optional)
 | Task | Status |
@@ -1141,7 +1144,7 @@ Single `FUCK::ITool` registered at `kDataLoaded` via `FUCK::RegisterTool()`. Opt
    - Help tooltips via `FUCK::HelpMarker` on hover
    - Localization via `_T` literals (low priority — labels are code param names, not user-facing)
    - Persistent expanded-state across saves (serialization)
-8. **Per-maj-version INI clean rewrite** — RMW Save preserves unknown keys (intentional for `_Custom.ini` overlay pattern) but means renamed keys accumulate across version bumps. A major-version-triggered clean rewrite would solve this. Currently no mechanism exists.
+8. **Per-maj-version INI clean rewrite** — RMW Save preserves unknown keys (intentional for forward-compatibility) but means renamed keys accumulate across version bumps. A major-version-triggered clean rewrite would solve this. Currently no mechanism exists.
 ---
 
 
