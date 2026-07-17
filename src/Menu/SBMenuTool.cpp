@@ -1,5 +1,15 @@
 #include "SBMenuTool.h"
 
+#include "Settings/Params/BurdenParams.h"
+#include "Settings/Params/CostsParams.h"
+#include "Settings/Params/DamageParams.h"
+#include "Settings/Params/DenyParams.h"
+#include "Settings/Params/ExhaustionParams.h"
+#include "Settings/Params/MovementSpeedParams.h"
+#include "Settings/Params/ParameterOverrides.h"
+#include "Settings/Params/RegenParams.h"
+#include "Settings/Params/BlockingParams.h"
+
 static SBMenuTool s_instance;
 
 SBMenuTool& SBMenuTool::GetSingleton()
@@ -14,6 +24,36 @@ namespace
 		FUCK::Separator();
 		FUCK::TextColored(ImVec4(0.7f, 0.8f, 1.0f, 1.0f), a_label);
 	}
+
+	template <typename F>
+	void DrawGroup(F&& a_forEachFn)
+	{
+		bool prevOpen = false;
+		bool hasSections = false;
+        // Call on the iterator given as parameter using an annonymous function
+		a_forEachFn([&](auto&&... a_args) {
+            // On the full parameter list we have headers (args == 1)
+			if constexpr (sizeof...(a_args) == 1) {
+				hasSections = true;
+				if (prevOpen)
+					FUCK::TreePop();
+				prevOpen = FUCK::TreeNode(std::string(a_args...).c_str());
+            // OR [parameter_name(key), parameter]
+			} else if (!hasSections || prevOpen) {
+				auto [key, param] = std::tie(a_args...);
+                // We check the type of the parameter to check what to do with it
+				using VType = std::decay_t<decltype(param.Get())>;
+				if constexpr (std::is_same_v<VType, bool>)
+					FUCK::Checkbox(key.data(), &param.currentValue);
+				else if constexpr (std::is_same_v<VType, float>)
+					FUCK::SliderFloat(key.data(), &param.currentValue, param.minValue, param.maxValue);
+				else if constexpr (std::is_same_v<VType, int>)
+					FUCK::SliderInt(key.data(), &param.currentValue, param.minValue, param.maxValue);
+			}
+		});
+		if (prevOpen)
+			FUCK::TreePop();
+	}
 }
 
 void SBMenuTool::Draw()
@@ -27,16 +67,16 @@ void SBMenuTool::Draw()
 	// ── Regen ──
 	if (FUCK::BeginTabItem("Regen")) {
 		Header("RegenParams");
-		FUCK::Text("(placeholder)");
+		DrawGroup([](auto fn) { Regen::RegenParams::ForEach(fn); });
 
 		Header("RegenMovementParams");
-		FUCK::Text("(placeholder)");
+		DrawGroup([](auto fn) { Regen::RegenMovementParams::ForEach(fn); });
 
 		Header("NegativeRegen");
-		FUCK::Text("(placeholder)");
+		DrawGroup([](auto fn) { Regen::NegativeRegen::ForEach(fn); });
 
 		Header("WeatherParams");
-		FUCK::Text("(placeholder)");
+		DrawGroup([](auto fn) { Regen::WeatherParams::ForEach(fn); });
 
 		FUCK::EndTabItem();
 	}
@@ -44,10 +84,10 @@ void SBMenuTool::Draw()
 	// ── Costs ──
 	if (FUCK::BeginTabItem("Costs")) {
 		Header("CostsParams");
-		FUCK::Text("(placeholder)");
+		DrawGroup([](auto fn) { Costs::CostsParams::ForEach(fn); });
 
 		Header("AttackCostParams");
-		FUCK::Text("(placeholder)");
+		DrawGroup([](auto fn) { Costs::AttackCostParams::ForEach(fn); });
 
 		FUCK::EndTabItem();
 	}
@@ -55,13 +95,13 @@ void SBMenuTool::Draw()
 	// ── Combat ──
 	if (FUCK::BeginTabItem("Combat")) {
 		Header("DamageParams");
-		FUCK::Text("(placeholder)");
+		DrawGroup([](auto fn) { Damage::DamageParams::ForEach(fn); });
 
 		Header("BlockingParams");
-		FUCK::Text("(placeholder)");
+		DrawGroup([](auto fn) { Blocking::BlockingParams::ForEach(fn); });
 
 		Header("DenyParams");
-		FUCK::Text("(placeholder)");
+		DrawGroup([](auto fn) { Deny::DenyParams::ForEach(fn); });
 
 		FUCK::EndTabItem();
 	}
@@ -69,10 +109,10 @@ void SBMenuTool::Draw()
 	// ── Burden ──
 	if (FUCK::BeginTabItem("Burden")) {
 		Header("BurdenParams");
-		FUCK::Text("(placeholder)");
+		DrawGroup([](auto fn) { BurdenParams::ForEach(fn); });
 
 		Header("ExhaustionParams");
-		FUCK::Text("(placeholder)");
+		DrawGroup([](auto fn) { ExhaustionParams::ForEach(fn); });
 
 		FUCK::EndTabItem();
 	}
@@ -80,10 +120,10 @@ void SBMenuTool::Draw()
 	// ── Movement ──
 	if (FUCK::BeginTabItem("Movement")) {
 		Header("MovementSpeedParams");
-		FUCK::Text("(placeholder)");
+		DrawGroup([](auto fn) { MovementSpeedParams::ForEach(fn); });
 
 		Header("JumpParams");
-		FUCK::Text("(placeholder)");
+		DrawGroup([](auto fn) { JumpParams::ForEach(fn); });
 
 		FUCK::EndTabItem();
 	}
@@ -91,7 +131,7 @@ void SBMenuTool::Draw()
 	// ── Overrides ──
 	if (FUCK::BeginTabItem("Overrides")) {
 		Header("ParameterOverrides");
-		FUCK::Text("(placeholder)");
+		DrawGroup([](auto fn) { ParameterOverrides::ForEach(fn); });
 
 		FUCK::EndTabItem();
 	}

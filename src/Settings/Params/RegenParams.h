@@ -149,6 +149,7 @@ namespace Regen
 		static void ForEach(F&& a_fn)
 		{
 			auto* s = GetSingleton();
+			a_fn("Stamina Regen Bonus Drain Scaling");
 			a_fn("fBurnRate_LowBonus"sv, s->BurnRate_LowBonus);
 			a_fn("fBurnRate_HighBonus"sv, s->BurnRate_HighBonus);
 			a_fn("fBurnRate_Curve_k"sv, s->BurnRate_Curve_k);

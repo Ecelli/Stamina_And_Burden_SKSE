@@ -24,17 +24,24 @@ namespace
 	}
 
 	template <typename F>
+    // Define a helper iterator that operates over all parameters we have
 	void ForEachAll(F&& a_handler)
 	{
 		std::string section;
 
+        // Define a lambda function over an iterator.
+        // Takes 2 parameters a string prefix (struct name), and an iterator to run on
 		auto run = [&](const char* a_prefix, auto&& a_forEachFn) {
+            // We call the iterator with the parameters
 			a_forEachFn([&](auto&&... a_args) {
+                // If the "parameter" is size == 1 => section in a structure
 				if constexpr (sizeof...(a_args) == 1) {
 					section = a_prefix;
 					section += ".";
 					section += std::string_view(a_args...);
 				} else {
+                    // Otherwise is a parameter, we call the function on 3 parameters
+                    // the section string and the arguments
 					a_handler(section, a_args...);
 				}
 			});
@@ -86,6 +93,9 @@ void SBSettingsINI::Load()
 	ini.SetUnicode();
 	ini.LoadFile(path.c_str());
 
+    // Now we iterate over all parameters with an annonymous function that takes 3 parameters:
+    // The section name (Structure name, with section), the parameter name (key) and the parameter.
+    // The section name is reconstructed inside each iteration.
 	ForEachAll([&](const std::string& a_section, std::string_view a_key, auto& a_param) {
 		using VType = std::decay_t<decltype(a_param.Get())>;
 		if constexpr (std::is_same_v<VType, bool>)
