@@ -83,10 +83,10 @@ void SBMenuTool::OnClose()
 
 void SBMenuTool::Draw()
 {
-	FUCK::Text("StaminaAndBurden v{}", Plugin::VERSION);
+	FUCK::Text("StaminaAndBurden");
 	FUCK::Separator();
 
-	if (!FUCK::BeginTabBar("SBGroups"))
+	if (!FUCK::BeginTabBar("Stamina an Burden Groups"))
 		return;
 
 	// ── Regen ──
