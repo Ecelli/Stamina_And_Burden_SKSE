@@ -35,6 +35,9 @@ src/
 ├── Papyrus/           # GetVersion only bound (MINIMAL)
 ├── RE/                # Offset.h — placeholder; all REL::IDs inline (DONE)
 ├── Serialization/     # Serde.h/.cpp — infrastructure ready, nothing registered (SHELL)
+├── Menu/              # FUCK settings menu
+│   └── SBMenuTool     # SBMenuTool : FUCK::ITool — 6 grouped tabs, ForEach-driven section tree,
+│                      #   live widgets, per-struct Defaults, SaveOnClose, Rewrite button
 ├── Settings/
 │   ├── INI/           # SimpleIni reader with whitelist (shell — EXPECTED_COUNT=0)
 │   ├── JSON/          # JSON reader (DONE)
@@ -43,6 +46,7 @@ src/
 │                      #   CostsParams, AttackCostParams, DenyParams,
 │                      #   BlockingParams, ParameterOverrides, DamageParams,
 │                      #   ExhaustionParams, MovementSpeedParams (DONE)
+│                      #   SBSettingsINI.h/.cpp — ForEachAll, Load/Save/RMW/SaveOverwrite
 └── Stamina/
     ├── RegenManager      # Regen formulas + PEPE calls on hold penalties (DONE)
     ├── CostsManager      # Attack/bow cost formulas + PEPE calls (DONE)
@@ -848,7 +852,7 @@ Removed: `bPlayerAlwaysCanDoAction`, `bNpcAlwaysCanDoAction`, `fNpcRegenExemptio
 - `fBlockSkillMult` (6.0), `fBlockPowerAttackMult` (0.66) — block skill + power attack
 - `fStaminaBlockDmgMult` (0.0), `fStaminaBlockStaggerMult` (0.0), `fStaminaBlockBase` (0.0) — engine block stamina drain
 
-### MovementSpeedParams (14 params)
+### MovementSpeedParams (12 params)
 
 | Key | Type | Default | Range | Purpose |
 |---|---|---|---|---|
@@ -864,8 +868,6 @@ Removed: `bPlayerAlwaysCanDoAction`, `bNpcAlwaysCanDoAction`, `fNpcRegenExemptio
 | `fSubmergedCurve_k` | float | 0.20 | 0.0–1.0 | Swim speed curve shape |
 | `fExhaustionSpeedMult` | float | 0.70 | 0.1–1.0 | Speed mult while exhausted (gated by `bExhaustionPlayer`/`bExhaustionNPC`) |
 | `bEnableDebugMovementLogging` | bool | true | — | Debug toggle |
-| `bMovementSpeedPlayer` | bool | true | — | Per-actor master toggle for player speed scaling |
-| `bMovementSpeedNPC` | bool | true | — | Per-actor master toggle for NPC speed scaling |
 
 ### JumpParams (8 params)
 
@@ -880,11 +882,37 @@ Removed: `bPlayerAlwaysCanDoAction`, `bNpcAlwaysCanDoAction`, `fNpcRegenExemptio
 | `bJumpDenyPlayer` | bool | true | — | Deny jump when insufficient stamina (player-only) |
 | `bEnableDebugJumpLogging` | bool | true | — | Debug logging for jump height + deny |
 
+### SBSettingsINI (DONE)
+
+**Files:** `src/Settings/Params/SBSettingsINI.h/.cpp`
+
+Central iteration via `ForEachAll()` — chains the `ForEach(F&&)` callback of all 14 parameter structs with struct-prefixed section markers (e.g. `[BurdenParams.Equipment]`). Provides:
+
+- `Load()` — reads all params from INI
+- `Save()` — read-modify-write, preserves user comments
+- `SaveOverwrite()` — fresh write, discards comments (via `static SaveImpl(bool overwrite)`)
+- `Initialize()` — creates initial INI via SaveOverwrite, then Load; wired at `SKSEPlugin_Load`
+
+INI path: `Data/SKSE/Plugins/StaminaAndBurden_Settings.ini`
+
+### SBMenuTool (DONE)
+
+**Files:** `src/Menu/SBMenuTool.h/.cpp`
+
+Single `FUCK::ITool` registered at `kDataLoaded` via `FUCK::RegisterTool()`. Optional dependency — logs warning if FUCK absent, no crash.
+
+`Draw()` layout:
+- 6 grouped tabs: Regen, Costs, Combat, Burden, Movement, Overrides
+- `DrawGroup(forEachFn)` — streams `ForEach` callbacks: section markers → `TreeNode` open, param entries → widget via `if constexpr` dispatch (Checkbox for bool, SliderFloat for float, SliderInt for int)
+- `DrawSectionHeader(name, fn)` — colored Separator + TextColored + `[Defaults]` per struct
+- Title bar: "Rewrite INI (clean)" right-aligned via `GetContentRegionAvail().x`
+- `OnClose()`: `SBSettingsINI::Save()` (RMW)
+
 ### Settings future work:
-- INI whitelist population (currently `EXPECTED_COUNT = 0`)
-- Shipped `StaminaAndBurden.ini` with documented defaults
-- In-game console commands (sb_get/set/list/reset/getburden)
-- ImGui settings menu (lowest priority)
+- Per-maj-version clean rewrite on update (orphan key cleanup)
+- Section default-open states, search/filter, collapse-all, tooltips
+- Console commands (sb_get/set/list/reset/getburden)
+- Fix TestCommands.yaml
 
 ---
 
@@ -951,7 +979,7 @@ Removed: `bPlayerAlwaysCanDoAction`, `bNpcAlwaysCanDoAction`, `fNpcRegenExemptio
 | SprintDrainHook at 38022+0xC1/0xC9 | DONE |
 | ActionHook at 37257+0x17F | DONE |
 | SpeedHook at 37943+0x51 | DONE |
-| MovementSpeedParams (14 params) | DONE |
+| MovementSpeedParams (12 params) | DONE |
 | JumpParams (8 params) | DONE |
 | MovementHooks (3 hooks in single file) | DONE |
 
@@ -1020,11 +1048,21 @@ Removed: `bPlayerAlwaysCanDoAction`, `bNpcAlwaysCanDoAction`, `fNpcRegenExemptio
 | INI configuration entries | NOT STARTED |
 | Visual feedback — TrueHUD stamina bar recolor (grey tint while exhausted) | DONE — `ExhaustionManager.h/cpp` dual-path: TrueHUD `OverrideBarColor` + tint fallback |
 
-### Phase 8 — Settings & Console (DEFERRED — lowest priority)
+### Phase 8 — Settings Menu & INI Persistence ✅
 | Task | Status |
 |---|---|
-| Populate INI whitelist with all params | NOT STARTED |
-| Ship `StaminaAndBurden.ini` with defaults | NOT STARTED |
+| ForEachAll — central iteration chaining all 14 param structs | DONE |
+| SBSettingsINI::Load — read INI → set all params | DONE |
+| SBSettingsINI::Save — RMW, preserves comments | DONE |
+| SBSettingsINI::SaveOverwrite — fresh write | DONE |
+| SBSettingsINI::Initialize — wired at SKSEPlugin_Load | DONE |
+| FUCK Connect + RegisterTool at kDataLoaded | DONE |
+| 6 grouped tabs (Regen, Costs, Combat, Burden, Movement, Overrides) | DONE |
+| DrawGroup — ForEach-driven section tree + widget dispatch | DONE |
+| Header() — colored separator per struct | DONE |
+| Per-struct [Defaults] button with PushID/PopID | DONE |
+| Save on close (OnClose → RMW Save) | DONE |
+| "Rewrite INI (clean)" button in title bar | DONE |
 | Console commands (sb_get/set/list/reset) | NOT STARTED |
 | sb_getburden debug command | NOT STARTED |
 | Fix TestCommands.yaml (SEA_TemplateProject → EC_StaminaAndBurden) | NOT STARTED |
@@ -1069,13 +1107,12 @@ Removed: `bPlayerAlwaysCanDoAction`, `bNpcAlwaysCanDoAction`, `fNpcRegenExemptio
 ## 12. Key Open Items
 
 1. **Timed block** — Valhalla Combat-style timed block window, commitment, perfect block, window penalty system. Dependencies: input hooks, state machine. Deferrable to separate plan.
-2. **Settings INI** — populate whitelist with all active params.
-3. **Console commands** — sb_get/set/list/reset/getburden via Papyrus + TestCommands.yaml.
-4. ~~Perk integration~~ → **DONE** (PEPE, §3c). All 8 stamina cost/penalty functions wired to `kModPowerAttackStamina` entry point via PEPE `HandleEntryPoint` with `SB_*` categories. Modded perks can scale any cost by adding perk entries targeting the relevant category. The single entry point covers attack, bow, sprint, jump, block, and hold penalty costs. Future perk-specific mechanics (timed block windows, stamina refunds, conditional bonuses) would need additional perk entry points or custom hook logic beyond PEPE's scope.
+2. **Console commands** — sb_get/set/list/reset/getburden via Papyrus + TestCommands.yaml.
+3. ~~Perk integration~~ → **DONE** (PEPE, §3c). All 8 stamina cost/penalty functions wired to `kModPowerAttackStamina` entry point via PEPE `HandleEntryPoint` with `SB_*` categories. Modded perks can scale any cost by adding perk entries targeting the relevant category. The single entry point covers attack, bow, sprint, jump, block, and hold penalty costs. Future perk-specific mechanics (timed block windows, stamina refunds, conditional bonuses) would need additional perk entry points or custom hook logic beyond PEPE's scope.
 
-5. **Staff stamina cost** — DONE. Two vtable hooks on `ActorMagicCaster::VTABLE[0]` (indices 0x06 and 0x1D) intercept staff casting for fire cost + hold drain. Staffs are treated as weapons — uses `weaponBurden_rh/lh` (skill-weighted by `staffSkill` from `kEnchanting`) and `burdenBlend`. PEPE: `SB_StaffFireStamina`, `SB_StaffHoldStamina`. Per-actor toggles for cost + deny. Staves in each hand tracked independently (dual-wield support).
+4. **Staff stamina cost** — DONE. Two vtable hooks on `ActorMagicCaster::VTABLE[0]` (indices 0x06 and 0x1D) intercept staff casting for fire cost + hold drain. Staffs are treated as weapons — uses `weaponBurden_rh/lh` (skill-weighted by `staffSkill` from `kEnchanting`) and `burdenBlend`. PEPE: `SB_StaffFireStamina`, `SB_StaffHoldStamina`. Per-actor toggles for cost + deny. Staves in each hand tracked independently (dual-wield support).
 
-6. **Burden display in inventory menu** — append burden info to the carry weight text in the inventory menu's bottom bar (`CarryWeightValue` TextField). Two implementation options investigated:
+5. **Burden display in inventory menu** — append burden info to the carry weight text in the inventory menu's bottom bar (`CarryWeightValue` TextField). Two implementation options investigated:
 
    **Attempted: Direct Scaleform from C++ (FAILED — hangs)**
    Registered `SKSE::GetScaleformInterface()->Register(callback, "InventoryMenu")` callback. Navigated from `bottomBar->obj` → `playerInfoCard` → `CarryWeightValue` via `GFxValue::GetMember`, then called `SetText`. Used `AddTask` to re-apply each frame (ActionScript overwrites the text). **Result:** Game hangs. Root cause: `GFxValue::GetMember`/`SetText` must be called inside Scaleform's update context. The `Register` callback fires inside that context, but `AddTask` runs outside it (main game thread, not during Scaleform render). Also, `UI::GetMenu<InventoryMenu>()` accesses `menuMap` (`BSTHashMap`) which may have thread-safety issues outside UI message processing.
@@ -1096,7 +1133,15 @@ Removed: `bPlayerAlwaysCanDoAction`, `bNpcAlwaysCanDoAction`, `fNpcRegenExemptio
 
    **Open question:** Which approach to pursue? Papyrus is simpler and less error-prone. GFxFunctionHandler is more robust but requires reverse-engineering the menu's Scaleform wiring.
 
-7. **Public S&B API** — design and vend a public API header (like PEPE/DMMF) exposing burden computation, formula utilities (`Interpolate`, `ComputeAttackCost`, etc.), per-actor queries (burden data, exhaustion state), and event hooks for other mods to build on. Enables companion mods (magic overhaul, dodge mods) without version coordination.
+6. **Public S&B API** — design and vend a public API header (like PEPE/DMMF) exposing burden computation, formula utilities (`Interpolate`, `ComputeAttackCost`, etc.), per-actor queries (burden data, exhaustion state), and event hooks for other mods to build on. Enables companion mods (magic overhaul, dodge mods) without version coordination.
+7. **Menu polish enhancements** — Deferred quality-of-life features:
+   - Section default-open states (Toggles open, Debug closed)
+   - Search/filter box for param names
+   - Collapse-all/expand-all toggle
+   - Help tooltips via `FUCK::HelpMarker` on hover
+   - Localization via `_T` literals (low priority — labels are code param names, not user-facing)
+   - Persistent expanded-state across saves (serialization)
+8. **Per-maj-version INI clean rewrite** — RMW Save preserves unknown keys (intentional for `_Custom.ini` overlay pattern) but means renamed keys accumulate across version bumps. A major-version-triggered clean rewrite would solve this. Currently no mechanism exists.
 ---
 
 
