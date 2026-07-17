@@ -3,7 +3,7 @@
 #include "Movement/MovementCostManager.h"
 #include "Common/Utils.h"
 #include "Settings/Params/CostsParams.h"
-#include "Settings/Params/MovementSpeedParams.h"
+
 
 namespace
 {
@@ -32,11 +32,7 @@ namespace
 			if (!a_actor)
 				return original_speed;
 
-			auto* params = MovementSpeedParams::GetSingleton();
-			bool enabled = a_actor->IsPlayerRef() ? params->bMovementSpeedPlayer.Get() : params->bMovementSpeedNPC.Get();
-			if (!enabled)
-				return original_speed;
-
+            // Enabled check inside the function
 			return original_speed * Movement::ComputeSpeedMultiplier(a_actor);
 		}
 

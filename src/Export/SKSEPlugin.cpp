@@ -3,11 +3,14 @@
 #include "Hooks/Hooks.h"
 #include "Papyrus/Papyrus.h"
 #include "Settings/Params/SettingsOverride.h"
+#include "Settings/Params/SBSettingsINI.h"
 #include "Serialization/Serde.h"
 #include "Settings/INI/INISettings.h"
 #include "Settings/JSON/JSONSettings.h"
 #include "Common/Utils.h"
 #include "API/PerkEntryPointExtenderAPI.h"
+#include "API/FUCK_API.h"
+#include "Menu/SBMenuTool.h"
 #include "Hooks/DenyHooks.h"
 #include "Stamina/ExhaustionManager.h"
 
@@ -23,6 +26,13 @@ static void MessageEventCallback(SKSE::MessagingInterface::Message* a_msg)
 			logger::warn("  >PEPE not found — perk categories will be inactive");
 		} else {
 			logger::info("  >PEPE interface resolved");
+		}
+
+		if (FUCK::Connect(Plugin::NAME.data())) {
+			FUCK::RegisterTool(&SBMenuTool::GetSingleton());
+			logger::info("  >FUCK interface resolved — menu registered");
+		} else {
+			logger::info("  >FUCK not found — menu unavailable");
 		}
 
 		SECTION_SEPARATOR;
@@ -101,6 +111,7 @@ extern "C" DLLEXPORT bool SKSEAPI SKSEPlugin_Load(const SKSE::LoadInterface * a_
 	if (!Settings::INI::Read()) {
 		SKSE::stl::report_and_fail("Failed to load INI settings. Check the log for more information."sv);
 	}
+	SBSettingsINI::Initialize();
 	SECTION_SEPARATOR;
 	if (!Hooks::Install()) {
 		SKSE::stl::report_and_fail("Failed to install hooks. Check the log for more information."sv);

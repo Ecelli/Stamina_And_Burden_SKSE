@@ -10,7 +10,7 @@ namespace Blocking
 {
 	float getEngineBlockStaminaCost(const RE::HitData& hitData)
 	{
-		auto* params = Regen::ParameterOverrides::GetSingleton();
+		auto* params = ParameterOverrides::GetSingleton();
 		return ((hitData.percentBlocked * hitData.physicalDamage) * params->fStaminaBlockDmgMult.Get())
 			 + (params->fStaminaBlockStaggerMult.Get() * hitData.stagger + params->fStaminaBlockBase.Get());
 	}

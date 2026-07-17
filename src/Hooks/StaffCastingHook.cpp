@@ -1,5 +1,6 @@
 #include "StaffCastingHook.h"
 #include "Common/Utils.h"
+#include "Settings/Params/CostsParams.h"
 #include "Stamina/CostsManager.h"
 #include "Stamina/RegenManager.h"
 
@@ -62,7 +63,7 @@ namespace Hooks
 		bool leftHand = (result == CastStaffResult::kLeftHand);
 
 		bool isPlayer = actor->IsPlayerRef();
-		auto* params = Costs::CostsParams::GetSingleton();
+		auto* params = Costs::AttackCostParams::GetSingleton();
 		bool costEnabled = isPlayer ? params->bStaffCostPlayer.Get() : params->bStaffCostNPC.Get();
 		bool denyEnabled = isPlayer ? params->bStaffDenyPlayer.Get() : params->bStaffDenyNPC.Get();
 		denyEnabled = costEnabled && denyEnabled;
@@ -101,7 +102,7 @@ namespace Hooks
 			bool leftHand = (result == CastStaffResult::kLeftHand);
 
 			bool isPlayer = actor->IsPlayerRef();
-			auto* params = Costs::CostsParams::GetSingleton();
+            auto* params = Costs::AttackCostParams::GetSingleton();
 			bool costEnabled = isPlayer ? params->bStaffCostPlayer.Get() : params->bStaffCostNPC.Get();
 			bool denyEnabled = isPlayer ? params->bStaffDenyPlayer.Get() : params->bStaffDenyNPC.Get();
 			denyEnabled = costEnabled && denyEnabled;
