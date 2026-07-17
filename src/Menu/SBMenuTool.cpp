@@ -92,7 +92,7 @@ void SBMenuTool::Draw()
 		SBSettingsINI::SaveOverwrite();
 	FUCK::Separator();
 
-	if (!FUCK::BeginTabBar("Stamina an Burden Groups"))
+	if (!FUCK::BeginTabBar("Stamina and Burden Groups"))
 		return;
 
 	// ── Regen ──

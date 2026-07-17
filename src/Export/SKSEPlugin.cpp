@@ -5,7 +5,6 @@
 #include "Settings/Params/SettingsOverride.h"
 #include "Settings/Params/SBSettingsINI.h"
 #include "Serialization/Serde.h"
-#include "Settings/INI/INISettings.h"
 #include "Settings/JSON/JSONSettings.h"
 #include "Common/Utils.h"
 #include "API/PerkEntryPointExtenderAPI.h"
@@ -108,9 +107,6 @@ extern "C" DLLEXPORT bool SKSEAPI SKSEPlugin_Load(const SKSE::LoadInterface * a_
 
 	logger::info("Performing startup tasks..."sv);
 
-	if (!Settings::INI::Read()) {
-		SKSE::stl::report_and_fail("Failed to load INI settings. Check the log for more information."sv);
-	}
 	SBSettingsINI::Initialize();
 	SECTION_SEPARATOR;
 	if (!Hooks::Install()) {

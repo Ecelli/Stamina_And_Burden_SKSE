@@ -89,10 +89,6 @@ namespace stl {
     }
 }
 
-// Used as a compile guard in certain templated function (see INISettings.h, if present)
-template <class T>
-inline constexpr bool always_false = false;
-
 #define SECTION_SEPARATOR logger::info("=========================================================="sv)
 #ifdef SKYRIM_AE
 #	define OFFSET(se, ae) ae
