@@ -9,6 +9,8 @@
 #include "Settings/JSON/JSONSettings.h"
 #include "Common/Utils.h"
 #include "API/PerkEntryPointExtenderAPI.h"
+#include "API/FUCK_API.h"
+#include "Menu/SBMenuTool.h"
 #include "Hooks/DenyHooks.h"
 #include "Stamina/ExhaustionManager.h"
 
@@ -24,6 +26,13 @@ static void MessageEventCallback(SKSE::MessagingInterface::Message* a_msg)
 			logger::warn("  >PEPE not found — perk categories will be inactive");
 		} else {
 			logger::info("  >PEPE interface resolved");
+		}
+
+		if (FUCK::Connect(Plugin::NAME.data())) {
+			FUCK::RegisterTool(&SBMenuTool::GetSingleton());
+			logger::info("  >FUCK interface resolved — menu registered");
+		} else {
+			logger::info("  >FUCK not found — menu unavailable");
 		}
 
 		SECTION_SEPARATOR;
