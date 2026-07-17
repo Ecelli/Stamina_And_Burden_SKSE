@@ -109,30 +109,45 @@ void SBSettingsINI::Load()
 	logger::info("Finished loading user settings");
 }
 
+namespace
+{
+	void SaveImpl(bool a_overwrite)
+	{
+		auto path = ConfigFilePath();
+
+		logger::info("{} user settings to {}", a_overwrite ? "Overwriting" : "Saving", path);
+
+		CSimpleIniA ini;
+		ini.SetUnicode();
+		if (!a_overwrite && std::filesystem::exists(path))
+			ini.LoadFile(path.c_str());
+
+		ForEachAll([&](const std::string& a_section, std::string_view a_key, auto& a_param) {
+			using VType = std::decay_t<decltype(a_param.Get())>;
+			if constexpr (std::is_same_v<VType, bool>)
+				ini.SetBoolValue(a_section.c_str(), a_key.data(), a_param.Get());
+			else if constexpr (std::is_same_v<VType, float>) {
+				char buf[64];
+				snprintf(buf, sizeof(buf), "%.3f", a_param.Get());
+				ini.SetValue(a_section.c_str(), a_key.data(), buf);
+			} else if constexpr (std::is_same_v<VType, int>)
+				ini.SetLongValue(a_section.c_str(), a_key.data(), a_param.Get());
+		});
+
+		ini.SaveFile(path.c_str());
+
+		logger::info("Finished {} user settings", a_overwrite ? "overwriting" : "saving");
+	}
+}
+
 void SBSettingsINI::Save()
 {
-	auto path = ConfigFilePath();
+	SaveImpl(false);
+}
 
-	logger::info("Saving user settings to {}", path);
-
-	CSimpleIniA ini;
-	ini.SetUnicode();
-
-    ForEachAll([&](const std::string& a_section, std::string_view a_key, auto& a_param) {
-		using VType = std::decay_t<decltype(a_param.Get())>;
-		if constexpr (std::is_same_v<VType, bool>)
-			ini.SetBoolValue(a_section.c_str(), a_key.data(), a_param.Get());
-		else if constexpr (std::is_same_v<VType, float>) {
-			char buf[64];
-			snprintf(buf, sizeof(buf), "%.3f", a_param.Get());
-			ini.SetValue(a_section.c_str(), a_key.data(), buf);
-		} else if constexpr (std::is_same_v<VType, int>)
-			ini.SetLongValue(a_section.c_str(), a_key.data(), a_param.Get());
-	});
-
-	ini.SaveFile(path.c_str());
-
-	logger::info("Finished saving user settings");
+void SBSettingsINI::SaveOverwrite()
+{
+	SaveImpl(true);
 }
 
 void SBSettingsINI::Initialize()

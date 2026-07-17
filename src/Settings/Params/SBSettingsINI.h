@@ -5,4 +5,5 @@ namespace SBSettingsINI
 	void Initialize();
 	void Load();
 	void Save();
+	void SaveOverwrite();
 }

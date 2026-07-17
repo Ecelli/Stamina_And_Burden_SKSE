@@ -83,7 +83,13 @@ void SBMenuTool::OnClose()
 
 void SBMenuTool::Draw()
 {
+    constexpr auto overwriteLabel = "Clean INI Overwrite";
+	float totalWidth = FUCK::GetContentRegionAvail().x;
+	float btnWidth = FUCK::CalcTextSize(overwriteLabel).x + 20.0f;
 	FUCK::Text("StaminaAndBurden");
+	FUCK::SameLine(totalWidth - btnWidth);
+	if (FUCK::Button(overwriteLabel))
+		SBSettingsINI::SaveOverwrite();
 	FUCK::Separator();
 
 	if (!FUCK::BeginTabBar("Stamina an Burden Groups"))
