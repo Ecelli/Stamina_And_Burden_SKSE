@@ -55,6 +55,25 @@ namespace
 		if (prevOpen)
 			FUCK::TreePop();
 	}
+
+	void DrawSectionHeader(const char* a_label, auto&& a_forEachFn)
+	{
+		Header(a_label);
+        FUCK::PushID(a_label);
+		FUCK::SameLine(600.0f);
+		if (FUCK::Button("Defaults")) {
+			a_forEachFn([](auto&&... a_args) {
+				if constexpr (sizeof...(a_args) > 1) {
+					auto [key, param] = std::tie(a_args...);
+					param.Reset();
+				} else {
+                    // Just to avoid compilation errors
+                    [](auto&&...) {}(a_args...);
+				}
+			});
+		}
+        FUCK::PopID();
+	}
 }
 
 void SBMenuTool::OnClose()
@@ -72,16 +91,16 @@ void SBMenuTool::Draw()
 
 	// ── Regen ──
 	if (FUCK::BeginTabItem("Regen")) {
-		Header("RegenParams");
+		DrawSectionHeader("RegenParams", [](auto fn) { Regen::RegenParams::ForEach(fn); });
 		DrawGroup([](auto fn) { Regen::RegenParams::ForEach(fn); });
 
-		Header("RegenMovementParams");
+		DrawSectionHeader("RegenMovementParams", [](auto fn) { Regen::RegenMovementParams::ForEach(fn); });
 		DrawGroup([](auto fn) { Regen::RegenMovementParams::ForEach(fn); });
 
-		Header("NegativeRegen");
+		DrawSectionHeader("NegativeRegen", [](auto fn) { Regen::NegativeRegen::ForEach(fn); });
 		DrawGroup([](auto fn) { Regen::NegativeRegen::ForEach(fn); });
 
-		Header("WeatherParams");
+		DrawSectionHeader("WeatherParams", [](auto fn) { Regen::WeatherParams::ForEach(fn); });
 		DrawGroup([](auto fn) { Regen::WeatherParams::ForEach(fn); });
 
 		FUCK::EndTabItem();
@@ -89,10 +108,10 @@ void SBMenuTool::Draw()
 
 	// ── Costs ──
 	if (FUCK::BeginTabItem("Costs")) {
-		Header("CostsParams");
+		DrawSectionHeader("CostsParams", [](auto fn) { Costs::CostsParams::ForEach(fn); });
 		DrawGroup([](auto fn) { Costs::CostsParams::ForEach(fn); });
 
-		Header("AttackCostParams");
+		DrawSectionHeader("AttackCostParams", [](auto fn) { Costs::AttackCostParams::ForEach(fn); });
 		DrawGroup([](auto fn) { Costs::AttackCostParams::ForEach(fn); });
 
 		FUCK::EndTabItem();
@@ -100,13 +119,13 @@ void SBMenuTool::Draw()
 
 	// ── Combat ──
 	if (FUCK::BeginTabItem("Combat")) {
-		Header("DamageParams");
+		DrawSectionHeader("DamageParams", [](auto fn) { Damage::DamageParams::ForEach(fn); });
 		DrawGroup([](auto fn) { Damage::DamageParams::ForEach(fn); });
 
-		Header("BlockingParams");
+		DrawSectionHeader("BlockingParams", [](auto fn) { Blocking::BlockingParams::ForEach(fn); });
 		DrawGroup([](auto fn) { Blocking::BlockingParams::ForEach(fn); });
 
-		Header("DenyParams");
+		DrawSectionHeader("DenyParams", [](auto fn) { Deny::DenyParams::ForEach(fn); });
 		DrawGroup([](auto fn) { Deny::DenyParams::ForEach(fn); });
 
 		FUCK::EndTabItem();
@@ -114,10 +133,10 @@ void SBMenuTool::Draw()
 
 	// ── Burden ──
 	if (FUCK::BeginTabItem("Burden")) {
-		Header("BurdenParams");
+		DrawSectionHeader("BurdenParams", [](auto fn) { BurdenParams::ForEach(fn); });
 		DrawGroup([](auto fn) { BurdenParams::ForEach(fn); });
 
-		Header("ExhaustionParams");
+		DrawSectionHeader("ExhaustionParams", [](auto fn) { ExhaustionParams::ForEach(fn); });
 		DrawGroup([](auto fn) { ExhaustionParams::ForEach(fn); });
 
 		FUCK::EndTabItem();
@@ -125,10 +144,10 @@ void SBMenuTool::Draw()
 
 	// ── Movement ──
 	if (FUCK::BeginTabItem("Movement")) {
-		Header("MovementSpeedParams");
+		DrawSectionHeader("MovementSpeedParams", [](auto fn) { MovementSpeedParams::ForEach(fn); });
 		DrawGroup([](auto fn) { MovementSpeedParams::ForEach(fn); });
 
-		Header("JumpParams");
+		DrawSectionHeader("JumpParams", [](auto fn) { JumpParams::ForEach(fn); });
 		DrawGroup([](auto fn) { JumpParams::ForEach(fn); });
 
 		FUCK::EndTabItem();
@@ -136,7 +155,7 @@ void SBMenuTool::Draw()
 
 	// ── Overrides ──
 	if (FUCK::BeginTabItem("Overrides")) {
-		Header("ParameterOverrides");
+		DrawSectionHeader("ParameterOverrides", [](auto fn) { ParameterOverrides::ForEach(fn); });
 		DrawGroup([](auto fn) { ParameterOverrides::ForEach(fn); });
 
 		FUCK::EndTabItem();
