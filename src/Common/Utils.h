@@ -9,7 +9,7 @@
 #include "Settings/Params/DamageParams.h"
 #include "Settings/Params/BlockingParams.h"
 #include "Settings/Params/ExhaustionParams.h"
-#include "Settings/Params/MovementSpeedParams.h"
+#include "Settings/Params/MovementParams.h"
 #include "Settings/Params/DenyParams.h"
 
 namespace Utils

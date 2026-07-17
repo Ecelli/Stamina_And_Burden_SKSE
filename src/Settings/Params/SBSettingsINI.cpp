@@ -11,7 +11,7 @@
 #include "DamageParams.h"
 #include "DenyParams.h"
 #include "ExhaustionParams.h"
-#include "MovementSpeedParams.h"
+#include "MovementParams.h"
 #include "ParameterOverrides.h"
 #include "RegenParams.h"
 #include "BlockingParams.h"

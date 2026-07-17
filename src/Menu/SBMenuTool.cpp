@@ -5,7 +5,7 @@
 #include "Settings/Params/DamageParams.h"
 #include "Settings/Params/DenyParams.h"
 #include "Settings/Params/ExhaustionParams.h"
-#include "Settings/Params/MovementSpeedParams.h"
+#include "Settings/Params/MovementParams.h"
 #include "Settings/Params/ParameterOverrides.h"
 #include "Settings/Params/RegenParams.h"
 #include "Settings/Params/BlockingParams.h"

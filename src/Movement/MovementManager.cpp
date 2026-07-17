@@ -1,7 +1,7 @@
 #include "Movement/MovementManager.h"
 #include "Burden/BurdenTracker.h"
 #include "Stamina/ExhaustionManager.h"
-#include "Settings/Params/MovementSpeedParams.h"
+#include "Settings/Params/MovementParams.h"
 #include "Common/Utils.h"
 
 namespace
