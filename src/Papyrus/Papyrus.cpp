@@ -22,7 +22,7 @@ namespace Papyrus
 		return Burden::Tracker::GetOrComputeBurden(a_actor).burdenBlend;
 	}
 
-	float GetEquippedWeight(STATIC_ARGS, RE::Actor* a_actor) {
+	float GetEffectiveEquippedWeight(STATIC_ARGS, RE::Actor* a_actor) {
 		if (!a_actor) return 0.0f;
 		return Burden::Tracker::GetOrComputeBurden(a_actor).equippedWeight;
 	}
@@ -39,7 +39,7 @@ namespace Papyrus
 		BIND(GetBurden);
 		BIND(GetCarryBurden);
 		BIND(GetBurdenBlend);
-		BIND(GetEquippedWeight);
+		BIND(GetEffectiveEquippedWeight);
 		BIND(GetMaxEquippedWeight);
 	}
 
