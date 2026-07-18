@@ -17,7 +17,10 @@ An SKSE plugin for Skyrim AE that overhauls stamina into a burden- and weight-dr
 
 ```
 src/
-├── API/               # Vendored PerkEntryPointExtenderAPI.h (PEPE v3) (DONE)
+├── API/               # Vendored PEPE API + public S&B SKSE plugin API (DONE)
+│   ├── PerkEntryPointExtenderAPI.h  # Vendored PEPE v3
+│   ├── StaminaAndBurdenAPI.h       # Public vendored header
+│   └── StaminaAndBurdenAPI.cpp     # Internal implementation + DLL export
 ├── Burden/            # Burden computation + actor tracker (DONE)
 ├── Combat/            # BlockManager + DamageManager (DONE)
 │   ├── BlockManager   # Block stamina cost, damage redirect, guard break
@@ -582,6 +585,73 @@ damageMult      = Interpolate(fDamageScaleLow, fDamageScaleHigh, staminaPct, fDa
 - Both `totalDamage` and `physicalDamage` scaled uniformly — matches StaminaNPC behavior where crit bonus is derived from scaled `physicalDamage`.
 - Spell-only attacks excluded via `!hitData.weapon && hitData.attackDataSpell` — prevents scaling pure magic damage.
 
+### 3.10 Public SKSE Plugin API (DONE)
+
+**Files:** `src/API/StaminaAndBurdenAPI.h` (vendored), `src/API/StaminaAndBurdenAPI.cpp`
+
+**Purpose:** Public vendored C++ API for companion mods to query burden data, stamina costs, movement multipliers, exhaustion state, and action cost formulas without depending on S&B's internal headers or version coordination.
+
+**Architecture:**
+- `InterfaceVersion1` — abstract C++ vtable class with 37 virtual methods
+- `SB_RequestInterfaceImpl` — `extern "C" DLLEXPORT` function returning `void*`
+- Consumer calls `StaminaAndBurdenAPI::RequestInterface<CurrentInterface>()` to retrieve the vtable pointer
+- Thread-safe by construction (single main thread)
+
+**Public types:**
+
+| Type | Description |
+|---|---|
+| `WeaponSlot` | Enum: `RightHand`, `LeftHand`, `TwoHanded`, `Ranged`, `Block` |
+| `BurdenComponent` | Enum selecting which burden value to use in cost formulas: `Burden`, `CarryBurden`, `BurdenBlend`, `WeaponRightHand`, `WeaponLeftHand`, `WeaponTwoHanded`, `WeaponRanged`, `WeaponBlock` |
+| `CostCurve` | `{ min, max, k, burdenComponent }` — interpolation parameters + which burden to sample |
+| `ActionCostConfig` | `{ base: CostCurve, percent: CostCurve }` — dual-curve cost formula |
+
+**Vtable (37 slots):**
+
+| Category | Methods | Slots |
+|---|---|---|
+| Burden queries (5) | `GetBurden`, `GetCarryBurden`, `GetBurdenBlend`, `GetBurdenEquippedWeight`, `GetMaxEquippedWeight` | 2–6 |
+| Weapon burden (6) | `GetWeaponBurden(WeaponSlot)` + 5 convenience | 7–12 |
+| Non-attack costs (2) | `GetSprintDrain`, `GetJumpCost` | 13–14 |
+| Hold penalties (3) | `GetBlockHoldPenalty`, `GetBowDrawHoldPenalty`, `GetStaffHoldPenalty(bool left)` | 15–17 |
+| Attack costs (10) | `GetBaseAttackCost(bash, left, power)`, `GetAttackCostFromData(BGSAttackData*)`, 6 convenience + `GetBowFireCost`, `GetStaffFireCost(bool left)` | 18–27 |
+| Action cost (4) | `SetNamedActionCost(name, config)`, `ComputeNamedActionCost(actor, name)`, `IsActionRegistered(name)`, `ComputeActionCost(actor, baseCmp, min, max, k, pctCmp, min, max, k)` | 28–31 |
+| Movement (2) | `GetSpeedMultiplier`, `GetJumpHeightMultiplier` | 32–33 |
+| State (1) | `IsExhausted` | 34 |
+| Math (2) | `Interpolate(min, max, t, k)`, `SmoothStep(t)` | 35–36 |
+
+**Attack cost naming convention:**
+- `GetBase*` — does NOT include engine `staminaMult` or PEPE perk modifications. Pure burden-based cost.
+- `GetAttackCostFromData` — includes `staminaMult` (dual-wield balance) and PEPE perk scaling. Requires `BGSAttackData*`.
+- `GetBowFireCost` / `GetStaffFireCost` — base fire costs (no PEPE layer — that's applied inside the hook).
+
+**Action cost formula:**
+```
+Stamina1pct     = 0.01 × maxStamina
+baseTerm        = Interpolate(min, max, baseBurdenT, k)
+pctTerm         = Interpolate(min, max, pctBurdenT, k) × Stamina1pct
+totalCost       = baseTerm + pctTerm
+```
+
+**Consumer usage:**
+```cpp
+#include "StaminaAndBurdenAPI.h"
+
+auto* api = StaminaAndBurdenAPI::RequestInterface<StaminaAndBurdenAPI::InterfaceVersion1>();
+if (api) {
+    float burden = api->GetBurdenBlend(actor);
+    float jumpCost = api->GetJumpCost(actor);
+    float sprint = api->GetSpeedMultiplier(actor);
+    bool exhausted = api->IsExhausted(actor);
+}
+```
+
+**Implementation:** `InterfaceImpl` class in anonymous namespace. `SetNamedActionCost` stores configs in a static `unordered_map<string, ActionCostConfig>`. `ComputeNamedActionCost` looks up and delegates to `ComputeCostFromConfig`. `ComputeActionCost` (direct) assembles a config inline and calls the same helper. `ResolveBurdenValue` maps `BurdenComponent` enum to the correct float in `ActorBurdenData`. All methods return 0 for null actor.
+
+**Notes:**
+- Requires CommonLibSSE (`<RE/A/Actor.h>`) at the consumer side — standard for SKSE plugin APIs
+- Only C++ consumers (no Papyrus bindings yet — see §7)
+- Per-actor equipped weight override is a shelved open item (§12.9)
 ---
 
 ## 4. Hook Summary
@@ -718,7 +788,7 @@ Both player and NPC attack denial share the same `HasStamina()` logic which chec
 
 ## 7. Papyrus Interface
 
-**Current state:** Minimal. Only `GetVersion` bound. Script at `Data/Source/Scripts/EC_StaminaAndBurden.psc` has 3 stubs: `GetVersion` + 2 `UnitTest_Serialization` stubs.
+**Current state:** Minimal. Only `GetVersion` bound. Script at `Data/Source/Scripts/EC_StaminaAndBurden.psc` has 3 stubs: `GetVersion` + 2 `UnitTest_Serialization` stubs. The C++ SKSE plugin API (§3.10) is complete and ready for companion mods, but Papyrus bindings are still separate — the query functions listed below are not yet exposed to Papyrus scripts.
 
 **Planned** (deferred):
 - `GetEquippedBurdenRatio` — query burden data from Papyrus
@@ -1136,7 +1206,7 @@ Single `FUCK::ITool` registered at `kDataLoaded` via `FUCK::RegisterTool()`. Opt
 
    **Open question:** Which approach to pursue? Papyrus is simpler and less error-prone. GFxFunctionHandler is more robust but requires reverse-engineering the menu's Scaleform wiring.
 
-6. **Public S&B API** — design and vend a public API header (like PEPE/DMMF) exposing burden computation, formula utilities (`Interpolate`, `ComputeAttackCost`, etc.), per-actor queries (burden data, exhaustion state), and event hooks for other mods to build on. Enables companion mods (magic overhaul, dodge mods) without version coordination.
+6. ~~**Public S&B API**~~ → **DONE** (§3.10). A full vendored C++ API with 37 virtual methods covering burden queries, weapon burden, stamina costs (attack, sprint, jump, hold, fire), movement multipliers, exhaustion state, custom action cost formulas, and math utilities. Consumer pattern: include `StaminaAndBurdenAPI.h` → `RequestInterface<InterfaceVersion1>()` → call methods. Per-actor equipped weight override (§12.9) is the only deferred item.
 7. **Menu polish enhancements** — Deferred quality-of-life features:
    - Section default-open states (Toggles open, Debug closed)
    - Search/filter box for param names
@@ -1145,6 +1215,20 @@ Single `FUCK::ITool` registered at `kDataLoaded` via `FUCK::RegisterTool()`. Opt
    - Localization via `_T` literals (low priority — labels are code param names, not user-facing)
    - Persistent expanded-state across saves (serialization)
 8. **Per-maj-version INI clean rewrite** — RMW Save preserves unknown keys (intentional for forward-compatibility) but means renamed keys accumulate across version bumps. A major-version-triggered clean rewrite would solve this. Currently no mechanism exists.
+9. **Per-actor equipped weight override** — decouple `maxEquippedWeight` from `maxCarryWeight` for mod integrations. Currently `maxEquippedWeight = ratio × maxCarryWeight` (§3.1), so any mod that increases carry weight (e.g. via Strength perks) automatically inflates the equipped burden ceiling. Companion mods adding classic RPG attributes (Strength → carry weight, Endurance → equipped weight ceiling) cannot make them independent.
+
+   **Proposed API:**
+   ```
+   virtual void SetEquippedWeightMax(Actor* actor, float maxValue) = 0;
+   virtual void ClearEquippedWeightMax(Actor* actor) = 0;
+   ```
+   When set, `maxEquippedWeight` is clamped to `maxCarryWeight` and used instead of the ratio formula. When cleared, falls back to ratio.
+
+   **Open questions:**
+   - Save persistence: override must survive saves. Option A: S&B persists via serialization (§8) — clean for consumers but couples S&B to external data lifecycle. Option B: companion mod re-applies after every load — no S&B lifecycle responsibility but timing gap between load and re-apply.
+   - Utility unclear — unknown how many mods would use this; may not justify serialization complexity.
+
+   **Status:** SHELVED — deferred until use case clarity or public API demand materializes.
 ---
 
 
