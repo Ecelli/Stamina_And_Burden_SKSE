@@ -17,6 +17,15 @@ namespace StaminaAndBurdenAPI
 		Current = Version1
 	};
 
+	enum class WeaponSlot : uint32_t
+	{
+		RightHand,
+		LeftHand,
+		TwoHanded,
+		Ranged,
+		Block
+	};
+
 	struct InterfaceVersion1
 	{
 		inline static constexpr auto VERSION = Version::Version1;
@@ -31,6 +40,16 @@ namespace StaminaAndBurdenAPI
 		virtual float GetBurdenBlend(RE::Actor* actor) = 0;
 		virtual float GetBurdenEquippedWeight(RE::Actor* actor) = 0;
 		virtual float GetMaxEquippedWeight(RE::Actor* actor) = 0;
+
+		// Weapon burden — enum-based
+		virtual float GetWeaponBurden(RE::Actor* actor, WeaponSlot slot) = 0;
+
+		// Weapon burden — convenience
+		virtual float GetRightHandWeaponBurden(RE::Actor* actor) = 0;
+		virtual float GetLeftHandWeaponBurden(RE::Actor* actor) = 0;
+		virtual float GetTwoHandedWeaponBurden(RE::Actor* actor) = 0;
+		virtual float GetRangedWeaponBurden(RE::Actor* actor) = 0;
+		virtual float GetBlockWeaponBurden(RE::Actor* actor) = 0;
 	};
 
 	using CurrentInterface = InterfaceVersion1;
