@@ -1,6 +1,6 @@
 name: template
 alias: tmp
-script: SEA_TemplateProject
+script: StaminaAndBurden
 help: Tests for the Custom Console integration.
 subs:
   - name: getversion
