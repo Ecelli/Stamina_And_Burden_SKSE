@@ -2,7 +2,10 @@
 #include "Burden/BurdenManager.h"
 #include "Burden/BurdenTracker.h"
 #include "Movement/MovementCostManager.h"
+#include "Movement/MovementManager.h"
 #include "Stamina/RegenManager.h"
+#include "Stamina/ExhaustionManager.h"
+#include "Common/Utils.h"
 
 namespace
 {
@@ -117,6 +120,40 @@ namespace
 		{
 			if (!a_actor) return 0.0f;
 			return Regen::ComputeStaffHoldPenalty(a_actor, a_leftHand);
+		}
+
+		// --- Movement multipliers ---
+
+		float GetSpeedMultiplier(RE::Actor* a_actor) override
+		{
+			if (!a_actor) return 0.0f;
+			return Movement::ComputeSpeedMultiplier(a_actor);
+		}
+
+		float GetJumpHeightMultiplier(RE::Actor* a_actor) override
+		{
+			if (!a_actor) return 0.0f;
+			return Movement::ComputeJumpHeightMult(a_actor);
+		}
+
+		// --- State ---
+
+		bool IsExhausted(RE::Actor* a_actor) override
+		{
+			if (!a_actor) return false;
+			return Exhaustion::ExhaustionManager::GetSingleton()->IsExhausted(a_actor);
+		}
+
+		// --- Math utilities ---
+
+		float Interpolate(float a_min, float a_max, float a_t, float a_k) override
+		{
+			return Math::Interpolate(a_min, a_max, a_t, a_k);
+		}
+
+		float SmoothStep(float a_t) override
+		{
+			return Math::SmoothStep(a_t);
 		}
 	};
 

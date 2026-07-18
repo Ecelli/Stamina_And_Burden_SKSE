@@ -59,6 +59,17 @@ namespace StaminaAndBurdenAPI
 		virtual float GetBlockHoldPenalty(RE::Actor* actor) = 0;
 		virtual float GetBowDrawHoldPenalty(RE::Actor* actor) = 0;
 		virtual float GetStaffHoldPenalty(RE::Actor* actor, bool leftHand) = 0;
+
+		// Movement multipliers
+		virtual float GetSpeedMultiplier(RE::Actor* actor) = 0;
+		virtual float GetJumpHeightMultiplier(RE::Actor* actor) = 0;
+
+		// State
+		virtual bool IsExhausted(RE::Actor* actor) = 0;
+
+		// Math utilities
+		virtual float Interpolate(float min, float max, float t, float k) = 0;
+		virtual float SmoothStep(float t) = 0;
 	};
 
 	using CurrentInterface = InterfaceVersion1;
