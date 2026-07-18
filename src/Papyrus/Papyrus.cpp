@@ -1,5 +1,6 @@
 #include "papyrus.h"
 #include "Burden/BurdenTracker.h"
+#include "API/StaminaAndBurdenAPI.h"
 
 namespace Papyrus
 {
@@ -32,6 +33,16 @@ namespace Papyrus
 		return Burden::Tracker::GetOrComputeBurden(a_actor).maxEquippedWeight;
 	}
 
+	float ComputeActionCost(STATIC_ARGS, RE::Actor* a_actor,
+		int a_baseComponent, float a_baseMin, float a_baseMax, float a_baseK,
+		int a_pctComponent, float a_pctMin, float a_pctMax, float a_pctK)
+	{
+		if (!a_actor || !StaminaAndBurdenAPI::Interface) return 0.0f;
+		return StaminaAndBurdenAPI::Interface->ComputeActionCost(a_actor,
+			static_cast<StaminaAndBurdenAPI::BurdenComponent>(a_baseComponent), a_baseMin, a_baseMax, a_baseK,
+			static_cast<StaminaAndBurdenAPI::BurdenComponent>(a_pctComponent), a_pctMin, a_pctMax, a_pctK);
+	}
+
 	void Bind(VM& a_vm) {
 		logger::info("  >Binding GetVersion..."sv);
 		BIND(GetVersion);
@@ -41,6 +52,8 @@ namespace Papyrus
 		BIND(GetBurdenBlend);
 		BIND(GetEffectiveEquippedWeight);
 		BIND(GetMaxEquippedWeight);
+		logger::info("  >Binding ComputeActionCost..."sv);
+		BIND(ComputeActionCost);
 	}
 
 	bool RegisterFunctions(VM* a_vm) {
