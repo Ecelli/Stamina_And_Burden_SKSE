@@ -50,6 +50,15 @@ namespace StaminaAndBurdenAPI
 		virtual float GetTwoHandedWeaponBurden(RE::Actor* actor) = 0;
 		virtual float GetRangedWeaponBurden(RE::Actor* actor) = 0;
 		virtual float GetBlockWeaponBurden(RE::Actor* actor) = 0;
+
+		// Costs — non-attack
+		virtual float GetSprintDrain(RE::Actor* actor) = 0;
+		virtual float GetJumpCost(RE::Actor* actor) = 0;
+
+		// Hold penalties
+		virtual float GetBlockHoldPenalty(RE::Actor* actor) = 0;
+		virtual float GetBowDrawHoldPenalty(RE::Actor* actor) = 0;
+		virtual float GetStaffHoldPenalty(RE::Actor* actor, bool leftHand) = 0;
 	};
 
 	using CurrentInterface = InterfaceVersion1;

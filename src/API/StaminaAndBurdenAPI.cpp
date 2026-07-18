@@ -1,6 +1,8 @@
 #include "API/StaminaAndBurdenAPI.h"
 #include "Burden/BurdenManager.h"
 #include "Burden/BurdenTracker.h"
+#include "Movement/MovementCostManager.h"
+#include "Stamina/RegenManager.h"
 
 namespace
 {
@@ -81,6 +83,40 @@ namespace
 		float GetBlockWeaponBurden(RE::Actor* a_actor) override
 		{
 			return GetWeaponBurden(a_actor, StaminaAndBurdenAPI::WeaponSlot::Block);
+		}
+
+		// --- Non-attack costs ---
+
+		float GetSprintDrain(RE::Actor* a_actor) override
+		{
+			if (!a_actor) return 0.0f;
+			return Movement::ComputeSprintDrain(a_actor);
+		}
+
+		float GetJumpCost(RE::Actor* a_actor) override
+		{
+			if (!a_actor) return 0.0f;
+			return Movement::ComputeJumpCost(a_actor);
+		}
+
+		// --- Hold penalties ---
+
+		float GetBlockHoldPenalty(RE::Actor* a_actor) override
+		{
+			if (!a_actor) return 0.0f;
+			return Regen::ComputeBlockHoldPenalty(a_actor);
+		}
+
+		float GetBowDrawHoldPenalty(RE::Actor* a_actor) override
+		{
+			if (!a_actor) return 0.0f;
+			return Regen::ComputeBowDrawHoldPenalty(a_actor);
+		}
+
+		float GetStaffHoldPenalty(RE::Actor* a_actor, bool a_leftHand) override
+		{
+			if (!a_actor) return 0.0f;
+			return Regen::ComputeStaffHoldPenalty(a_actor, a_leftHand);
 		}
 	};
 
