@@ -4,8 +4,11 @@
 #include "Movement/MovementCostManager.h"
 #include "Movement/MovementManager.h"
 #include "Stamina/RegenManager.h"
+#include "Stamina/CostsManager.h"
 #include "Stamina/ExhaustionManager.h"
 #include "Common/Utils.h"
+
+#include <RE/B/BGSAttackData.h>
 
 namespace
 {
@@ -120,6 +123,62 @@ namespace
 		{
 			if (!a_actor) return 0.0f;
 			return Regen::ComputeStaffHoldPenalty(a_actor, a_leftHand);
+		}
+
+		// --- Attack costs ---
+
+		float GetBaseAttackCost(RE::Actor* a_actor, bool a_bash, bool a_left, bool a_power) override
+		{
+			if (!a_actor) return 0.0f;
+			return Costs::ComputeBaseAttackCost(a_actor, a_bash, a_left, a_power);
+		}
+
+		float GetAttackCostFromData(RE::Actor* a_actor, RE::BGSAttackData* a_attackData) override
+		{
+			if (!a_actor || !a_attackData) return 0.0f;
+			return Costs::ComputeAttackCost(a_actor, a_attackData);
+		}
+
+		float GetBaseNormalAttackCost(RE::Actor* a_actor) override
+		{
+			return GetBaseAttackCost(a_actor, false, false, false);
+		}
+
+		float GetBasePowerAttackCost(RE::Actor* a_actor) override
+		{
+			return GetBaseAttackCost(a_actor, false, false, true);
+		}
+
+		float GetBaseLeftHandAttackCost(RE::Actor* a_actor) override
+		{
+			return GetBaseAttackCost(a_actor, false, true, false);
+		}
+
+		float GetBaseLeftPowerAttackCost(RE::Actor* a_actor) override
+		{
+			return GetBaseAttackCost(a_actor, false, true, true);
+		}
+
+		float GetBaseBashAttackCost(RE::Actor* a_actor) override
+		{
+			return GetBaseAttackCost(a_actor, true, false, false);
+		}
+
+		float GetBaseBashPowerAttackCost(RE::Actor* a_actor) override
+		{
+			return GetBaseAttackCost(a_actor, true, false, true);
+		}
+
+		float GetBowFireCost(RE::Actor* a_actor) override
+		{
+			if (!a_actor) return 0.0f;
+			return Costs::ComputeBowFireCost(a_actor);
+		}
+
+		float GetStaffFireCost(RE::Actor* a_actor, bool a_leftHand) override
+		{
+			if (!a_actor) return 0.0f;
+			return Costs::ComputeStaffFireCost(a_actor, a_leftHand);
 		}
 
 		// --- Movement multipliers ---

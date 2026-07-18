@@ -8,6 +8,8 @@
 #define SB_API_SOURCE "StaminaAndBurden.dll"
 #endif
 
+namespace RE { class BGSAttackData; }
+
 namespace StaminaAndBurdenAPI
 {
 	enum class Version
@@ -59,6 +61,37 @@ namespace StaminaAndBurdenAPI
 		virtual float GetBlockHoldPenalty(RE::Actor* actor) = 0;
 		virtual float GetBowDrawHoldPenalty(RE::Actor* actor) = 0;
 		virtual float GetStaffHoldPenalty(RE::Actor* actor, bool leftHand) = 0;
+
+		// Attack costs — two APIs, different scope:
+		//
+		// GetBaseAttackCost(actor, bash, left, power):
+		//   Returns the burden-based stamina cost for an attack. The consumer
+		//   provides the attack flags directly. Does NOT include the engine's
+		//   dual-wield staminaMult or perk modifications (PEPE).
+		//   Use when you know the attack parameters but don't have BGSAttackData.
+		//
+		// GetAttackCostFromData(actor, attackData):
+		//   Returns the final stamina cost as applied by S&B's hooks. Includes
+		//   staminaMult (dual-wield balance, usually 1.0) and PEPE perk scaling.
+		//   Use when you already have a BGSAttackData pointer (e.g. from a hook).
+		//
+		// Convenience wrappers delegate to GetBaseAttackCost with preset flags:
+		//   GetBaseNormalAttackCost(actor) -> GetBaseAttackCost(actor, false, false, false)
+		//   GetBasePowerAttackCost(actor)  -> GetBaseAttackCost(actor, false, false, true)
+		//   GetBaseBashAttackCost(actor)   -> GetBaseAttackCost(actor, true,  false, false)
+		//   GetBaseLeftHandAttackCost(actor) -> GetBaseAttackCost(actor, false, true,  false)
+		//   GetBaseLeftPowerAttackCost(actor)  -> GetBaseAttackCost(actor, false, true,  true)
+		//   GetBaseBashPowerAttackCost(actor)  -> GetBaseAttackCost(actor, true,  false, true)
+		virtual float GetBaseAttackCost(RE::Actor* actor, bool bash, bool left, bool power) = 0;
+		virtual float GetAttackCostFromData(RE::Actor* actor, RE::BGSAttackData* attackData) = 0;
+		virtual float GetBaseNormalAttackCost(RE::Actor* actor) = 0;
+		virtual float GetBasePowerAttackCost(RE::Actor* actor) = 0;
+		virtual float GetBaseLeftHandAttackCost(RE::Actor* actor) = 0;
+		virtual float GetBaseLeftPowerAttackCost(RE::Actor* actor) = 0;
+		virtual float GetBaseBashAttackCost(RE::Actor* actor) = 0;
+		virtual float GetBaseBashPowerAttackCost(RE::Actor* actor) = 0;
+		virtual float GetBowFireCost(RE::Actor* actor) = 0;
+		virtual float GetStaffFireCost(RE::Actor* actor, bool leftHand) = 0;
 
 		// Movement multipliers
 		virtual float GetSpeedMultiplier(RE::Actor* actor) = 0;
