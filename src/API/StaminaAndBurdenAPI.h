@@ -28,6 +28,33 @@ namespace StaminaAndBurdenAPI
 		Block
 	};
 
+	enum class BurdenComponent : uint32_t
+	{
+		Burden,       // Equipment burden
+		CarryBurden,  // Inventory Burden (scales with maximum carry weight)
+		BurdenBlend,  // Weighted mix of burden and carry burden
+		WeaponRightHand, // Right hand weapon burden 
+        // NOTE: Staves use weapon left/right hand
+		WeaponLeftHand,  // Left hand weapon burden 
+		WeaponTwoHanded, // 2handed weapon burden 
+		WeaponRanged,    // ranged weapon burden 
+		WeaponBlock      // Block/shield burden 
+	};
+
+	struct CostCurve
+	{
+		float min{ 0.0f }; // Cost at low burden
+		float max{ 0.0f }; // Cost at high burden
+		float k{ 0.0f };   // curve control
+		BurdenComponent burdenComponent{ BurdenComponent::BurdenBlend };
+	};
+
+	struct ActionCostConfig
+	{
+		CostCurve base;    // Direct cost
+		CostCurve percent; // percent stamina cost
+	};
+
 	struct InterfaceVersion1
 	{
 		inline static constexpr auto VERSION = Version::Version1;
@@ -92,6 +119,23 @@ namespace StaminaAndBurdenAPI
 		virtual float GetBaseBashPowerAttackCost(RE::Actor* actor) = 0;
 		virtual float GetBowFireCost(RE::Actor* actor) = 0;
 		virtual float GetStaffFireCost(RE::Actor* actor, bool leftHand) = 0;
+
+		// Custom action burden cost system — configurable cost based on burden system
+		//
+		// Registry-based: define once, query by name from anywhere.
+		//   SetNamedActionCost("MyMod_Action", config)        — register
+		//   ComputeNamedActionCost(actor, "MyMod_Action") — compute
+		//   IsActionRegistered("MyMod_Action")           — check registration
+		//
+		// Direct: compute ad-hoc without a named entry.
+		//   ComputeActionCost
+		virtual void SetNamedActionCost(const char* name, const ActionCostConfig& config) = 0;
+		virtual float ComputeNamedActionCost(RE::Actor* actor, const char* a_actionName) = 0;
+		virtual bool IsActionRegistered(const char* name) = 0;
+		virtual float ComputeActionCost(
+			RE::Actor* actor,
+			BurdenComponent baseComponent, float baseMin, float baseMax, float baseK,
+			BurdenComponent pctComponent, float pctMin, float pctMax, float pctK) = 0;
 
 		// Movement multipliers
 		virtual float GetSpeedMultiplier(RE::Actor* actor) = 0;

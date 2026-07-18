@@ -10,8 +10,44 @@
 
 #include <RE/B/BGSAttackData.h>
 
+#include <string>
+#include <unordered_map>
+
 namespace
 {
+	float ResolveBurdenValue(const Burden::ActorBurdenData& data, StaminaAndBurdenAPI::BurdenComponent component)
+	{
+		switch (component) {
+		case StaminaAndBurdenAPI::BurdenComponent::Burden:           return data.burden;
+		case StaminaAndBurdenAPI::BurdenComponent::CarryBurden:      return data.carryBurden;
+		case StaminaAndBurdenAPI::BurdenComponent::BurdenBlend:      return data.burdenBlend;
+		case StaminaAndBurdenAPI::BurdenComponent::WeaponRightHand:  return data.weaponBurden_rh;
+		case StaminaAndBurdenAPI::BurdenComponent::WeaponLeftHand:   return data.weaponBurden_lh;
+		case StaminaAndBurdenAPI::BurdenComponent::WeaponTwoHanded:  return data.weaponBurden_2h;
+		case StaminaAndBurdenAPI::BurdenComponent::WeaponRanged:     return data.weaponBurden_ranged;
+		case StaminaAndBurdenAPI::BurdenComponent::WeaponBlock:      return data.weaponBurden_block;
+		default:                                                     return 0.0f;
+		}
+	}
+
+	float ComputeCostFromConfig(RE::Actor* a_actor, const StaminaAndBurdenAPI::ActionCostConfig& a_config)
+	{
+		if (!a_actor) return 0.0f;
+
+		auto& burden = Burden::Tracker::GetOrComputeBurden(a_actor);
+		float Stamina1pct = 0.01f * static_cast<float>(a_actor->GetActorValueMax(RE::ActorValue::kStamina));
+
+		float baseT = ResolveBurdenValue(burden, a_config.base.burdenComponent);
+		float pctT = ResolveBurdenValue(burden, a_config.percent.burdenComponent);
+
+		float base = Math::Interpolate(a_config.base.min, a_config.base.max, baseT, a_config.base.k);
+		float pct = Stamina1pct * Math::Interpolate(a_config.percent.min, a_config.percent.max, pctT, a_config.percent.k);
+
+		return base + pct;
+	}
+
+	std::unordered_map<std::string, StaminaAndBurdenAPI::ActionCostConfig> s_actionCostRegistry;
+
 	class InterfaceImpl final : public StaminaAndBurdenAPI::InterfaceVersion1
 	{
 	public:
@@ -179,6 +215,49 @@ namespace
 		{
 			if (!a_actor) return 0.0f;
 			return Costs::ComputeStaffFireCost(a_actor, a_leftHand);
+		}
+
+		// --- Action cost system ---
+
+		void SetNamedActionCost(const char* a_name, const StaminaAndBurdenAPI::ActionCostConfig& a_config) override
+		{
+			if (a_name && a_name[0] != '\0')
+				s_actionCostRegistry[a_name] = a_config;
+		}
+
+		float ComputeNamedActionCost(RE::Actor* a_actor, const char* a_actionName) override
+		{
+			if (!a_actor || !a_actionName) return 0.0f;
+			auto it = s_actionCostRegistry.find(a_actionName);
+			if (it == s_actionCostRegistry.end()) return 0.0f;
+			return ComputeCostFromConfig(a_actor, it->second);
+		}
+
+		bool IsActionRegistered(const char* a_name) override
+		{
+			return a_name && s_actionCostRegistry.find(a_name) != s_actionCostRegistry.end();
+		}
+
+		float ComputeActionCost(
+			RE::Actor* a_actor,
+			StaminaAndBurdenAPI::BurdenComponent a_baseComponent,
+			float a_baseMin, float a_baseMax, float a_baseK,
+			StaminaAndBurdenAPI::BurdenComponent a_pctComponent,
+			float a_pctMin, float a_pctMax, float a_pctK) override
+		{
+			if (!a_actor) return 0.0f;
+
+			StaminaAndBurdenAPI::ActionCostConfig config;
+			config.base.burdenComponent = a_baseComponent;
+			config.base.min = a_baseMin;
+			config.base.max = a_baseMax;
+			config.base.k = a_baseK;
+			config.percent.burdenComponent = a_pctComponent;
+			config.percent.min = a_pctMin;
+			config.percent.max = a_pctMax;
+			config.percent.k = a_pctK;
+
+			return ComputeCostFromConfig(a_actor, config);
 		}
 
 		// --- Movement multipliers ---
