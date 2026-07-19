@@ -38,6 +38,9 @@ namespace Burden
 
 	WeaponHandlingInfo GetWeaponHandlingInfo(const ActorBurdenData& data, Utils::RightHandType type);
 
+    // This is used specifically for external APIs and Papyrus scripts
+	float ResolveBurdenValue(const ActorBurdenData& data, int component);
+
 	float GetEquippedWeight(RE::Actor* actor);
 	float ComputeEquipmentBurden(RE::Actor* actor);
 	float ScaleWeaponWeight(float weight, int skill);
