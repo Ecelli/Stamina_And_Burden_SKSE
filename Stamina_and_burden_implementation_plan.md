@@ -35,7 +35,7 @@ src/
 ├── Movement/          # Movement speed (burden/swim/exhaustion) + sprint/jump cost functions (DONE)
 │   ├── MovementManager        # ComputeSpeedMultiplier — burden, swim depth, exhaustion speed scaling
 │   └── MovementCostManager    # ComputeSprintDrain, ComputeJumpCost + PEPE calls
-├── Papyrus/           # 8 functions bound: GetVersion, 5 burden queries, ComputeActionCost, IsExhausted + ModCallbackEvent dispatch (DONE)
+├── Papyrus/           # 9 functions bound: GetVersion, GetBurdenByIndex, 3 burden convenience, ComputeActionCost, IsExhausted + ModCallbackEvent dispatch (DONE)
 ├── RE/                # Offset.h — placeholder; all REL::IDs inline (DONE)
 ├── Serialization/     # Serde.h/.cpp — infrastructure ready, nothing registered (SHELL)
 ├── Menu/              # FUCK settings menu
@@ -788,20 +788,21 @@ Both player and NPC attack denial share the same `HasStamina()` logic which chec
 
 ## 7. Papyrus Interface
 
-**Current state:** Complete. 8 functions bound on `StaminaAndBurden` utility script (flat name, no prefix) at `Data/Source/Scripts/StaminaAndBurden.psc`.
+**Current state:** Complete. 9 functions bound on `StaminaAndBurden` utility script (flat name, no prefix) at `Data/Source/Scripts/StaminaAndBurden.psc`.
 
 ### Bound functions:
 
 | # | Function | Signature | Purpose |
 |---|----------|-----------|---------|
 | 1 | `GetVersion` | `Int[] Function GetVersion() Global Native` | Returns plugin version `{ major, minor, patch }` |
-| 2 | `GetBurden` | `Float Function GetBurden(Actor a_actor) Global Native` | Equipment burden |
-| 3 | `GetCarryBurden` | `Float Function GetCarryBurden(Actor a_actor) Global Native` | Inventory/carry weight burden |
-| 4 | `GetBurdenBlend` | `Float Function GetBurdenBlend(Actor a_actor) Global Native` | Blended burden (equipped × carry) |
-| 5 | `GetEffectiveEquippedWeight` | `Float Function GetEffectiveEquippedWeight(Actor a_actor) Global Native` | Effective equipped weight |
-| 6 | `GetMaxEquippedWeight` | `Float Function GetMaxEquippedWeight(Actor a_actor) Global Native` | Max equipped weight |
-| 7 | `ComputeActionCost` | `Float Function ComputeActionCost(Actor, Int, Float, Float, Float, Int, Float, Float, Float) Global Native` | Ad-hoc burden-based stamina cost (9 params, see .psc block comment) |
-| 8 | `IsExhausted` | `Bool Function IsExhausted(Actor a_actor) Global Native` | Check if actor is exhausted |
+| 2 | `GetBurdenByIndex` | `Float Function GetBurdenByIndex(Actor a_actor, Int a_index) Global Native` | Unified burden query — see BurdenComponent index doc in `.psc` (indices 0-7) |
+| 3 | `GetBurden` | `Float Function GetBurden(Actor a_actor) Global Native` | Convenience: index 0 (equipment burden) |
+| 4 | `GetCarryBurden` | `Float Function GetCarryBurden(Actor a_actor) Global Native` | Convenience: index 1 (inventory/carry weight burden) |
+| 5 | `GetBurdenBlend` | `Float Function GetBurdenBlend(Actor a_actor) Global Native` | Convenience: index 2 (blended burden) |
+| 6 | `GetEffectiveEquippedWeight` | `Float Function GetEffectiveEquippedWeight(Actor a_actor) Global Native` | Effective equipped weight (not in BurdenComponent enum) |
+| 7 | `GetMaxEquippedWeight` | `Float Function GetMaxEquippedWeight(Actor a_actor) Global Native` | Max equipped weight (not in BurdenComponent enum) |
+| 8 | `ComputeActionCost` | `Float Function ComputeActionCost(Actor, Int, Float, Float, Float, Int, Float, Float, Float) Global Native` | Ad-hoc burden-based stamina cost (9 params) |
+| 9 | `IsExhausted` | `Bool Function IsExhausted(Actor a_actor) Global Native` | Check if actor is exhausted |
 
 ### Exhaustion ModCallbackEvent
 
@@ -1169,7 +1170,7 @@ Single `FUCK::ITool` registered at `kDataLoaded` via `FUCK::RegisterTool()`. Opt
 ### Phase 9 — Papyrus & Polish (In Progress)
 | Task | Status |
 |---|---|
-| Bind query functions (5 burden + ComputeActionCost + IsExhausted) | DONE |
+| Bind query functions (GetBurdenByIndex + 3 convenience + 2 weight + ComputeActionCost + IsExhausted) | DONE |
 | Exhaustion ModCallbackEvent dispatch | DONE |
 | .psc documentation (ComputeActionCost params + event usage) | DONE |
 | Clean up UnitTest_Serialization stubs | NOT STARTED |
