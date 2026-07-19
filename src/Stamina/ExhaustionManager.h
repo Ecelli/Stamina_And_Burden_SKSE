@@ -16,15 +16,16 @@ namespace Exhaustion
 	class ExhaustionManager : public REX::Singleton<ExhaustionManager>
 	{
 	public:
+		using ExhaustionListener = void(*)(RE::Actor* actor, bool exhausted);
+
 		void TriggerExhaustion(RE::Actor* a_actor);
 		bool IsExhausted(RE::Actor* a_actor);
 		void UpdateExhaustion(RE::Actor* a_actor, float a_deltaTime);
 		void ClearAll();
+		void RegisterExhaustionListener(ExhaustionListener a_listener);
 
 	private:
 		std::unordered_map<RE::FormID, ExhaustionState> states;
-
-		void ClearExhaustion(RE::FormID a_formId);
 	};
 
 	void CheckForAndTriggerExhaustion(RE::Actor* a_actor, float a_deltaTime);
