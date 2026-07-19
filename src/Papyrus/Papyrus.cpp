@@ -1,5 +1,6 @@
 #include "papyrus.h"
 #include "Burden/BurdenTracker.h"
+#include "Stamina/ExhaustionManager.h"
 #include "API/StaminaAndBurdenAPI.h"
 
 namespace Papyrus
@@ -43,6 +44,11 @@ namespace Papyrus
 			static_cast<StaminaAndBurdenAPI::BurdenComponent>(a_pctComponent), a_pctMin, a_pctMax, a_pctK);
 	}
 
+	bool IsExhausted(STATIC_ARGS, RE::Actor* a_actor) {
+		if (!a_actor) return false;
+		return Exhaustion::ExhaustionManager::GetSingleton()->IsExhausted(a_actor);
+	}
+
 	void Bind(VM& a_vm) {
 		logger::info("  >Binding GetVersion..."sv);
 		BIND(GetVersion);
@@ -54,6 +60,8 @@ namespace Papyrus
 		BIND(GetMaxEquippedWeight);
 		logger::info("  >Binding ComputeActionCost..."sv);
 		BIND(ComputeActionCost);
+		logger::info("  >Binding IsExhausted..."sv);
+		BIND(IsExhausted);
 	}
 
 	bool RegisterFunctions(VM* a_vm) {
