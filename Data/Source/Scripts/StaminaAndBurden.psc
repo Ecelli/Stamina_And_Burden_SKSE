@@ -2,15 +2,8 @@ Scriptname StaminaAndBurden
 
 Int[] Function GetVersion() Global Native
 
-; Burden queries
-Float Function GetBurden(Actor a_actor) Global Native
-Float Function GetCarryBurden(Actor a_actor) Global Native
-Float Function GetBurdenBlend(Actor a_actor) Global Native
-Float Function GetEffectiveEquippedWeight(Actor a_actor) Global Native
-Float Function GetMaxEquippedWeight(Actor a_actor) Global Native
-
 ;/
-ComputeActionCost — ad-hoc burden-based stamina cost.
+GetBurdenByIndex — unified burden query using the same BurdenComponent index as ComputeActionCost.
 
 BurdenComponent values:
   0 = Burden           (equipment burden)
@@ -21,7 +14,20 @@ BurdenComponent values:
   5 = WeaponTwoHanded  (two-handed weapon burden)
   6 = WeaponRanged     (ranged weapon burden)
   7 = WeaponBlock      (block/shield burden)
+/;
+Float Function GetBurdenByIndex(Actor a_actor, Int a_index) Global Native
 
+; Convenience wrappers
+Float Function GetBurden(Actor a_actor) Global Native
+Float Function GetCarryBurden(Actor a_actor) Global Native
+Float Function GetBurdenBlend(Actor a_actor) Global Native
+Float Function GetEffectiveEquippedWeight(Actor a_actor) Global Native
+Float Function GetMaxEquippedWeight(Actor a_actor) Global Native
+
+;/
+ComputeActionCost — ad-hoc burden-based stamina cost.
+
+BurdenComponent values: See GetBurdenByIndex above
 Base and percent curves are interpolated separately:
   baseCost  = Interpolate(baseMin, baseMax, baseComponent, baseK)
   pctCost   = Interpolate(pctMin, pctMax, pctComponent, pctK) * 1% maxStamina

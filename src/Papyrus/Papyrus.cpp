@@ -9,6 +9,11 @@ namespace Papyrus
 		return { Plugin::VERSION[0], Plugin::VERSION[1], Plugin::VERSION[2] };
 	}
 
+	float GetBurdenByIndex(STATIC_ARGS, RE::Actor* a_actor, int a_index) {
+		if (!a_actor) return 0.0f;
+		return Burden::ResolveBurdenValue(Burden::Tracker::GetOrComputeBurden(a_actor), a_index);
+	}
+
 	float GetBurden(STATIC_ARGS, RE::Actor* a_actor) {
 		if (!a_actor) return 0.0f;
 		return Burden::Tracker::GetOrComputeBurden(a_actor).burden;
@@ -53,6 +58,7 @@ namespace Papyrus
 		logger::info("  >Binding GetVersion..."sv);
 		BIND(GetVersion);
 		logger::info("  >Binding burden queries..."sv);
+		BIND(GetBurdenByIndex);
 		BIND(GetBurden);
 		BIND(GetCarryBurden);
 		BIND(GetBurdenBlend);

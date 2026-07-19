@@ -8,17 +8,7 @@ namespace
 {
 	float ResolveBurdenValue(const Burden::ActorBurdenData& data, StaminaAndBurdenAPI::BurdenComponent component)
 	{
-		switch (component) {
-		case StaminaAndBurdenAPI::BurdenComponent::Burden:           return data.burden;
-		case StaminaAndBurdenAPI::BurdenComponent::CarryBurden:      return data.carryBurden;
-		case StaminaAndBurdenAPI::BurdenComponent::BurdenBlend:      return data.burdenBlend;
-		case StaminaAndBurdenAPI::BurdenComponent::WeaponRightHand:  return data.weaponBurden_rh;
-		case StaminaAndBurdenAPI::BurdenComponent::WeaponLeftHand:   return data.weaponBurden_lh;
-		case StaminaAndBurdenAPI::BurdenComponent::WeaponTwoHanded:  return data.weaponBurden_2h;
-		case StaminaAndBurdenAPI::BurdenComponent::WeaponRanged:     return data.weaponBurden_ranged;
-		case StaminaAndBurdenAPI::BurdenComponent::WeaponBlock:      return data.weaponBurden_block;
-		default:                                                     return 0.0f;
-		}
+		return Burden::ResolveBurdenValue(data, static_cast<int>(component));
 	}
 
 

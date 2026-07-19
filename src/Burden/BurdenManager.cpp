@@ -368,4 +368,20 @@ namespace Burden
         return data;
 	}
 
+    // This is used specifically for external APIs and Papyrus scripts
+	float ResolveBurdenValue(const ActorBurdenData& data, int component)
+	{
+		switch (component) {
+		case 0: return data.burden;
+		case 1: return data.carryBurden;
+		case 2: return data.burdenBlend;
+		case 3: return data.weaponBurden_rh;
+		case 4: return data.weaponBurden_lh;
+		case 5: return data.weaponBurden_2h;
+		case 6: return data.weaponBurden_ranged;
+		case 7: return data.weaponBurden_block;
+		default: return 0.0f;
+		}
+	}
+
 }
