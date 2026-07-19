@@ -21,7 +21,7 @@ src/
 │   ├── PerkEntryPointExtenderAPI.h  # Vendored PEPE v3
 │   ├── StaminaAndBurdenAPI.h       # Public vendored header
 │   └── StaminaAndBurdenAPI.cpp     # Internal implementation + DLL export
-├── Burden/            # Burden computation + actor tracker (DONE)
+├── Burden/            # Burden computation + actor tracker + ResolveBurdenValue shared helper (DONE)
 ├── Combat/            # BlockManager + DamageManager (DONE)
 │   ├── BlockManager   # Block stamina cost, damage redirect, guard break
 │   └── DamageManager  # Stamina-conditional damage scaling
@@ -104,6 +104,7 @@ Blends equipped burden and carry burden into a single factor for cost/regen curv
 - `actor` field added so formulas can get maxStamina directly
 - Staves tracked via `kStaff` cases in `ComputeRightHandBurden`/`ComputeLeftHandBurden`, reusing `weaponBurden_rh/lh` fields and skill-weighted by `staffSkill` (reads `kEnchanting`)
 - `GetWeaponHandlingInfo` gains explicit `kStaff` case `{ weaponBurden_rh, staffSkill }` — previously fell to default returning skill=0 for block burden computation
+- `ResolveBurdenValue(data, component)` — shared public helper mapping `int` index (0-7, matching `BurdenComponent` enum) to the corresponding float in `ActorBurdenData`. Single source of truth used by both the C++ API (§3.10) and Papyrus bindings (§7).
 
 **Triggers (3):**
 1. Event sinks — equip/container change → `Tracker::Update(actor)` → `AddTask` deferred
@@ -646,7 +647,7 @@ if (api) {
 }
 ```
 
-**Implementation:** `InterfaceImpl` class in anonymous namespace. `SetNamedActionCost` stores configs in a static `unordered_map<string, ActionCostConfig>`. `ComputeNamedActionCost` looks up and delegates to `ComputeCostFromConfig`. `ComputeActionCost` (direct) assembles a config inline and calls the same helper. `ResolveBurdenValue` maps `BurdenComponent` enum to the correct float in `ActorBurdenData`. All methods return 0 for null actor.
+**Implementation:** `InterfaceImpl` class in anonymous namespace. `SetNamedActionCost` stores configs in a static `unordered_map<string, ActionCostConfig>`. `ComputeNamedActionCost` looks up and delegates to `ComputeCostFromConfig`. `ComputeActionCost` (direct) assembles a config inline and calls the same helper. `ResolveBurdenValue` delegates to `Burden::ResolveBurdenValue` (single source of truth in `BurdenManager.cpp`). All methods return 0 for null actor.
 
 **Notes:**
 - Requires CommonLibSSE (`<RE/A/Actor.h>`) at the consumer side — standard for SKSE plugin APIs
@@ -1156,7 +1157,7 @@ Single `FUCK::ITool` registered at `kDataLoaded` via `FUCK::RegisterTool()`. Opt
 | SBSettingsINI::Save — RMW, preserves comments | DONE |
 | SBSettingsINI::SaveOverwrite — fresh write | DONE |
 | SBSettingsINI::Initialize — wired at SKSEPlugin_Load | DONE |
-| FUCK Connect + RegisterTool at kDataLoaded | DONE |
+| FLICK Connect + RegisterTool at kDataLoaded | DONE |
 | 6 grouped tabs (Regen, Costs, Combat, Burden, Movement, Overrides) | DONE |
 | DrawGroup — ForEach-driven section tree + widget dispatch | DONE |
 | Header() — colored separator per struct | DONE |
@@ -1165,7 +1166,7 @@ Single `FUCK::ITool` registered at `kDataLoaded` via `FUCK::RegisterTool()`. Opt
 | "Rewrite INI (clean)" button in title bar | DONE |
 | Console commands (sb_get/set/list/reset) | NOT STARTED |
 | sb_getburden debug command | NOT STARTED |
-| Fix TestCommands.yaml (SEA_TemplateProject → EC_StaminaAndBurden) | NOT STARTED |
+| Fix TestCommands.yaml (SEA_TemplateProject → StaminaAndBurden) | NOT STARTED |
 
 ### Phase 9 — Papyrus & Polish (In Progress)
 | Task | Status |
@@ -1218,7 +1219,7 @@ Single `FUCK::ITool` registered at `kDataLoaded` via `FUCK::RegisterTool()`. Opt
    Registered `SKSE::GetScaleformInterface()->Register(callback, "InventoryMenu")` callback. Navigated from `bottomBar->obj` → `playerInfoCard` → `CarryWeightValue` via `GFxValue::GetMember`, then called `SetText`. Used `AddTask` to re-apply each frame (ActionScript overwrites the text). **Result:** Game hangs. Root cause: `GFxValue::GetMember`/`SetText` must be called inside Scaleform's update context. The `Register` callback fires inside that context, but `AddTask` runs outside it (main game thread, not during Scaleform render). Also, `UI::GetMenu<InventoryMenu>()` accesses `menuMap` (`BSTHashMap`) which may have thread-safety issues outside UI message processing.
 
    **Option A: Papyrus + UI class (simpler)**
-   - C++ side: add `GetBurden(actor)` Papyrus binding (trivial — wraps `Burden::Tracker::GetOrComputeBurden`)
+   - C++ side: `GetBurden(actor)` Papyrus binding is now bound via `GetBurdenByIndex` (index 0) or directly via `GetBurden` convenience wrapper
    - Papyrus side: quest script with `OnUpdate` calling `UI.SetMenuProperty("InventoryMenu", "_root.bottomBar_mc.playerInfoCard.CarryWeightValue", "text", current + burdenSuffix)`
    - `UI.SetMenuProperty`/`UI.Invoke` are documented thread-safe (dispatch to main thread internally)
    - Pros: simple, uses existing engine APIs, no Scaleform threading issues
