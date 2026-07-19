@@ -35,7 +35,7 @@ src/
 ├── Movement/          # Movement speed (burden/swim/exhaustion) + sprint/jump cost functions (DONE)
 │   ├── MovementManager        # ComputeSpeedMultiplier — burden, swim depth, exhaustion speed scaling
 │   └── MovementCostManager    # ComputeSprintDrain, ComputeJumpCost + PEPE calls
-├── Papyrus/           # GetVersion only bound (MINIMAL)
+├── Papyrus/           # 8 functions bound: GetVersion, 5 burden queries, ComputeActionCost, IsExhausted + ModCallbackEvent dispatch (DONE)
 ├── RE/                # Offset.h — placeholder; all REL::IDs inline (DONE)
 ├── Serialization/     # Serde.h/.cpp — infrastructure ready, nothing registered (SHELL)
 ├── Menu/              # FUCK settings menu
@@ -536,7 +536,7 @@ else (stamina <= 0) → reset safeTimer to 0
 **Not included:**
 - Action denial — not part of exhaustion scope (per project decision)
 - Visual/audio feedback — purely mechanical stat penalty
-- Papyrus bindings — state not exposed to scripts (see §8)
+- Papyrus bindings — IsExhausted + ModCallbackEvent dispatch (DONE, see §7)
 - Save/load serialization — exhaustion is transient, wiped on game load (see §8)
 - INI configuration entries — defaults from `ExhaustionParams.h` always apply; INI whitelist not populated (see §7)
 
@@ -650,7 +650,7 @@ if (api) {
 
 **Notes:**
 - Requires CommonLibSSE (`<RE/A/Actor.h>`) at the consumer side — standard for SKSE plugin APIs
-- Only C++ consumers (no Papyrus bindings yet — see §7)
+- Papyrus bindings available via `StaminaAndBurden` utility script (see §7)
 - Per-actor equipped weight override is a shelved open item (§12.9)
 ---
 
@@ -788,12 +788,36 @@ Both player and NPC attack denial share the same `HasStamina()` logic which chec
 
 ## 7. Papyrus Interface
 
-**Current state:** Minimal. Only `GetVersion` bound. Script at `Data/Source/Scripts/EC_StaminaAndBurden.psc` has 3 stubs: `GetVersion` + 2 `UnitTest_Serialization` stubs. The C++ SKSE plugin API (§3.10) is complete and ready for companion mods, but Papyrus bindings are still separate — the query functions listed below are not yet exposed to Papyrus scripts.
+**Current state:** Complete. 8 functions bound on `StaminaAndBurden` utility script (flat name, no prefix) at `Data/Source/Scripts/StaminaAndBurden.psc`.
 
-**Planned** (deferred):
-- `GetEquippedBurdenRatio` — query burden data from Papyrus
-- `GetTotalBurdenRatio`
-- `GetCurrentStaminaRegenMult`
+### Bound functions:
+
+| # | Function | Signature | Purpose |
+|---|----------|-----------|---------|
+| 1 | `GetVersion` | `Int[] Function GetVersion() Global Native` | Returns plugin version `{ major, minor, patch }` |
+| 2 | `GetBurden` | `Float Function GetBurden(Actor a_actor) Global Native` | Equipment burden |
+| 3 | `GetCarryBurden` | `Float Function GetCarryBurden(Actor a_actor) Global Native` | Inventory/carry weight burden |
+| 4 | `GetBurdenBlend` | `Float Function GetBurdenBlend(Actor a_actor) Global Native` | Blended burden (equipped × carry) |
+| 5 | `GetEffectiveEquippedWeight` | `Float Function GetEffectiveEquippedWeight(Actor a_actor) Global Native` | Effective equipped weight |
+| 6 | `GetMaxEquippedWeight` | `Float Function GetMaxEquippedWeight(Actor a_actor) Global Native` | Max equipped weight |
+| 7 | `ComputeActionCost` | `Float Function ComputeActionCost(Actor, Int, Float, Float, Float, Int, Float, Float, Float) Global Native` | Ad-hoc burden-based stamina cost (9 params, see .psc block comment) |
+| 8 | `IsExhausted` | `Bool Function IsExhausted(Actor a_actor) Global Native` | Check if actor is exhausted |
+
+### Exhaustion ModCallbackEvent
+
+Papyrus scripts can react to exhaustion state changes via vanilla `RegisterForModEvent`:
+
+```
+Event name: "StaminaAndBurden_OnExhaustionChanged"
+  numArg 1.0 — actor became exhausted
+  numArg 0.0 — actor recovered
+  sender     — the actor (Form)
+```
+
+Dispatched from `ExhaustionManager::FireExhaustionEvent` every time exhaustion state changes (trigger, death, stamina recovery, timer clear). Documented with usage example in `.psc`.
+
+**Not exposed to Papyrus (deferred):**
+- Weapon-slot-specific burden (C++ API: `GetWeaponBurden(WeaponSlot)`)
 - Console command natives (sb_get/set/list/reset/getburden)
 
 ---
@@ -1118,7 +1142,7 @@ Single `FUCK::ITool` registered at `kDataLoaded` via `FUCK::RegisterTool()`. Opt
 | Damage scaling integration (damage penalty) | DONE |
 | Game-load cleanup | DONE |
 | Debug logging | DONE |
-| Papyrus bindings | NOT STARTED |
+| Papyrus bindings (IsExhausted + ModCallbackEvent) | DONE |
 | Save serialization | NOT STARTED |
 | INI configuration entries | NOT STARTED |
 | Visual feedback — TrueHUD stamina bar recolor (grey tint while exhausted) | DONE — `ExhaustionManager.h/cpp` dual-path: TrueHUD `OverrideBarColor` + tint fallback |
@@ -1142,10 +1166,12 @@ Single `FUCK::ITool` registered at `kDataLoaded` via `FUCK::RegisterTool()`. Opt
 | sb_getburden debug command | NOT STARTED |
 | Fix TestCommands.yaml (SEA_TemplateProject → EC_StaminaAndBurden) | NOT STARTED |
 
-### Phase 9 — Papyrus & Polish (NOT STARTED)
+### Phase 9 — Papyrus & Polish (In Progress)
 | Task | Status |
 |---|---|
-| Bind query functions | NOT STARTED |
+| Bind query functions (5 burden + ComputeActionCost + IsExhausted) | DONE |
+| Exhaustion ModCallbackEvent dispatch | DONE |
+| .psc documentation (ComputeActionCost params + event usage) | DONE |
 | Clean up UnitTest_Serialization stubs | NOT STARTED |
 
 ### Phase 10 — HUD Burden Widget (NOT STARTED — optional)
