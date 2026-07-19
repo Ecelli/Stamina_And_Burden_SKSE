@@ -124,6 +124,11 @@ namespace
 		{
 			return Math::SmoothStep(a_t);
 		}
+
+		void RegisterExhaustionListener(ExhaustionListener a_listener) override
+		{
+			Exhaustion::ExhaustionManager::GetSingleton()->RegisterExhaustionListener(a_listener);
+		}
 	};
 
 	InterfaceImpl& GetImpl()
