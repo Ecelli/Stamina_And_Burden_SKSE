@@ -46,4 +46,7 @@ namespace Burden::Tracker
 	 * value differs from the current value.
 	 */
 	void PollTrackedActorParams();
+
+	void SetMaxEquippedWeightOverride(RE::Actor* a_actor, float a_value);
+	float GetMaxEquippedWeightOverride(RE::Actor* a_actor);
 }

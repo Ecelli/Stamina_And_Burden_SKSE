@@ -23,6 +23,14 @@ namespace
 		static TransientMap map;
 		return map;
 	}
+
+	using MaxEquipWeightOverrideMap = std::unordered_map<RE::FormID, float>;
+
+	MaxEquipWeightOverrideMap& GetMaxEquipWeightOverrideMap()
+	{
+		static MaxEquipWeightOverrideMap map;
+		return map;
+	}
 }
 
 namespace Burden::Tracker
@@ -115,6 +123,7 @@ namespace Burden::Tracker
 	void OnGameLoad()
 	{
 		GetTrackedMap().clear();
+		GetMaxEquipWeightOverrideMap().clear();
 		ClearTransientCache();
 		Hooks::ClearRegenDrainCache();
 		Exhaustion::ExhaustionManager::GetSingleton()->ClearAll();
@@ -148,5 +157,23 @@ namespace Burden::Tracker
 				Burden::Tracker::Update(actor);
 			}
 		}
+	}
+
+	void SetMaxEquippedWeightOverride(RE::Actor* a_actor, float a_value)
+	{
+		if (!a_actor) return;
+		auto formId = a_actor->GetFormID();
+		if (formId == 0) return;
+		float clamped = std::max(a_value, 0.0f);
+		GetMaxEquipWeightOverrideMap()[formId] = clamped;
+	}
+
+	float GetMaxEquippedWeightOverride(RE::Actor* a_actor)
+	{
+		if (!a_actor) return 0.0f;
+		auto formId = a_actor->GetFormID();
+		if (formId == 0) return 0.0f;
+		auto it = GetMaxEquipWeightOverrideMap().find(formId);
+		return (it != GetMaxEquipWeightOverrideMap().end()) ? it->second : 0.0f;
 	}
 }
