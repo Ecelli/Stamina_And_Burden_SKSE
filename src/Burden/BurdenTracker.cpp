@@ -166,6 +166,7 @@ namespace Burden::Tracker
 		if (formId == 0) return;
 		float clamped = std::max(a_value, 0.0f);
 		GetMaxEquipWeightOverrideMap()[formId] = clamped;
+		Update(a_actor);
 	}
 
 	float GetMaxEquippedWeightOverride(RE::Actor* a_actor)
