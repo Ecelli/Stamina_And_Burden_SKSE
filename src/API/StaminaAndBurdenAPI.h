@@ -55,6 +55,9 @@ namespace StaminaAndBurdenAPI
 		virtual float GetBurdenEquippedWeight(RE::Actor* actor) = 0;
 		virtual float GetMaxEquippedWeight(RE::Actor* actor) = 0;
 
+		// Max equipped weight override
+		virtual void SetMaxEquippedWeightOverride(RE::Actor* actor, float maxEquippedWeight) = 0;
+
 		// Weapon burden — enum-based
 		virtual float GetWeaponBurden(RE::Actor* actor, WeaponSlot slot) = 0;
 

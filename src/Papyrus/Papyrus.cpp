@@ -39,6 +39,10 @@ namespace Papyrus
 		return Burden::Tracker::GetOrComputeBurden(a_actor).maxEquippedWeight;
 	}
 
+	void SetMaxEquippedWeightOverride(STATIC_ARGS, RE::Actor* a_actor, float a_value) {
+		Burden::Tracker::SetMaxEquippedWeightOverride(a_actor, a_value);
+	}
+
 	float ComputeActionCost(STATIC_ARGS, RE::Actor* a_actor,
 		int a_baseComponent, float a_baseMin, float a_baseMax, float a_baseK,
 		int a_pctComponent, float a_pctMin, float a_pctMax, float a_pctK)
@@ -64,6 +68,7 @@ namespace Papyrus
 		BIND(GetBurdenBlend);
 		BIND(GetEffectiveEquippedWeight);
 		BIND(GetMaxEquippedWeight);
+		BIND(SetMaxEquippedWeightOverride);
 		logger::info("  >Binding ComputeActionCost..."sv);
 		BIND(ComputeActionCost);
 		logger::info("  >Binding IsExhausted..."sv);

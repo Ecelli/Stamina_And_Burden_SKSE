@@ -25,6 +25,13 @@ Float Function GetEffectiveEquippedWeight(Actor a_actor) Global Native
 Float Function GetMaxEquippedWeight(Actor a_actor) Global Native
 
 ;/
+SetMaxEquippedWeightOverride — Override the max equipped weight for an actor.
+Pass 0.0 to clear the override and restore normal behavior.
+Multiple mods can set this — last writer wins.
+/;
+Function SetMaxEquippedWeightOverride(Actor a_actor, Float a_maxEquippedWeight) Global Native
+
+;/
 ComputeActionCost — ad-hoc burden-based stamina cost.
 
 BurdenComponent values: See GetBurdenByIndex above

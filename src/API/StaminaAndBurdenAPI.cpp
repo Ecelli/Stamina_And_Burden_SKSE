@@ -50,6 +50,13 @@ namespace
 			return Burden::Tracker::GetOrComputeBurden(a_actor).maxEquippedWeight;
 		}
 
+		// --- Max equipped weight override ---
+
+		void SetMaxEquippedWeightOverride(RE::Actor* a_actor, float a_maxEquippedWeight) override
+		{
+			Burden::Tracker::SetMaxEquippedWeightOverride(a_actor, a_maxEquippedWeight);
+		}
+
 		// --- Weapon burden ---
 
 		float GetWeaponBurden(RE::Actor* a_actor, StaminaAndBurdenAPI::WeaponSlot a_slot) override
