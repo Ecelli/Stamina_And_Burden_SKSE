@@ -62,24 +62,28 @@ namespace Burden::Tracker
 		}
 
 		auto formId = a_actor->GetFormID();
-		if (!IsTracked(formId)) {
-			return;
-		}
 
 		SKSE::GetTaskInterface()->AddTask([formId]() {
-
-			auto& map = GetTrackedMap();
-			auto it = map.find(formId);
-			if (it == map.end()) {
-				return;
-			}
 
 			auto* actor = RE::TESForm::LookupByID<RE::Actor>(formId);
 			if (!actor) {
 				return;
 			}
 
-			it->second = UpdateBurdenLog(actor);
+			// Tier 1: tracked actors
+			auto& tracked = GetTrackedMap();
+			auto it = tracked.find(formId);
+			if (it != tracked.end()) {
+				it->second = UpdateBurdenLog(actor);
+				return;
+			}
+
+			// Tier 2: transient NPCs
+			auto& transient = GetTransientMap();
+			auto tIt = transient.find(formId);
+			if (tIt != transient.end()) {
+				tIt->second = UpdateBurdenLog(actor);
+			}
 		});
 	}
 
