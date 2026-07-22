@@ -58,6 +58,34 @@ namespace Papyrus
 		return Exhaustion::ExhaustionManager::GetSingleton()->IsExhausted(a_actor);
 	}
 
+	std::string GetBurdenDebug(STATIC_ARGS, RE::Actor* a_actor) {
+		auto* actor = a_actor ? a_actor : RE::PlayerCharacter::GetSingleton();
+		if (!actor)
+			return "[S&B] No actor found";
+
+		const auto& data = Burden::Tracker::GetOrComputeBurden(actor);
+
+		auto* base = actor->GetBaseObject();
+		auto name = base ? base->GetName() : "Unknown";
+		auto formId = actor->GetFormID();
+
+		return fmt::format(
+			"[S&B] {} (0x{:08X})\n"
+			"  carryWeight: {:.1f} / maxCarryWeight: {:.1f}\n"
+			"  equippedWeight: {:.1f} / maxEquippedWeight: {:.1f}\n"
+			"  burden: {:.3f} | carryBurden: {:.3f} | burdenBlend: {:.3f}\n"
+			"  Skills: light={} heavy={} 1h={} 2h={} marksman={} block={} conj={} staff={}\n"
+			"  Weapon burdens: rh={:.2f} lh={:.2f} 2h={:.2f} ranged={:.2f} block={:.2f}",
+			name, formId,
+			data.carryWeight, data.maxCarryWeight,
+			data.equippedWeight, data.maxEquippedWeight,
+			data.burden, data.carryBurden, data.burdenBlend,
+			data.lightSkill, data.heavySkill, data.oneHandedSkill, data.twoHandedSkill,
+			data.marksmanSkill, data.blockSkill, data.conjurationSkill, data.staffSkill,
+			data.weaponBurden_rh, data.weaponBurden_lh, data.weaponBurden_2h,
+			data.weaponBurden_ranged, data.weaponBurden_block);
+	}
+
 	void Bind(VM& a_vm) {
 		logger::info("  >Binding GetVersion..."sv);
 		BIND(GetVersion);
@@ -73,6 +101,8 @@ namespace Papyrus
 		BIND(ComputeActionCost);
 		logger::info("  >Binding IsExhausted..."sv);
 		BIND(IsExhausted);
+		logger::info("  >Binding GetBurdenDebug..."sv);
+		BIND(GetBurdenDebug);
 	}
 
 	bool RegisterFunctions(VM* a_vm) {
