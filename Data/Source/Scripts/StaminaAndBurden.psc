@@ -67,3 +67,6 @@ Usage:
   EndEvent
 /;
 Bool Function IsExhausted(Actor a_actor) Global Native
+
+; Console debug — returns formatted burden data for console display
+String Function GetBurdenDebug(Actor a_actor) Global Native
