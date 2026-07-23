@@ -1,21 +1,50 @@
-name: template
-alias: tmp
+version: 1
+name: staminaburden
+alias: sb
 script: StaminaAndBurden
-help: Tests for the Custom Console integration.
+help: Stamina & Burden debug commands
 subs:
-  - name: getversion
-    alias: gvs
-    func: GetVersion
-  - name: debug_setform
-    alias: dsf
-    func: UnitTest_Serialization
+  - name: getburden
+    alias: gb
+    func: GetBurdenDebug
+    help: Show full burden data for an actor
     args:
-      - name: form
-        type: String
+      - name: actor
+        type: Actor
+        selected: true
         required: false
-  - name: debug_getform
-    alias: dss
-    func: UnitTest_SerializationState
-  - name: debug_resetform
-    alias: dsr
-    func: UnitTest_SerializationReset
+        help: Target actor (defaults to player if nothing selected)
+  - name: isexhausted
+    alias: ie
+    func: IsExhausted
+    help: Check if an actor is exhausted
+    args:
+      - name: actor
+        type: Actor
+        selected: true
+        required: false
+        help: Target actor (defaults to player if nothing selected)
+  - name: getmaxweight
+    alias: gw
+    func: GetMaxEquippedWeight
+    help: Get current max equipped weight
+    args:
+      - name: actor
+        type: Actor
+        selected: true
+        required: false
+        help: Target actor (defaults to player if nothing selected)
+  - name: setmaxweight
+    alias: sw
+    func: SetMaxEquippedWeightOverride
+    help: Set max equipped weight override (pass 0 to clear)
+    args:
+      - name: actor
+        type: Actor
+        selected: true
+        required: false
+        help: Target actor (defaults to player if nothing selected)
+      - name: value
+        type: float
+        required: true
+        help: New max equipped weight value (0 = clear override)

@@ -1,4 +1,4 @@
-Scriptname StaminaAndBurden
+Scriptname StaminaAndBurden Hidden
 
 Int[] Function GetVersion() Global Native
 
