@@ -10,6 +10,7 @@
 #include "Settings/Params/RegenParams.h"
 #include "Settings/Params/BlockingParams.h"
 #include "Settings/Params/SBSettingsINI.h"
+#include "Settings/Params/SettingsOverride.h"
 
 static SBMenuTool s_instance;
 
@@ -79,6 +80,7 @@ namespace
 void SBMenuTool::OnClose()
 {
 	SBSettingsINI::Save();
+	Regen::OverrideGameSettings();
 }
 
 void SBMenuTool::Draw()

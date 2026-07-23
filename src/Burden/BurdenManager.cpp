@@ -1,4 +1,5 @@
 #include "Burden/BurdenManager.h"
+#include "Burden/BurdenTracker.h"
 #include "Settings/Params/BurdenParams.h"
 #include "Common/Utils.h"
 
@@ -132,6 +133,16 @@ namespace
 
 namespace
 {
+	float GetMaxEquippedWeight(RE::Actor* actor, float maxCarryWeight)
+	{
+		float override = Burden::Tracker::GetMaxEquippedWeightOverride(actor);
+		if (override > 0.0f)
+			return std::min(override, maxCarryWeight);
+
+		auto* params = BurdenParams::GetSingleton();
+		return std::max(params->maxEquippedWeightRatio.Get() * maxCarryWeight, 1.0f);
+	}
+
 	void ComputeRightHandBurden(RE::Actor* actor, Burden::ActorBurdenData& data)
 	{
 		auto info = Utils::GetRightHandInfo(actor);
@@ -329,11 +340,10 @@ namespace Burden
 		ActorBurdenData data{};
 		data.actor = actor;
 
-		auto* params = BurdenParams::GetSingleton();
 		data.maxCarryWeight = std::max(actor->GetActorValue(RE::ActorValue::kCarryWeight), 1.0f);
 		data.carryWeight = actor->GetInventoryChanges()->GetInventoryWeight();
 		data.equippedWeight = ComputeEquipmentBurden(actor);
-		data.maxEquippedWeight = std::max(params->maxEquippedWeightRatio.Get() * data.maxCarryWeight, 1.0f);
+		data.maxEquippedWeight = GetMaxEquippedWeight(actor, data.maxCarryWeight);
 
 		data.carryBurden = std::clamp(data.carryWeight / data.maxCarryWeight, 0.0f, 1.0f);
 		data.burden = std::clamp(data.equippedWeight / data.maxEquippedWeight, 0.0f, 1.0f);
@@ -366,6 +376,22 @@ namespace Burden
 			data.equippedWeight,
 			data.maxEquippedWeight);
         return data;
+	}
+
+    // This is used specifically for external APIs and Papyrus scripts
+	float ResolveBurdenValue(const ActorBurdenData& data, int component)
+	{
+		switch (component) {
+		case 0: return data.burden;
+		case 1: return data.carryBurden;
+		case 2: return data.burdenBlend;
+		case 3: return data.weaponBurden_rh;
+		case 4: return data.weaponBurden_lh;
+		case 5: return data.weaponBurden_2h;
+		case 6: return data.weaponBurden_ranged;
+		case 7: return data.weaponBurden_block;
+		default: return 0.0f;
+		}
 	}
 
 }

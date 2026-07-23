@@ -23,6 +23,14 @@ namespace
 		static TransientMap map;
 		return map;
 	}
+
+	using MaxEquipWeightOverrideMap = std::unordered_map<RE::FormID, float>;
+
+	MaxEquipWeightOverrideMap& GetMaxEquipWeightOverrideMap()
+	{
+		static MaxEquipWeightOverrideMap map;
+		return map;
+	}
 }
 
 namespace Burden::Tracker
@@ -54,24 +62,28 @@ namespace Burden::Tracker
 		}
 
 		auto formId = a_actor->GetFormID();
-		if (!IsTracked(formId)) {
-			return;
-		}
 
 		SKSE::GetTaskInterface()->AddTask([formId]() {
-
-			auto& map = GetTrackedMap();
-			auto it = map.find(formId);
-			if (it == map.end()) {
-				return;
-			}
 
 			auto* actor = RE::TESForm::LookupByID<RE::Actor>(formId);
 			if (!actor) {
 				return;
 			}
 
-			it->second = UpdateBurdenLog(actor);
+			// Tier 1: tracked actors
+			auto& tracked = GetTrackedMap();
+			auto it = tracked.find(formId);
+			if (it != tracked.end()) {
+				it->second = UpdateBurdenLog(actor);
+				return;
+			}
+
+			// Tier 2: transient NPCs
+			auto& transient = GetTransientMap();
+			auto tIt = transient.find(formId);
+			if (tIt != transient.end()) {
+				tIt->second = UpdateBurdenLog(actor);
+			}
 		});
 	}
 
@@ -115,6 +127,7 @@ namespace Burden::Tracker
 	void OnGameLoad()
 	{
 		GetTrackedMap().clear();
+		GetMaxEquipWeightOverrideMap().clear();
 		ClearTransientCache();
 		Hooks::ClearRegenDrainCache();
 		Exhaustion::ExhaustionManager::GetSingleton()->ClearAll();
@@ -148,5 +161,24 @@ namespace Burden::Tracker
 				Burden::Tracker::Update(actor);
 			}
 		}
+	}
+
+	void SetMaxEquippedWeightOverride(RE::Actor* a_actor, float a_value)
+	{
+		if (!a_actor) return;
+		auto formId = a_actor->GetFormID();
+		if (formId == 0) return;
+		float clamped = std::max(a_value, 0.0f);
+		GetMaxEquipWeightOverrideMap()[formId] = clamped;
+		Update(a_actor);
+	}
+
+	float GetMaxEquippedWeightOverride(RE::Actor* a_actor)
+	{
+		if (!a_actor) return 0.0f;
+		auto formId = a_actor->GetFormID();
+		if (formId == 0) return 0.0f;
+		auto it = GetMaxEquipWeightOverrideMap().find(formId);
+		return (it != GetMaxEquipWeightOverrideMap().end()) ? it->second : 0.0f;
 	}
 }

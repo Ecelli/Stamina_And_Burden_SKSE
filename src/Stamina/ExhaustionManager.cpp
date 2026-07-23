@@ -2,6 +2,41 @@
 #include "Settings/Params/ExhaustionParams.h"
 #include "Common/Utils.h"
 
+#include <vector>
+
+namespace
+{
+	using ExhaustionListener = Exhaustion::ExhaustionManager::ExhaustionListener;
+	std::vector<ExhaustionListener> s_exhaustionListeners;
+
+	void DispatchExhaustionEvent(RE::Actor* a_actor, bool a_exhausted)
+	{
+		for (auto& listener : s_exhaustionListeners)
+			listener(a_actor, a_exhausted);
+	}
+
+	void FireExhaustionEvent(RE::Actor* a_actor, bool a_exhausted)
+	{
+		if (!a_actor)
+			return;
+
+		DispatchExhaustionEvent(a_actor, a_exhausted);
+
+		const SKSE::ModCallbackEvent event{
+			.eventName = RE::BSFixedString("StaminaAndBurden_OnExhaustionChanged"),
+			.numArg = a_exhausted ? 1.0f : 0.0f,
+			.sender = a_actor
+		};
+		SKSE::GetModCallbackEventSource()->SendEvent(&event);
+	}
+}
+
+void Exhaustion::ExhaustionManager::RegisterExhaustionListener(ExhaustionListener a_listener)
+{
+	if (a_listener)
+		s_exhaustionListeners.push_back(a_listener);
+}
+
 void Exhaustion::ExhaustionManager::TriggerExhaustion(RE::Actor* a_actor)
 {
 	if (!a_actor)
@@ -17,6 +52,7 @@ void Exhaustion::ExhaustionManager::TriggerExhaustion(RE::Actor* a_actor)
 	states[formId] = { true, 0.0f };
 
 	SetStaminaBarGrayIfPlayer(a_actor);
+	FireExhaustionEvent(a_actor, true);
 
 	ExhaustionLog("ExhaustionManager: triggered for {:x}", formId);
 }
@@ -40,6 +76,7 @@ void Exhaustion::ExhaustionManager::UpdateExhaustion(RE::Actor* a_actor, float a
 
 	if (a_actor->IsDead()) {
 		states.erase(it);
+		FireExhaustionEvent(a_actor, false);
         ResetStaminaBarColorIfPlayer(a_actor);
 		return;
 	}
@@ -47,6 +84,7 @@ void Exhaustion::ExhaustionManager::UpdateExhaustion(RE::Actor* a_actor, float a
 	float maxStamina = a_actor->GetActorValueMax(RE::ActorValue::kStamina);
 	if (maxStamina <= 0.0f) {
 		states.erase(it);
+		FireExhaustionEvent(a_actor, false);
         ResetStaminaBarColorIfPlayer(a_actor);
 		return;
 	}
@@ -64,6 +102,7 @@ void Exhaustion::ExhaustionManager::UpdateExhaustion(RE::Actor* a_actor, float a
 		ExhaustionLog("ExhaustionManager: {:x} cleared (threshold {:.0f}% >= {:.0f}%)",
 			a_actor->GetFormID(), staminaPct * 100.0f, threshold * 100.0f);
 		states.erase(it);
+		FireExhaustionEvent(a_actor, false);
         ResetStaminaBarColorIfPlayer(a_actor);
 		return;
 	}
@@ -81,6 +120,7 @@ void Exhaustion::ExhaustionManager::UpdateExhaustion(RE::Actor* a_actor, float a
 		ExhaustionLog("ExhaustionManager: {:x} cleared (timer {:.1f}s), burst +{:.0f}",
 			a_actor->GetFormID(), it->second.safeTimer, burstAmt);
 		states.erase(it);
+		FireExhaustionEvent(a_actor, false);
         ResetStaminaBarColorIfPlayer(a_actor);
 		return;
 	}
@@ -132,11 +172,6 @@ void Exhaustion::ExhaustionManager::ClearAll()
 {
 	ResetStaminaBarColorIfPlayer(RE::PlayerCharacter::GetSingleton());
 	states.clear();
-}
-
-void Exhaustion::ExhaustionManager::ClearExhaustion(RE::FormID a_formId)
-{
-	states.erase(a_formId);
 }
 
 void Exhaustion::CheckForAndTriggerExhaustion(RE::Actor* a_actor, float a_deltaTime)

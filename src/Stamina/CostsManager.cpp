@@ -103,16 +103,12 @@ namespace
 
 namespace Costs
 {
-	float ComputeAttackCost(RE::Actor* actor, RE::BGSAttackData* attackData)
+	float ComputeBaseAttackCost(RE::Actor* actor, bool bash, bool left, bool power)
 	{
-		if (!actor || !attackData)
+		if (!actor)
 			return 0.0f;
 
 		auto& burden = Burden::Tracker::GetOrComputeBurden(actor);
-		bool power = attackData->data.flags.any(RE::AttackData::AttackFlag::kPowerAttack);
-		bool left = attackData->IsLeftAttack();
-		bool bash = attackData->data.flags.any(RE::AttackData::AttackFlag::kBashAttack);
-
 		auto handInfo = Utils::GetAttackHandInfo(actor, left, bash);
 		float baseCost = 0;
 
@@ -154,15 +150,30 @@ namespace Costs
 			break;
 		}
 
-        // Engine multiplier, basically 1, but for dual wiield stamina balance
-		baseCost *= attackData->data.staminaMult;
+		return baseCost;
+	}
 
-		RE::HandleEntryPoint(PEPE_STAMINA_ENTRY_POINT, actor, baseCost, PEPE::Group::AttackStamina, handInfo.form);
+	float ComputeAttackCost(RE::Actor* actor, RE::BGSAttackData* attackData)
+	{
+		if (!actor || !attackData)
+			return 0.0f;
+
+		bool power = attackData->data.flags.any(RE::AttackData::AttackFlag::kPowerAttack);
+		bool left = attackData->IsLeftAttack();
+		bool bash = attackData->data.flags.any(RE::AttackData::AttackFlag::kBashAttack);
+
+		float cost = ComputeBaseAttackCost(actor, bash, left, power);
+
+        // Engine multiplier, basically 1, but for dual wield stamina balance
+		cost *= attackData->data.staminaMult;
+
+		auto handInfo = Utils::GetAttackHandInfo(actor, left, bash);
+		RE::HandleEntryPoint(PEPE_STAMINA_ENTRY_POINT, actor, cost, PEPE::Group::AttackStamina, handInfo.form);
 
 		Costs::CostLog("ComputeAttackCost: power={} left={} bash={} staminaMult={:.2f} -> {:.3f} for {:x}",
-			power, left, bash, attackData->data.staminaMult, baseCost, actor->GetFormID());
+			power, left, bash, attackData->data.staminaMult, cost, actor->GetFormID());
 
-		return baseCost;
+		return cost;
 	}
 
 	float ComputeStaffFireCost(RE::Actor* actor, bool leftHand)

@@ -17,8 +17,11 @@ An SKSE plugin for Skyrim AE that overhauls stamina into a burden- and weight-dr
 
 ```
 src/
-├── API/               # Vendored PerkEntryPointExtenderAPI.h (PEPE v3) (DONE)
-├── Burden/            # Burden computation + actor tracker (DONE)
+├── API/               # Vendored PEPE API + public S&B SKSE plugin API (DONE)
+│   ├── PerkEntryPointExtenderAPI.h  # Vendored PEPE v3
+│   ├── StaminaAndBurdenAPI.h       # Public vendored header
+│   └── StaminaAndBurdenAPI.cpp     # Internal implementation + DLL export
+├── Burden/            # Burden computation + actor tracker + ResolveBurdenValue shared helper (DONE)
 ├── Combat/            # BlockManager + DamageManager (DONE)
 │   ├── BlockManager   # Block stamina cost, damage redirect, guard break
 │   └── DamageManager  # Stamina-conditional damage scaling
@@ -28,18 +31,17 @@ src/
 │   └── PerkCategories.h # 9 PEPE category constants (SB_*) + PEPE_STAMINA_ENTRY_POINT
 ├── Data/              # ModObjectManager, Lookup.h (shell — EXPECTED_COUNT=0)
 ├── Export/            # SKSEPlugin.cpp — entrypoint, PEPE RequestInterface() at kDataLoaded (DONE)
-├── Hooks/             # 11 code detours + 1 world frame hook + 2 VTABLE hooks + 4 event sinks (DONE)
+├── Hooks/             # 11 code detours + 1 world frame hook + 3 VTABLE hooks + 4 event sinks (DONE)
 ├── Movement/          # Movement speed (burden/swim/exhaustion) + sprint/jump cost functions (DONE)
 │   ├── MovementManager        # ComputeSpeedMultiplier — burden, swim depth, exhaustion speed scaling
 │   └── MovementCostManager    # ComputeSprintDrain, ComputeJumpCost + PEPE calls
-├── Papyrus/           # GetVersion only bound (MINIMAL)
+├── Papyrus/           # 10 functions bound: GetVersion, GetBurdenByIndex, 4 burden convenience, GetEffectiveEquippedWeight, SetMaxEquippedWeightOverride, ComputeActionCost, IsExhausted + ModCallbackEvent dispatch (DONE)
 ├── RE/                # Offset.h — placeholder; all REL::IDs inline (DONE)
 ├── Serialization/     # Serde.h/.cpp — infrastructure ready, nothing registered (SHELL)
 ├── Menu/              # FUCK settings menu
 │   └── SBMenuTool     # SBMenuTool : FUCK::ITool — 6 grouped tabs, ForEach-driven section tree,
 │                      #   live widgets, per-struct Defaults, SaveOnClose, Rewrite button
 ├── Settings/
-│   ├── INI/           # SimpleIni reader with whitelist (shell — EXPECTED_COUNT=0)
 │   ├── JSON/          # JSON reader (DONE)
 │   └── Params/        # Parameter<T> singletons: BurdenParams, RegenParams,
 │                      #   RegenMovementParams, NegativeRegen, WeatherParams,
@@ -101,6 +103,7 @@ Blends equipped burden and carry burden into a single factor for cost/regen curv
 - `actor` field added so formulas can get maxStamina directly
 - Staves tracked via `kStaff` cases in `ComputeRightHandBurden`/`ComputeLeftHandBurden`, reusing `weaponBurden_rh/lh` fields and skill-weighted by `staffSkill` (reads `kEnchanting`)
 - `GetWeaponHandlingInfo` gains explicit `kStaff` case `{ weaponBurden_rh, staffSkill }` — previously fell to default returning skill=0 for block burden computation
+- `ResolveBurdenValue(data, component)` — shared public helper mapping `int` index (0-7, matching `BurdenComponent` enum) to the corresponding float in `ActorBurdenData`. Single source of truth used by both the C++ API (§3.10) and Papyrus bindings (§7).
 
 **Triggers (3):**
 1. Event sinks — equip/container change → `Tracker::Update(actor)` → `AddTask` deferred
@@ -469,7 +472,7 @@ magnitude = Interpolate(
 **Deferred items:**
 - Exhaustion debuff — stamina-0 feature, not block-specific. See §3.8. (DONE)
 - Block commitment — only makes sense with timed block.
-- Timed block — significant future feature: timed block window, commitment, perfect block, window penalty system. Dependencies: input hooks, state machine.
+- Timed block — **KILLED** Out of Scope, with the SKSE API, we can make a companion timed block, or integrate an already existing one
 - Perk integration — PEPE entry point (`kModPowerAttackStamina`) wired via `RE::HandleEntryPoint` on both block sub-costs using category `SB_BlockStamina`. Modded perks can scale base block stamina cost and damage redirect cost independently via the same category.
 
 ### 3.6 CombatManager (DEFERRED)
@@ -533,9 +536,8 @@ else (stamina <= 0) → reset safeTimer to 0
 **Not included:**
 - Action denial — not part of exhaustion scope (per project decision)
 - Visual/audio feedback — purely mechanical stat penalty
-- Papyrus bindings — state not exposed to scripts (see §8)
+- Papyrus bindings — IsExhausted + ModCallbackEvent dispatch (DONE, see §7)
 - Save/load serialization — exhaustion is transient, wiped on game load (see §8)
-- INI configuration entries — defaults from `ExhaustionParams.h` always apply; INI whitelist not populated (see §7)
 
 ### 3.9 DamageManager (DONE)
 
@@ -582,18 +584,82 @@ damageMult      = Interpolate(fDamageScaleLow, fDamageScaleHigh, staminaPct, fDa
 - Both `totalDamage` and `physicalDamage` scaled uniformly — matches StaminaNPC behavior where crit bonus is derived from scaled `physicalDamage`.
 - Spell-only attacks excluded via `!hitData.weapon && hitData.attackDataSpell` — prevents scaling pure magic damage.
 
+### 3.10 Public SKSE Plugin API (DONE)
+
+**Files:** `src/API/StaminaAndBurdenAPI.h` (vendored), `src/API/StaminaAndBurdenAPI.cpp`
+
+**Purpose:** Public vendored C++ API for companion mods to query burden data, exhaustion state, and ad-hoc action cost formulas without depending on S&B's internal headers or version coordination.
+
+**Architecture:**
+- `InterfaceVersion1` — abstract C++ vtable class with 15 virtual methods
+- `SB_RequestInterfaceImpl` — `extern "C" DLLEXPORT` function returning `void*`
+- Consumer calls `StaminaAndBurdenAPI::RequestInterface<CurrentInterface>()` to retrieve the vtable pointer
+- Thread-safe by construction (single main thread)
+
+**Public types:**
+
+| Type | Description |
+|---|---|
+| `WeaponSlot` | Enum: `RightHand`, `LeftHand`, `TwoHanded`, `Ranged`, `Block` |
+| `BurdenComponent` | Enum selecting which burden value to use in cost formulas: `Burden`, `CarryBurden`, `BurdenBlend`, `WeaponRightHand`, `WeaponLeftHand`, `WeaponTwoHanded`, `WeaponRanged`, `WeaponBlock` |
+
+**Vtable (15 slots):**
+
+| Category | Methods |
+|---|---|
+| Version (1) | `GetVersion()` |
+| Burden queries (5) | `GetBurden`, `GetCarryBurden`, `GetBurdenBlend`, `GetBurdenEquippedWeight`, `GetMaxEquippedWeight` |
+| Max equipped weight override (1) | `SetMaxEquippedWeightOverride(actor, maxWeight)` |
+| Weapon burden (1) | `GetWeaponBurden(actor, WeaponSlot)` — enum-based, no convenience wrappers |
+| Attack costs (1) | `GetAttackCostFromData(actor, BGSAttackData*)` — includes staminaMult + PEPE scaling |
+| Action cost (1) | `ComputeActionCost(actor, baseCmp, min, max, k, pctCmp, min, max, k)` — direct ad-hoc computation |
+| State (1) | `IsExhausted(actor)` |
+| Exhaustion listener (1) | `RegisterExhaustionListener(void(*)(Actor*, bool))` — C++ callback for state changes |
+| Math (2) | `Interpolate(min, max, t, k)`, `SmoothStep(t)` |
+
+**Design notes:**
+- Is better to provide minimal APIs  so integrations are clean than provide many APIs and the users are confused.
+- `GetAttackCostFromData` is the only attack cost method because it includes engine `staminaMult` (dual-wield balance) and PEPE perk scaling — the values actually applied by S&B's hooks.
+- `ComputeActionCost` provides a direct dual-curve cost formula: `Interpolate(base) + Interpolate(pct) × 1% maxStamina`.
+
+**Action cost formula:**
+```
+Stamina1pct     = 0.01 × maxStamina
+baseTerm        = Interpolate(baseMin, baseMax, baseBurdenT, baseK)
+pctTerm         = Interpolate(pctMin, pctMax, pctBurdenT, pctK) × Stamina1pct
+totalCost       = baseTerm + pctTerm
+```
+
+**Consumer usage:**
+```cpp
+#include "StaminaAndBurdenAPI.h"
+
+auto* api = StaminaAndBurdenAPI::RequestInterface<StaminaAndBurdenAPI::InterfaceVersion1>();
+if (api) {
+    float burden = api->GetBurdenBlend(actor);
+    bool exhausted = api->IsExhausted(actor);
+    api->RegisterExhaustionListener([](RE::Actor* a, bool ex) { /* ... */ });
+}
+```
+
+**Implementation:** `InterfaceImpl` class in anonymous namespace. `ComputeActionCost` assembles a config inline and delegates to the internal interpolation helper. `ResolveBurdenValue` delegates to `Burden::ResolveBurdenValue` (single source of truth in `BurdenManager.cpp`). All methods return 0 for null actor.
+
+**Notes:**
+- Requires CommonLibSSE (`<RE/A/Actor.h>`) at the consumer side — standard for SKSE plugin APIs
+- Papyrus bindings available via `StaminaAndBurden` utility script (see §7)
+- Per-actor equipped weight override — implemented via `SetMaxEquippedWeightOverride` (see §12.9)
 ---
 
 ## 4. Hook Summary
 
-### Installed code detours (10 + 3 VTABLE hooks):
+### Installed code detours (11 + 3 VTABLE hooks):
 
 | ID | Offset | Name | Purpose |
 |---|---|---|---|
 | `38452` | `+0x2B6` | `RegenHook` | Intercept AV regen rate → `ComputeBurdenStaminaRegenRate` |
 | `38452` | `+0x02C` | `RegenDelayHook` | Bypass regen delay when negative drain cached → `DamageActorValue` |
-| `38022` | `+0xC1/C9` | `SprintDrainHook` | Replace equipped-weight with `Movement::ComputeSprintDrain` |
-| `37257` | `+0x17F` | `ActionHook` | Jump stamina cost via `Movement::ComputeJumpCost` → `ApplyStaminaCost` |
+| `38022` | `+0xC1/C9` | `SprintHook` | Replace equipped-weight with `Movement::ComputeSprintDrain` |
+| `37257` | `+0x17F` | `JumpHook` | Jump stamina cost via `Movement::ComputeJumpCost` → `ApplyStaminaCost` |
 | `38603` | `+0x171` | `AttackCostHook` | Replace engine attack stamina cost → `ComputeAttackCost` |
 | `42859` | `+0x138` | `BowFireHook` | Bow fire cost + deny if insufficient stamina |
 | `38627` | `+0x4A8` | `DamageScalingHook` | Scale outgoing damage by attacker stamina% |
@@ -682,8 +748,8 @@ Per-frame (all actors processed by engine):
     SpeedHook → Movement::ComputeSpeedMultiplier(actor) → burdenMult × swimMult × exhaustMult
 
 Per-action (each cost passes through PEPE HandleEntryPoint before consumption):
-    SprintDrainHook (every frame while sprinting) → Movement::ComputeSprintDrain(actor) → [PEPE SB_SprintStamina] → ApplyStaminaCost
-    ActionHook (on jump) → Movement::ComputeJumpCost(actor) → [PEPE SB_JumpStamina] → ApplyStaminaCost
+    SprintHook (every frame while sprinting) → Movement::ComputeSprintDrain(actor) → [PEPE SB_SprintStamina] → ApplyStaminaCost
+    JumpHook (on jump) → Movement::ComputeJumpCost(actor) → [PEPE SB_JumpStamina] → ApplyStaminaCost
     AttackCostHook (on attack) → ComputeAttackCost(actor, attackData) → [PEPE SB_AttackStamina] → ApplyStaminaCost / staminaMult
     AttackDenyHook (on attack) → CanDoStaminaAction(actor, cost) → 0.0F (allow) or cost (deny — engine penalizes)
     BowFireHook (on bow release) → ComputeBowFireCost(actor) → [PEPE SB_BowFireStamina] → ApplyStaminaCost
@@ -712,18 +778,44 @@ Burden::Tracker::Update(actor)
 | Staff fire deny | **DONE** — built into `StartCastingHook` | VTABLE hook on `ActorMagicCaster::StartCastImpl`. Per-actor toggles (`bStaffDenyPlayer/NPC`). Suppresses cast start if stamina insufficient. |
 | Staff channel deny | **DONE** — built into `CasterUpdateHook` | VTABLE hook on `ActorMagicCaster::Update`. Per-actor toggles (`bStaffDenyPlayer/NPC`). Interrupts concentration beam via `InterruptCast(true)` when stamina exhausted. |
 
-Both player and NPC attack denial share the same `HasStamina()` logic which checks per-actor-type toggles from `DenyParams` (`bEnableDenyPlayer`/`bEnableDenyNPC`). Return convention: `0.0F` = has stamina (allow), `>0.0F` = no stamina (deny — engine handles the penalty). Jump denial is installed via VTABLE (player-only) 
+Both player and NPC attack denial share the same `HasStamina()` logic which checks per-actor-type toggles from `AttackCostParams` (`bAttackDenyPlayer`/`bAttackDenyNPC`). Return convention: `0.0F` = has stamina (allow), `>0.0F` = no stamina (deny — engine handles the penalty). Jump denial is installed via VTABLE (player-only) 
 
 ---
 
 ## 7. Papyrus Interface
 
-**Current state:** Minimal. Only `GetVersion` bound. Script at `Data/Source/Scripts/EC_StaminaAndBurden.psc` has 3 stubs: `GetVersion` + 2 `UnitTest_Serialization` stubs.
+**Current state:** Complete. 10 functions bound on `StaminaAndBurden` utility script (flat name, no prefix) at `Data/Source/Scripts/StaminaAndBurden.psc`.
 
-**Planned** (deferred):
-- `GetEquippedBurdenRatio` — query burden data from Papyrus
-- `GetTotalBurdenRatio`
-- `GetCurrentStaminaRegenMult`
+### Bound functions:
+
+| # | Function | Signature | Purpose |
+|---|----------|-----------|---------|
+| 1 | `GetVersion` | `Int[] Function GetVersion() Global Native` | Returns plugin version `{ major, minor, patch }` |
+| 2 | `GetBurdenByIndex` | `Float Function GetBurdenByIndex(Actor a_actor, Int a_index) Global Native` | Unified burden query — see BurdenComponent index doc in `.psc` (indices 0-7) |
+| 3 | `GetBurden` | `Float Function GetBurden(Actor a_actor) Global Native` | Convenience: index 0 (equipment burden) |
+| 4 | `GetCarryBurden` | `Float Function GetCarryBurden(Actor a_actor) Global Native` | Convenience: index 1 (inventory/carry weight burden) |
+| 5 | `GetBurdenBlend` | `Float Function GetBurdenBlend(Actor a_actor) Global Native` | Convenience: index 2 (blended burden) |
+| 6 | `GetEffectiveEquippedWeight` | `Float Function GetEffectiveEquippedWeight(Actor a_actor) Global Native` | Effective equipped weight (not in BurdenComponent enum) |
+| 7 | `GetMaxEquippedWeight` | `Float Function GetMaxEquippedWeight(Actor a_actor) Global Native` | Max equipped weight (not in BurdenComponent enum) |
+| 8 | `SetMaxEquippedWeightOverride` | `Function SetMaxEquippedWeightOverride(Actor a_actor, Float a_maxEquippedWeight) Global Native` | Override max equipped weight for mod integrations; pass 0.0 to clear |
+| 9 | `ComputeActionCost` | `Float Function ComputeActionCost(Actor, Int, Float, Float, Float, Int, Float, Float, Float) Global Native` | Ad-hoc burden-based stamina cost (9 params) |
+| 10 | `IsExhausted` | `Bool Function IsExhausted(Actor a_actor) Global Native` | Check if actor is exhausted |
+
+### Exhaustion ModCallbackEvent
+
+Papyrus scripts can react to exhaustion state changes via vanilla `RegisterForModEvent`:
+
+```
+Event name: "StaminaAndBurden_OnExhaustionChanged"
+  numArg 1.0 — actor became exhausted
+  numArg 0.0 — actor recovered
+  sender     — the actor (Form)
+```
+
+Dispatched from `ExhaustionManager::FireExhaustionEvent` every time exhaustion state changes (trigger, death, stamina recovery, timer clear). Documented with usage example in `.psc`.
+
+**Not exposed to Papyrus (deferred):**
+- Weapon-slot-specific burden (C++ API: `GetWeaponBurden(WeaponSlot)`)
 - Console command natives (sb_get/set/list/reset/getburden)
 
 ---
@@ -776,21 +868,20 @@ All settings are `Parameter<T>` structs in `src/Settings/Params/`. No shipped IN
 ### WeatherParams (3 params)
 - `fWeatherRainPenalty`, `fWeatherSnowPenalty`, `bWeatherEnabled`
 
-### CostsParams (39 params)
-- `bAttackCostPlayer/NPC` — per-actor toggles for attack stamina cost
-- `bBowCostPlayer/NPC` — per-actor toggles for bow fire stamina cost
-- `bBowDenyPlayer/NPC` — per-actor toggles for bow fire denial on insufficient stamina
-- `bStaffCostPlayer/NPC` — per-actor toggles for staff fire stamina cost
-- `bStaffDenyPlayer/NPC` — per-actor toggles for staff fire/channel denial on insufficient stamina
+### CostsParams (17 params)
 - `bSprintCostPlayer/NPC` — per-actor toggles for sprint drain
 - `bJumpCostPlayer/NPC` — per-actor toggles for jump cost
 - `bEnableDebugLogging`
 - `fSprintDrainLowBurden/HighBurden/LowCarryBurdenPct/HighCarryBurdenPct/BurdenCurve_k/CarryBurdenCurve_k`
 - `fJumpCostLowBurden/HighBurden/LowCarryPct/HighCarryPct/BurdenCurve_k/CarryCurve_k`
-- `fBowFireLowBurden/HighBurden/BurdenCurve_k/LowCarryPct/HighCarryPct/CarryCurve_k`
-- `fStaffFireLowBurden/HighBurden/BurdenCurve_k/LowCarryPct/HighCarryPct/CarryCurve_k`
 
-### AttackCostParams (25 params)
+### AttackCostParams (49 params)
+- `bAttackCostPlayer/NPC` — per-actor toggles for attack stamina cost
+- `bAttackDenyPlayer/NPC` — per-actor toggles for attack denial on insufficient stamina
+- `bBowCostPlayer/NPC` — per-actor toggles for bow fire stamina cost
+- `bBowDenyPlayer/NPC` — per-actor toggles for bow fire denial on insufficient stamina
+- `bStaffCostPlayer/NPC` — per-actor toggles for staff fire stamina cost
+- `bStaffDenyPlayer/NPC` — per-actor toggles for staff fire/channel denial on insufficient stamina
 - `fAttackLowCarryPct/HighCarryPct/CarryCurve_k` — shared carry burden component
 - `fAttack1hLowBurden/HighBurden/BurdenCurve_k/PowerMult`
 - `fAttack2hLowBurden/HighBurden/BurdenCurve_k/PowerMult`
@@ -798,10 +889,18 @@ All settings are `Parameter<T>` structs in `src/Settings/Params/`. No shipped IN
 - `fBashShieldLowBurden/HighBurden/BurdenCurve_k/PowerMult`
 - `fBashBowLowBurden/HighBurden/BurdenCurve_k/PowerMult`
 - `fBashWeaponLowBurden/HighBurden/BurdenCurve_k/PowerMult`
+- `fBowFireLowBurden/HighBurden/BurdenCurve_k/LowCarryPct/HighCarryPct/CarryCurve_k`
+- `fStaffFireLowBurden/HighBurden/BurdenCurve_k/LowCarryPct/HighCarryPct/CarryCurve_k`
 
-### DenyParams (4 params)
-- `bEnableDenyPlayer` — enable attack denial for player (default true)
-- `bEnableDenyNPC` — enable attack denial for NPCs (default true)
+### DamageParams (6 params)
+- `bDamageScalingPlayer` — apply damage scaling to player (default true)
+- `bDamageScalingNPC` — apply damage scaling to NPCs (default true)
+- `fDamageScaleLow` — damage mult at 0% stamina (default 0.50)
+- `fDamageScaleHigh` — damage mult at 100% stamina (default 1.20)
+- `fDamageScaleCurve_k` — curve shape (default 0.80)
+- `bEnableDebugLogging` — debug toggle (default true)
+
+### DenyParams (2 params)
 - `fMinStaminaCostMult` — stamina threshold fraction for action denial; actor must have stamina > `fMinStaminaCostMult × cost` to be allowed to act (default 0.30)
 - `bEnableDebugLogging` (field `EnableDebugLogging`) — enable `DenyLog()` output (default true)
 
@@ -858,6 +957,8 @@ Removed: `bPlayerAlwaysCanDoAction`, `bNpcAlwaysCanDoAction`, `fNpcRegenExemptio
 - `fStaminaBlockDmgMult` (0.0), `fStaminaBlockStaggerMult` (0.0), `fStaminaBlockBase` (0.0) — engine block stamina drain
 
 ### MovementSpeedParams (12 params)
+
+Note: Burden and swim speed use per-actor toggles (`bBurdenSpeedPlayer/NPC`, `bSwimSpeedPlayer/NPC`). Exhaustion speed has no standalone toggle — it is gated by `bExhaustionPlayer`/`bExhaustionNPC` in `ExhaustionParams`.
 
 | Key | Type | Default | Range | Purpose |
 |---|---|---|---|---|
@@ -981,8 +1082,8 @@ Single `FUCK::ITool` registered at `kDataLoaded` via `FUCK::RegisterTool()`. Opt
 | `Movement::ComputeJumpCost` | DONE |
 | `Movement::ComputeSpeedMultiplier` — burden/swim/exhaustion | DONE |
 | `Movement::ComputeJumpHeightMult` — burden + exhaustion height scaling | DONE |
-| SprintDrainHook at 38022+0xC1/0xC9 | DONE |
-| ActionHook at 37257+0x17F | DONE |
+| SprintHook at 38022+0xC1/0xC9 | DONE |
+| JumpHook at 37257+0x17F | DONE |
 | SpeedHook at 37943+0x51 | DONE |
 | MovementSpeedParams (12 params) | DONE |
 | JumpParams (8 params) | DONE |
@@ -1012,7 +1113,7 @@ Single `FUCK::ITool` registered at `kDataLoaded` via `FUCK::RegisterTool()`. Opt
 | Bow fire deny (built into BowFireHook) | DONE |
 | JumpInputHandler — VTABLE JumpHandler[0] index 0x04 (player-only jump cost + deny) | **DONE** (replaces dead JumpDenyHook at 42423+0x114) |
 
-### Phase 5 — Blocking ✅ (Timed Block deferred)
+### Phase 5 — Blocking ✅
 | Task | Status |
 |---|---|
 | BlockHook at 38627+0x4A8 (chained with DamageScalingHook) | DONE |
@@ -1026,7 +1127,6 @@ Single `FUCK::ITool` registered at `kDataLoaded` via `FUCK::RegisterTool()`. Opt
 | BlockingParams singleton (24 params) | DONE |
 | Engine GMST overrides (9 block-related) | DONE |
 | NPC toggles (`bBlockCostNPC`, `bBlockRedirectNPC`) | DONE |
-| Timed block (Valhalla-style) | DEFERRED — future consideration |
 | Perk integration | DONE — PEPE HandleEntryPoint on both block sub-costs (SB_BlockStamina) |
 
 ### Phase 6 — Damage Scaling ✅
@@ -1048,9 +1148,9 @@ Single `FUCK::ITool` registered at `kDataLoaded` via `FUCK::RegisterTool()`. Opt
 | Damage scaling integration (damage penalty) | DONE |
 | Game-load cleanup | DONE |
 | Debug logging | DONE |
-| Papyrus bindings | NOT STARTED |
-| Save serialization | NOT STARTED |
-| INI configuration entries | NOT STARTED |
+| Papyrus bindings (IsExhausted + ModCallbackEvent) | DONE |
+| Save serialization | Rejected — not serialized (see §13.3) |
+| INI configuration entries | DONE  |
 | Visual feedback — TrueHUD stamina bar recolor (grey tint while exhausted) | DONE — `ExhaustionManager.h/cpp` dual-path: TrueHUD `OverrideBarColor` + tint fallback |
 
 ### Phase 8 — Settings Menu & INI Persistence ✅
@@ -1061,7 +1161,7 @@ Single `FUCK::ITool` registered at `kDataLoaded` via `FUCK::RegisterTool()`. Opt
 | SBSettingsINI::Save — RMW, preserves comments | DONE |
 | SBSettingsINI::SaveOverwrite — fresh write | DONE |
 | SBSettingsINI::Initialize — wired at SKSEPlugin_Load | DONE |
-| FUCK Connect + RegisterTool at kDataLoaded | DONE |
+| FLICK Connect + RegisterTool at kDataLoaded | DONE |
 | 6 grouped tabs (Regen, Costs, Combat, Burden, Movement, Overrides) | DONE |
 | DrawGroup — ForEach-driven section tree + widget dispatch | DONE |
 | Header() — colored separator per struct | DONE |
@@ -1070,12 +1170,15 @@ Single `FUCK::ITool` registered at `kDataLoaded` via `FUCK::RegisterTool()`. Opt
 | "Rewrite INI (clean)" button in title bar | DONE |
 | Console commands (sb_get/set/list/reset) | NOT STARTED |
 | sb_getburden debug command | NOT STARTED |
-| Fix TestCommands.yaml (SEA_TemplateProject → EC_StaminaAndBurden) | NOT STARTED |
+| Fix TestCommands.yaml (SEA_TemplateProject → StaminaAndBurden) | NOT STARTED |
 
-### Phase 9 — Papyrus & Polish (NOT STARTED)
+### Phase 9 — Papyrus & Polish (In Progress)
 | Task | Status |
 |---|---|
-| Bind query functions | NOT STARTED |
+| Bind query functions (GetBurdenByIndex + 4 convenience + GetEffectiveEquippedWeight + ComputeActionCost + IsExhausted) | DONE |
+| Bind SetMaxEquippedWeightOverride | DONE |
+| Exhaustion ModCallbackEvent dispatch | DONE |
+| .psc documentation (ComputeActionCost params + event usage + SetMaxEquippedWeightOverride) | DONE |
 | Clean up UnitTest_Serialization stubs | NOT STARTED |
 
 ### Phase 10 — HUD Burden Widget (NOT STARTED — optional)
@@ -1109,19 +1212,18 @@ Single `FUCK::ITool` registered at `kDataLoaded` via `FUCK::RegisterTool()`. Opt
 
 ## 12. Key Open Items
 
-1. **Timed block** — Valhalla Combat-style timed block window, commitment, perfect block, window penalty system. Dependencies: input hooks, state machine. Deferrable to separate plan.
-2. **Console commands** — sb_get/set/list/reset/getburden via Papyrus + TestCommands.yaml.
-3. ~~Perk integration~~ → **DONE** (PEPE, §3c). All 8 stamina cost/penalty functions wired to `kModPowerAttackStamina` entry point via PEPE `HandleEntryPoint` with `SB_*` categories. Modded perks can scale any cost by adding perk entries targeting the relevant category. The single entry point covers attack, bow, sprint, jump, block, and hold penalty costs. Future perk-specific mechanics (timed block windows, stamina refunds, conditional bonuses) would need additional perk entry points or custom hook logic beyond PEPE's scope.
+1. **Console commands** — sb_get/set/list/reset/getburden via Papyrus + TestCommands.yaml.
+2. ~~Perk integration~~ → **DONE** (PEPE, §3c). All 8 stamina cost/penalty functions wired to `kModPowerAttackStamina` entry point via `RE::HandleEntryPoint` with `SB_*` categories. Modded perks can scale any cost by adding perk entries targeting the relevant category. The single entry point covers attack, bow, sprint, jump, block, and hold penalty costs. Future perk-specific mechanics (stamina refunds, conditional bonuses) would need additional perk entry points or custom hook logic beyond PEPE's scope.
 
-4. **Staff stamina cost** — DONE. Two vtable hooks on `ActorMagicCaster::VTABLE[0]` (indices 0x06 and 0x1D) intercept staff casting for fire cost + hold drain. Staffs are treated as weapons — uses `weaponBurden_rh/lh` (skill-weighted by `staffSkill` from `kEnchanting`) and `burdenBlend`. PEPE: `SB_StaffFireStamina`, `SB_StaffHoldStamina`. Per-actor toggles for cost + deny. Staves in each hand tracked independently (dual-wield support).
+3. **Staff stamina cost** — DONE. Two vtable hooks on `ActorMagicCaster::VTABLE[0]` (indices 0x06 and 0x1D) intercept staff casting for fire cost + hold drain. Staffs are treated as weapons — uses `weaponBurden_rh/lh` (skill-weighted by `staffSkill` from `kEnchanting`) and `burdenBlend`. PEPE: `SB_StaffFireStamina`, `SB_StaffHoldStamina`. Per-actor toggles for cost + deny. Staves in each hand tracked independently (dual-wield support).
 
-5. **Burden display in inventory menu** — append burden info to the carry weight text in the inventory menu's bottom bar (`CarryWeightValue` TextField). Two implementation options investigated:
+4. **Burden display in inventory menu** — append burden info to the carry weight text in the inventory menu's bottom bar (`CarryWeightValue` TextField). Two implementation options investigated:
 
    **Attempted: Direct Scaleform from C++ (FAILED — hangs)**
    Registered `SKSE::GetScaleformInterface()->Register(callback, "InventoryMenu")` callback. Navigated from `bottomBar->obj` → `playerInfoCard` → `CarryWeightValue` via `GFxValue::GetMember`, then called `SetText`. Used `AddTask` to re-apply each frame (ActionScript overwrites the text). **Result:** Game hangs. Root cause: `GFxValue::GetMember`/`SetText` must be called inside Scaleform's update context. The `Register` callback fires inside that context, but `AddTask` runs outside it (main game thread, not during Scaleform render). Also, `UI::GetMenu<InventoryMenu>()` accesses `menuMap` (`BSTHashMap`) which may have thread-safety issues outside UI message processing.
 
    **Option A: Papyrus + UI class (simpler)**
-   - C++ side: add `GetBurden(actor)` Papyrus binding (trivial — wraps `Burden::Tracker::GetOrComputeBurden`)
+   - C++ side: `GetBurden(actor)` Papyrus binding is now bound via `GetBurdenByIndex` (index 0) or directly via `GetBurden` convenience wrapper
    - Papyrus side: quest script with `OnUpdate` calling `UI.SetMenuProperty("InventoryMenu", "_root.bottomBar_mc.playerInfoCard.CarryWeightValue", "text", current + burdenSuffix)`
    - `UI.SetMenuProperty`/`UI.Invoke` are documented thread-safe (dispatch to main thread internally)
    - Pros: simple, uses existing engine APIs, no Scaleform threading issues
@@ -1136,15 +1238,13 @@ Single `FUCK::ITool` registered at `kDataLoaded` via `FUCK::RegisterTool()`. Opt
 
    **Open question:** Which approach to pursue? Papyrus is simpler and less error-prone. GFxFunctionHandler is more robust but requires reverse-engineering the menu's Scaleform wiring.
 
-6. **Public S&B API** — design and vend a public API header (like PEPE/DMMF) exposing burden computation, formula utilities (`Interpolate`, `ComputeAttackCost`, etc.), per-actor queries (burden data, exhaustion state), and event hooks for other mods to build on. Enables companion mods (magic overhaul, dodge mods) without version coordination.
-7. **Menu polish enhancements** — Deferred quality-of-life features:
+5. **Menu polish enhancements** — Deferred quality-of-life features:
    - Section default-open states (Toggles open, Debug closed)
    - Search/filter box for param names
    - Collapse-all/expand-all toggle
    - Help tooltips via `FUCK::HelpMarker` on hover
    - Localization via `_T` literals (low priority — labels are code param names, not user-facing)
    - Persistent expanded-state across saves (serialization)
-8. **Per-maj-version INI clean rewrite** — RMW Save preserves unknown keys (intentional for forward-compatibility) but means renamed keys accumulate across version bumps. A major-version-triggered clean rewrite would solve this. Currently no mechanism exists.
 ---
 
 
@@ -1171,7 +1271,7 @@ Single `FUCK::ITool` registered at `kDataLoaded` via `FUCK::RegisterTool()`. Opt
 **Decision:** Both hold penalties now include a `maxStamina × 1% × Interpolate(HoldDrainLowBlended, HoldDrainHighBlended, burdenBlend, HoldBlendedCurve_k)` term, matching the attack cost structure. 3 shared params (`HoldDrainLowBlended`, `HoldDrainHighBlended`, `HoldBlendedCurve_k`) added to `RegenMovementParams`. The curve shape is shared (`HoldBlendedCurve_k`) while the range is tunable via the low/high bounds.
 
 ### 13.3 Exhaustion save serialization
-**Status:** DEFERRED — not serialized.
+**Status:** DECIDED — not serialized.
 
 **Considered:** Whether exhaustion state should persist across save/load. Exhaustion is short-lived (default 8s safe-timer) and only triggers when stamina hits 0.
 
