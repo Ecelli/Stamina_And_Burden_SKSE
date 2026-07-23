@@ -61,6 +61,8 @@ namespace Costs
 		// ===== Attack Toggles =====
 		Parameter<bool> bAttackCostPlayer{ true, false, true };
 		Parameter<bool> bAttackCostNPC{ true, false, true };
+		Parameter<bool> bAttackDenyPlayer{ true, false, true };
+		Parameter<bool> bAttackDenyNPC{ true, false, true };
 
 		// ===== Burden =====
 		Parameter<float> AttackLowCarryPct{ 1.0f, 0.0f, 60.0f };
@@ -132,6 +134,8 @@ namespace Costs
 			a_fn("Attack Toggles");
 			a_fn("bAttackCostPlayer"sv, s->bAttackCostPlayer);
 			a_fn("bAttackCostNPC"sv, s->bAttackCostNPC);
+			a_fn("bAttackDenyPlayer"sv, s->bAttackDenyPlayer);
+			a_fn("bAttackDenyNPC"sv, s->bAttackDenyNPC);
 			a_fn("Burden");
 			a_fn("fAttackLowCarryPct"sv, s->AttackLowCarryPct);
 			a_fn("fAttackHighCarryPct"sv, s->AttackHighCarryPct);

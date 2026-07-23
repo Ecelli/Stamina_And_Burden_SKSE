@@ -80,13 +80,12 @@ namespace Hooks
 
         bool isPlayer = actor->IsPlayerRef();
         auto* costParams = Costs::AttackCostParams::GetSingleton();
-        auto* denyParams = Deny::DenyParams::GetSingleton();
 
         bool costEnabled = isPlayer ? costParams->bAttackCostPlayer.Get() : costParams->bAttackCostNPC.Get();
         if (!costEnabled)
             return _original(a_this, attackData);
 
-        bool denyEnabled = isPlayer ? denyParams->bEnableDenyPlayer.Get() : denyParams->bEnableDenyNPC.Get();
+        bool denyEnabled = isPlayer ? costParams->bAttackDenyPlayer.Get() : costParams->bAttackDenyNPC.Get();
         float cost = Costs::ComputeAttackCost(actor, attackData);
 
         if (!denyEnabled)

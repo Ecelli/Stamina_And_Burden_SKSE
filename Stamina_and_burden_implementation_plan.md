@@ -778,7 +778,7 @@ Burden::Tracker::Update(actor)
 | Staff fire deny | **DONE** — built into `StartCastingHook` | VTABLE hook on `ActorMagicCaster::StartCastImpl`. Per-actor toggles (`bStaffDenyPlayer/NPC`). Suppresses cast start if stamina insufficient. |
 | Staff channel deny | **DONE** — built into `CasterUpdateHook` | VTABLE hook on `ActorMagicCaster::Update`. Per-actor toggles (`bStaffDenyPlayer/NPC`). Interrupts concentration beam via `InterruptCast(true)` when stamina exhausted. |
 
-Both player and NPC attack denial share the same `HasStamina()` logic which checks per-actor-type toggles from `DenyParams` (`bEnableDenyPlayer`/`bEnableDenyNPC`). Return convention: `0.0F` = has stamina (allow), `>0.0F` = no stamina (deny — engine handles the penalty). Jump denial is installed via VTABLE (player-only) 
+Both player and NPC attack denial share the same `HasStamina()` logic which checks per-actor-type toggles from `AttackCostParams` (`bAttackDenyPlayer`/`bAttackDenyNPC`). Return convention: `0.0F` = has stamina (allow), `>0.0F` = no stamina (deny — engine handles the penalty). Jump denial is installed via VTABLE (player-only) 
 
 ---
 
@@ -875,8 +875,9 @@ All settings are `Parameter<T>` structs in `src/Settings/Params/`. No shipped IN
 - `fSprintDrainLowBurden/HighBurden/LowCarryBurdenPct/HighCarryBurdenPct/BurdenCurve_k/CarryBurdenCurve_k`
 - `fJumpCostLowBurden/HighBurden/LowCarryPct/HighCarryPct/BurdenCurve_k/CarryCurve_k`
 
-### AttackCostParams (47 params)
+### AttackCostParams (49 params)
 - `bAttackCostPlayer/NPC` — per-actor toggles for attack stamina cost
+- `bAttackDenyPlayer/NPC` — per-actor toggles for attack denial on insufficient stamina
 - `bBowCostPlayer/NPC` — per-actor toggles for bow fire stamina cost
 - `bBowDenyPlayer/NPC` — per-actor toggles for bow fire denial on insufficient stamina
 - `bStaffCostPlayer/NPC` — per-actor toggles for staff fire stamina cost
@@ -899,9 +900,7 @@ All settings are `Parameter<T>` structs in `src/Settings/Params/`. No shipped IN
 - `fDamageScaleCurve_k` — curve shape (default 0.80)
 - `bEnableDebugLogging` — debug toggle (default true)
 
-### DenyParams (4 params)
-- `bEnableDenyPlayer` — enable attack denial for player (default true)
-- `bEnableDenyNPC` — enable attack denial for NPCs (default true)
+### DenyParams (2 params)
 - `fMinStaminaCostMult` — stamina threshold fraction for action denial; actor must have stamina > `fMinStaminaCostMult × cost` to be allowed to act (default 0.30)
 - `bEnableDebugLogging` (field `EnableDebugLogging`) — enable `DenyLog()` output (default true)
 
