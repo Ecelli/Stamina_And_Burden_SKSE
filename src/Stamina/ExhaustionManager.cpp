@@ -21,13 +21,6 @@ namespace
 			return;
 
 		DispatchExhaustionEvent(a_actor, a_exhausted);
-
-		const SKSE::ModCallbackEvent event{
-			.eventName = RE::BSFixedString("StaminaAndBurden_OnExhaustionChanged"),
-			.numArg = a_exhausted ? 1.0f : 0.0f,
-			.sender = a_actor
-		};
-		SKSE::GetModCallbackEventSource()->SendEvent(&event);
 	}
 }
 

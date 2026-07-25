@@ -42,30 +42,6 @@ Base and percent curves are interpolated separately:
 /;
 Float Function ComputeActionCost(Actor a_actor, Int a_baseComponent, Float a_baseMin, Float a_baseMax, Float a_baseK, Int a_pctComponent, Float a_pctMin, Float a_pctMax, Float a_pctK) Global Native
 
-;/
-Exhaustion
-
-Papyrus scripts can react to exhaustion state changes via ModCallbackEvent.
-Event name: "StaminaAndBurden_OnExhaustionChanged"
-
-  numArg 1.0  — actor became exhausted
-  numArg 0.0  — actor recovered
-  sender       — the actor (Form)
-
-Usage:
-  Event OnInit()
-      RegisterForModEvent("StaminaAndBurden_OnExhaustionChanged", "OnExhaustionChanged")
-  EndEvent
-
-  Event OnExhaustionChanged(string eventName, string strArg, float numArg, Form sender)
-      Actor actor = sender as Actor
-      if numArg == 1.0
-          ; exhausted
-      else
-          ; recovered
-      endIf
-  EndEvent
-/;
 Bool Function IsExhausted(Actor a_actor) Global Native
 
 ; Console debug — returns formatted burden data for console display
