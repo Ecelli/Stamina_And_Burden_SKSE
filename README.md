@@ -18,4 +18,4 @@ Debug: `--preset vs-windows-vcpkg-test` + `--build --preset Test`.
 
 ## License
 
-Apache 2.0 — see [LICENSE](LICENSE).
+GPL 3.0 — see [LICENSE](LICENSE).
