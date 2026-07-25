@@ -31,7 +31,7 @@ src/
 │   └── PerkCategories.h # 9 PEPE category constants (SB_*) + PEPE_STAMINA_ENTRY_POINT
 ├── Data/              # ModObjectManager, Lookup.h (shell — EXPECTED_COUNT=0)
 ├── Export/            # SKSEPlugin.cpp — entrypoint, PEPE RequestInterface() at kDataLoaded (DONE)
-├── Hooks/             # 11 code detours + 1 world frame hook + 3 VTABLE hooks + 4 event sinks (DONE)
+├── Hooks/             # 10 code detours + 1 world frame hook + 3 VTABLE hooks + 4 event sinks (DONE)
 ├── Movement/          # Movement speed (burden/swim/exhaustion) + sprint/jump cost functions (DONE)
 │   ├── MovementManager        # ComputeSpeedMultiplier — burden, swim depth, exhaustion speed scaling
 │   └── MovementCostManager    # ComputeSprintDrain, ComputeJumpCost + PEPE calls
@@ -264,13 +264,13 @@ cost                = StaffFireBurdenFlat + StaffFireCarryPct × Stamina_1pctMax
 **`Movement::ComputeSpeedMultiplier(actor)`** — composite multiplier:
 ```
 burdenMult  = Interpolate(speedMultLowBurden, speedMultHighBurden, burdenBlend, burdenSpeedCurve_k)
-              (only if bEnableBurdenSpeed)
+              (only if per-actor toggle allows: bBurdenSpeedPlayer/NPC)
 
 swimMult    = Interpolate(speedMultAboveWater, speedMultSubmerged, submergedLevel, submergedCurve_k)
-              (only if bEnableSwimSpeed; submergedLevel via REL::ID(37448))
+              (only if per-actor toggle allows: bSwimSpeedPlayer/NPC; submergedLevel via REL::ID(37448))
 
 exhaustMult = exhaustionSpeedMult
-              (only if bEnableExhaustionSpeed AND actor is exhausted)
+              (only if actor is exhausted; exhaustion speed gated by bExhaustionPlayer/NPC in ExhaustionParams)
 
 result      = burdenMult × swimMult × exhaustMult
 ```
@@ -278,16 +278,17 @@ result      = burdenMult × swimMult × exhaustMult
 **Parameters (12):**
 | Key | Type | Default | Range | Purpose |
 |---|---|---|---|---|
-| `bEnableBurdenSpeed` | bool | true | — | Master toggle for burden speed scaling |
-| `bEnableSwimSpeed` | bool | true | — | Master toggle for swim speed scaling |
-| `bEnableExhaustionSpeed` | bool | true | — | Master toggle for exhaustion speed penalty |
+| `bBurdenSpeedPlayer` | bool | true | — | Per-actor toggle: burden speed scaling for player |
+| `bBurdenSpeedNPC` | bool | true | — | Per-actor toggle: burden speed scaling for NPCs |
 | `fSpeedMultLowBurden` | float | 1.10 | 0.1–2.0 | Speed mult at zero burden (slight bonus) |
 | `fSpeedMultHighBurden` | float | 0.70 | 0.1–1.0 | Speed mult at full burden |
 | `fBurdenSpeedCurve_k` | float | 0.50 | 0.0–1.0 | Burden speed curve shape |
+| `bSwimSpeedPlayer` | bool | true | — | Per-actor toggle: swim speed scaling for player |
+| `bSwimSpeedNPC` | bool | true | — | Per-actor toggle: swim speed scaling for NPCs |
 | `fSpeedMultAboveWater` | float | 1.00 | 0.1–1.5 | Speed mult when not submerged |
 | `fSpeedMultSubmerged` | float | 0.60 | 0.1–1.0 | Speed mult when fully submerged |
 | `fSubmergedCurve_k` | float | 0.20 | 0.0–1.0 | Swim speed curve shape |
-| `fExhaustionSpeedMult` | float | 0.70 | 0.1–1.0 | Speed mult while exhausted |
+| `fExhaustionSpeedMult` | float | 0.70 | 0.1–1.0 | Speed mult while exhausted (gated by `bExhaustionPlayer`/`bExhaustionNPC`) |
 | `bEnableDebugMovementLogging` | bool | true | — | Debug toggle |
 
 #### 3.4.2 Sprint Drain and Jump Cost
@@ -436,7 +437,9 @@ if (hit blocked && target):
 
             ApplyStaminaCost(target, currentStamina)
 
-            if (bGuardBreakEnabled):
+            if (redirectCost > 0):
+                // Stagger is inherent to the redirect system — fires when stamina
+                // runs out during active redirect (no separate toggle).
                 magnitude = ComputeStaggerMagnitude(target, hitData)
                 direction = ComputeStaggerDirection(target, hitData)
                 target->SetGraphVariableFloat("staggerDirection", direction)
@@ -603,7 +606,7 @@ damageMult      = Interpolate(fDamageScaleLow, fDamageScaleHigh, staminaPct, fDa
 | `WeaponSlot` | Enum: `RightHand`, `LeftHand`, `TwoHanded`, `Ranged`, `Block` |
 | `BurdenComponent` | Enum selecting which burden value to use in cost formulas: `Burden`, `CarryBurden`, `BurdenBlend`, `WeaponRightHand`, `WeaponLeftHand`, `WeaponTwoHanded`, `WeaponRanged`, `WeaponBlock` |
 
-**Vtable (15 slots):**
+**Vtable (14 slots):**
 
 | Category | Methods |
 |---|---|
@@ -652,7 +655,7 @@ if (api) {
 
 ## 4. Hook Summary
 
-### Installed code detours (11 + 3 VTABLE hooks):
+### Installed code detours (10 + 3 VTABLE hooks):
 
 | ID | Offset | Name | Purpose |
 |---|---|---|---|
@@ -784,7 +787,7 @@ Both player and NPC attack denial share the same `HasStamina()` logic which chec
 
 ## 7. Papyrus Interface
 
-**Current state:** Complete. 10 functions bound on `StaminaAndBurden` utility script (flat name, no prefix) at `Data/Source/Scripts/StaminaAndBurden.psc`.
+**Current state:** Complete. 15 functions bound on `StaminaAndBurden` utility script (flat name, no prefix) at `Data/Source/Scripts/StaminaAndBurden.psc`.
 
 ### Bound functions:
 
@@ -800,6 +803,11 @@ Both player and NPC attack denial share the same `HasStamina()` logic which chec
 | 8 | `SetMaxEquippedWeightOverride` | `Function SetMaxEquippedWeightOverride(Actor a_actor, Float a_maxEquippedWeight) Global Native` | Override max equipped weight for mod integrations; pass 0.0 to clear |
 | 9 | `ComputeActionCost` | `Float Function ComputeActionCost(Actor, Int, Float, Float, Float, Int, Float, Float, Float) Global Native` | Ad-hoc burden-based stamina cost (9 params) |
 | 10 | `IsExhausted` | `Bool Function IsExhausted(Actor a_actor) Global Native` | Check if actor is exhausted |
+| 11 | `GetBurdenDebug` | `String Function GetBurdenDebug(Actor a_actor) Global Native` | Formatted debug dump of all burden data (carrieskills, weapon burdens, etc.) |
+| 12 | `RegisterForExhaustionChanged` | `Function RegisterForExhaustionChanged(Form a_form) Global Native` | Register form for generic exhaustion state change events (any actor) |
+| 13 | `UnregisterForExhaustionChanged` | `Function UnregisterForExhaustionChanged(Form a_form) Global Native` | Unregister form from generic exhaustion state change events |
+| 14 | `RegisterForActorExhaustionChanged` | `Function RegisterForActorExhaustionChanged(Form a_form, Actor a_actor) Global Native` | Register form for a specific actor's exhaustion state changes |
+| 15 | `UnregisterForActorExhaustionChanged` | `Function UnregisterForActorExhaustionChanged(Form a_form, Actor a_actor) Global Native` | Unregister form from a specific actor's exhaustion state changes |
 
 ### Exhaustion ModCallbackEvent
 
@@ -813,6 +821,10 @@ Event name: "StaminaAndBurden_OnExhaustionChanged"
 ```
 
 Dispatched from `ExhaustionManager::FireExhaustionEvent` every time exhaustion state changes (trigger, death, stamina recovery, timer clear). Documented with usage example in `.psc`.
+
+**Papyrus event registration helpers (rows 12-15):**
+
+These provide SKSE event registration as an alternative to the vanilla `RegisterForModEvent` approach. The generic variants (`RegisterForExhaustionChanged` / `UnregisterForExhaustionChanged`) fire on any actor's state change; the actor-specific variants (`RegisterForActorExhaustionChanged` / `UnregisterForActorExhaustionChanged`) filter to a single actor. See main table above for full signatures.
 
 **Not exposed to Papyrus (deferred):**
 - Weapon-slot-specific burden (C++ API: `GetWeaponBurden(WeaponSlot)`)
@@ -1001,6 +1013,22 @@ Central iteration via `ForEachAll()` — chains the `ForEach(F&&)` callback of a
 
 INI path: `Data/SKSE/Plugins/StaminaAndBurden_Settings.ini`
 
+### SettingsOverride (DONE)
+
+**Files:** `src/Settings/Params/SettingsOverride.h/.cpp`
+
+`Regen::OverrideGameSettings()` — writes all `ParameterOverrides` values into the game's `GameSettingCollection` GMSTs at `kDataLoaded`. Overrides 15 GMSTs:
+
+- Combat regen mults: `fCombatStaminaRegenRateMult`, `fCombatHealthRegenRateMult`, `fCombatMagickaRegenRateMult`
+- Regen delays: `fDamagedStaminaRegenDelay`, `fDamagedHealthRegenDelay`, `fDamagedMagickaRegenDelay`
+- Sprint drain: `fSprintStaminaDrainMult`
+- Shield block: `fShieldBaseFactor`, `fShieldScalingFactor`
+- Weapon block: `fBlockWeaponBase`, `fBlockWeaponScaling`
+- Block skill/power attack: `fBlockSkillMult`, `fBlockPowerAttackMult`
+- Engine block stamina drain: `fStaminaBlockDmgMult`, `fStaminaBlockStaggerMult`, `fStaminaBlockBase`
+
+Called at `kDataLoaded` via `SKSEPlugin_Load` message handler, before hooks are installed.
+
 ### SBMenuTool (DONE)
 
 **Files:** `src/Menu/SBMenuTool.h/.cpp`
@@ -1093,7 +1121,7 @@ Single `FUCK::ITool` registered at `kDataLoaded` via `FUCK::RegisterTool()`. Opt
 | Task | Status |
 |---|---|
 | Vendored PEPE API v3 at `src/API/PerkEntryPointExtenderAPI.h` | DONE |
-| `PEPE::Group` namespace with 7 `SB_*` category constants | DONE |
+| `PEPE::Group` namespace with 9 `SB_*` category constants | DONE |
 | `PEPE_STAMINA_ENTRY_POINT` (= `kModPowerAttackStamina`) | DONE |
 | `RequestInterface()` at `kDataLoaded` with nullptr guard | DONE |
 | `RE::HandleEntryPoint` on `ComputeAttackCost` — `SB_AttackStamina` | DONE |
@@ -1121,7 +1149,7 @@ Single `FUCK::ITool` registered at `kDataLoaded` via `FUCK::RegisterTool()`. Opt
 | Engine block drain offset (`getEngineBlockStaminaCost`) | DONE |
 | `ComputeDamageRedirectStaminaCost` — health→stamina redirect | DONE |
 | `ApplyBlockDamageRedirect` — zero totalDamage on full redirect | DONE |
-| Guard break stagger — partial redirect + drain all stamina | DONE |
+| Stagger on stamina exhaustion during redirect — partial redirect + drain all stamina | DONE |
 | Stagger magnitude formula (damageBurden × inertiaFactor) | DONE |
 | Stagger direction formula (NiFastATan2, heading-relative) | DONE |
 | BlockingParams singleton (24 params) | DONE |
