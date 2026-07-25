@@ -44,5 +44,41 @@ Float Function ComputeActionCost(Actor a_actor, Int a_baseComponent, Float a_bas
 
 Bool Function IsExhausted(Actor a_actor) Global Native
 
+;/
+Exhaustion events — register to receive notifications when an actor becomes exhausted or recovers.
+
+Two registration modes:
+  RegisterForExhaustionChanged(Form)         — fires for ANY actor
+  RegisterForActorExhaustionChanged(Form, Actor) — fires only for the specified actor
+
+Usage:
+  Event OnInit()
+      RegisterForExhaustionChanged(Self)
+      ; or: RegisterForActorExhaustionChanged(Self, Game.GetPlayer())
+  EndEvent
+
+  Event OnActorExhaustionChanged(Actor akActor, bool abExhausted)
+      if abExhausted
+          ; actor became exhausted
+      else
+          ; actor recovered
+      endIf
+  EndEvent
+
+  Event OnExhaustionChanged(Actor akActor, bool abExhausted)
+      if abExhausted
+          ; actor became exhausted
+      else
+          ; actor recovered
+      endIf
+  EndEvent
+/;
+;; Register for exhaustion events for all actors
+Function RegisterForExhaustionChanged(Form akForm) global native
+Function UnregisterForExhaustionChanged(Form akForm) global native
+;; Register for exhaustion events for Specific actors (for example player and followers)
+Function RegisterForActorExhaustionChanged(Form akForm, Actor akActor) global native
+Function UnregisterForActorExhaustionChanged(Form akForm, Actor akActor) global native
+
 ; Console debug — returns formatted burden data for console display
 String Function GetBurdenDebug(Actor a_actor) Global Native
