@@ -86,6 +86,30 @@ namespace Papyrus
 			data.weaponBurden_ranged, data.weaponBurden_block);
 	}
 
+	void RegisterForExhaustionChanged(STATIC_ARGS, RE::TESForm* a_form)
+	{
+		if (!a_form) return;
+		Exhaustion::ExhaustionManager::GetSingleton()->exhaustionChanged.Register(a_form);
+	}
+
+	void UnregisterForExhaustionChanged(STATIC_ARGS, RE::TESForm* a_form)
+	{
+		if (!a_form) return;
+		Exhaustion::ExhaustionManager::GetSingleton()->exhaustionChanged.Unregister(a_form);
+	}
+
+	void RegisterForActorExhaustionChanged(STATIC_ARGS, RE::TESForm* a_form, RE::Actor* a_actor)
+	{
+		if (!a_form || !a_actor) return;
+		Exhaustion::ExhaustionManager::GetSingleton()->actorExhaustionChanged.Register(a_form, a_actor->GetFormID());
+	}
+
+	void UnregisterForActorExhaustionChanged(STATIC_ARGS, RE::TESForm* a_form, RE::Actor* a_actor)
+	{
+		if (!a_form || !a_actor) return;
+		Exhaustion::ExhaustionManager::GetSingleton()->actorExhaustionChanged.Unregister(a_form, a_actor->GetFormID());
+	}
+
 	void Bind(VM& a_vm) {
 		logger::info("  >Binding GetVersion..."sv);
 		BIND(GetVersion);
@@ -103,6 +127,11 @@ namespace Papyrus
 		BIND(IsExhausted);
 		logger::info("  >Binding GetBurdenDebug..."sv);
 		BIND(GetBurdenDebug);
+		logger::info("  >Binding exhaustion events..."sv);
+		BIND_EVENT(RegisterForExhaustionChanged);
+		BIND_EVENT(UnregisterForExhaustionChanged);
+		BIND_EVENT(RegisterForActorExhaustionChanged);
+		BIND_EVENT(UnregisterForActorExhaustionChanged);
 	}
 
 	bool RegisterFunctions(VM* a_vm) {
