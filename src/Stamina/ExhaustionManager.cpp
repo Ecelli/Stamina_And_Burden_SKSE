@@ -21,6 +21,10 @@ namespace
 			return;
 
 		DispatchExhaustionEvent(a_actor, a_exhausted);
+
+		auto* mgr = Exhaustion::ExhaustionManager::GetSingleton();
+		mgr->exhaustionChanged.QueueEvent(a_actor, a_exhausted);
+		mgr->actorExhaustionChanged.QueueEvent(a_actor->GetFormID(), a_exhausted);
 	}
 }
 
