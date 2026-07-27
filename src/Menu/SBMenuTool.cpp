@@ -109,6 +109,18 @@ void SBMenuTool::Draw()
 	if (!FUCK::BeginTabBar("Stamina and Burden Groups"))
 		return;
 
+	// ── Burden ──
+	if (FUCK::BeginTabItem("Burden")) {
+		DrawSectionHeader("BurdenParams", [](auto fn) { BurdenParams::ForEach(fn); });
+		DrawGroup([](auto fn) { BurdenParams::ForEach(fn); });
+
+		DrawSectionHeader("ExhaustionParams", [](auto fn) { ExhaustionParams::ForEach(fn); });
+		DrawGroup([](auto fn) { ExhaustionParams::ForEach(fn); });
+
+		FUCK::EndTabItem();
+	}
+
+
 	// ── Regen ──
 	if (FUCK::BeginTabItem("Regen")) {
 		DrawSectionHeader("RegenParams", [](auto fn) { Regen::RegenParams::ForEach(fn); });
@@ -122,6 +134,17 @@ void SBMenuTool::Draw()
 
 		DrawSectionHeader("WeatherParams", [](auto fn) { Regen::WeatherParams::ForEach(fn); });
 		DrawGroup([](auto fn) { Regen::WeatherParams::ForEach(fn); });
+
+		FUCK::EndTabItem();
+	}
+
+	// ── Movement ──
+	if (FUCK::BeginTabItem("Movement")) {
+		DrawSectionHeader("MovementSpeedParams", [](auto fn) { MovementSpeedParams::ForEach(fn); });
+		DrawGroup([](auto fn) { MovementSpeedParams::ForEach(fn); });
+
+		DrawSectionHeader("JumpParams", [](auto fn) { JumpParams::ForEach(fn); });
+		DrawGroup([](auto fn) { JumpParams::ForEach(fn); });
 
 		FUCK::EndTabItem();
 	}
@@ -147,28 +170,6 @@ void SBMenuTool::Draw()
 
 		DrawSectionHeader("DenyParams", [](auto fn) { Deny::DenyParams::ForEach(fn); });
 		DrawGroup([](auto fn) { Deny::DenyParams::ForEach(fn); });
-
-		FUCK::EndTabItem();
-	}
-
-	// ── Burden ──
-	if (FUCK::BeginTabItem("Burden")) {
-		DrawSectionHeader("BurdenParams", [](auto fn) { BurdenParams::ForEach(fn); });
-		DrawGroup([](auto fn) { BurdenParams::ForEach(fn); });
-
-		DrawSectionHeader("ExhaustionParams", [](auto fn) { ExhaustionParams::ForEach(fn); });
-		DrawGroup([](auto fn) { ExhaustionParams::ForEach(fn); });
-
-		FUCK::EndTabItem();
-	}
-
-	// ── Movement ──
-	if (FUCK::BeginTabItem("Movement")) {
-		DrawSectionHeader("MovementSpeedParams", [](auto fn) { MovementSpeedParams::ForEach(fn); });
-		DrawGroup([](auto fn) { MovementSpeedParams::ForEach(fn); });
-
-		DrawSectionHeader("JumpParams", [](auto fn) { JumpParams::ForEach(fn); });
-		DrawGroup([](auto fn) { JumpParams::ForEach(fn); });
 
 		FUCK::EndTabItem();
 	}
