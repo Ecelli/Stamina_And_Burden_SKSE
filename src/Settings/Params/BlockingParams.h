@@ -25,14 +25,14 @@ namespace Blocking
 		Parameter<float> fBlockRedirectMult_LowBurden{ 0.8f, 0.0f, 10.0f };
 		Parameter<float> fBlockRedirectMult_HighBurden{ 5.0f, 0.0f, 20.0f };
 		Parameter<float> fBlockRedirectMultCurve_k{ 0.70f, 0.0f, 1.0f };
-		Parameter<float> fBlockRedirectMultPct_LowBurden{ 0.1f, 0.0f, 1.0f };
+		Parameter<float> fBlockRedirectMultPct_LowBurden{ 0.1f, 0.0f, 5.0f };
 		Parameter<float> fBlockRedirectMultPct_HighBurden{ 1.0f, 0.0f, 10.0f };
 		Parameter<float> fBlockRedirectMultPctCurve_k{ 0.50f, 0.0f, 1.0f };
 
 		// ===== Stagger =====
-		Parameter<float> fStaggerPowerAttackMult{ 1.5f, 1.0f, 5.0f };
-		Parameter<float> fStaggerInertiaFactor_LowBurden{ 1.0f, 0.0f, 2.0f };
-		Parameter<float> fStaggerInertiaFactor_HighBurden{ 0.3f, 0.0f, 1.0f };
+		Parameter<float> fStaggerPowerAttackMult{ 1.5f, 0.0f, 5.0f };
+		Parameter<float> fStaggerInertiaFactor_LowBurden{ 1.1f, 0.0f, 2.0f };
+		Parameter<float> fStaggerInertiaFactor_HighBurden{ 0.4f, 0.0f, 1.0f };
 		Parameter<float> fStaggerInertiaFactorCurve_k{ 0.50f, 0.0f, 1.0f };
 		Parameter<float> fStaggerMagnitudeMin{ 0.0f, 0.0f, 5.0f };
 		Parameter<float> fStaggerMagnitudeMax{ 2.0f, 0.0f, 10.0f };

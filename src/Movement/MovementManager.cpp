@@ -28,10 +28,10 @@ namespace Movement
 		if (burdenSpeedEnabled) {
 			auto& data = Burden::Tracker::GetOrComputeBurden(a_actor);
 			burdenMult = Math::Interpolate(
-				params->speedMultLowBurden.Get(),
-				params->speedMultHighBurden.Get(),
+				params->SpeedMultLowBurden.Get(),
+				params->SpeedMultHighBurden.Get(),
 				data.burdenBlend,
-				params->burdenSpeedCurve_k.Get());
+				params->BurdenSpeedCurve_k.Get());
 		}
 
 		// Swim speed scaling
@@ -39,15 +39,15 @@ namespace Movement
 		if (swimSpeedEnabled) {
 			float submerged = GetSubmergedLevel(a_actor);
 			swimMult = Math::Interpolate(
-				params->speedMultAboveWater.Get(),
-				params->speedMultSubmerged.Get(),
+				params->SpeedMultNotSubmerged.Get(),
+				params->SpeedMultSubmerged.Get(),
 				submerged,
-				params->submergedCurve_k.Get());
+				params->SpeedSubmergedCurve_k.Get());
 		}
 
 		// Exhaustion speed penalty
 		if (Exhaustion::ExhaustionManager::GetSingleton()->IsExhausted(a_actor)) {
-			exhaustMult = params->exhaustionSpeedMult.Get();
+			exhaustMult = params->ExhaustionSpeedMult.Get();
 		}
 
 		float result = burdenMult * swimMult * exhaustMult;

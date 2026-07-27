@@ -12,9 +12,9 @@ struct ExhaustionParams : REX::Singleton<ExhaustionParams>
 	Parameter<bool> bExhaustionNPC{ false, false, true };
 
 	// ===== Recovery =====
-	Parameter<float> fExhaustionDuration{ 8.0f, 1.0f, 30.0f };
+	Parameter<float> fExhaustionDuration{ 5.0f, 0.1f, 30.0f };
 	Parameter<float> fExhaustionBurstStamina{ 0.25f, 0.0f, 1.0f };
-	Parameter<float> fExhaustionThresholdStamina{ 0.30f, 0.0f, 1.0f };
+	Parameter<float> fExhaustionThresholdStamina{ 0.25f, 0.0f, 1.0f };
 
 	// ===== Penalties =====
 	Parameter<float> fExhaustionPenaltyDamageMult{ 0.50f, 0.0f, 1.0f };

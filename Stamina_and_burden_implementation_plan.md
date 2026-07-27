@@ -263,13 +263,13 @@ cost                = StaffFireBurdenFlat + StaffFireCarryPct × Stamina_1pctMax
 
 **`Movement::ComputeSpeedMultiplier(actor)`** — composite multiplier:
 ```
-burdenMult  = Interpolate(speedMultLowBurden, speedMultHighBurden, burdenBlend, burdenSpeedCurve_k)
+burdenMult  = Interpolate(SpeedMultLowBurden, SpeedMultHighBurden, burdenBlend, BurdenSpeedCurve_k)
               (only if per-actor toggle allows: bBurdenSpeedPlayer/NPC)
 
-swimMult    = Interpolate(speedMultAboveWater, speedMultSubmerged, submergedLevel, submergedCurve_k)
+swimMult    = Interpolate(SpeedMultNotSubmerged, SpeedMultSubmerged, submergedLevel, SpeedSubmergedCurve_k)
               (only if per-actor toggle allows: bSwimSpeedPlayer/NPC; submergedLevel via REL::ID(37448))
 
-exhaustMult = exhaustionSpeedMult
+exhaustMult = ExhaustionSpeedMult
               (only if actor is exhausted; exhaustion speed gated by bExhaustionPlayer/NPC in ExhaustionParams)
 
 result      = burdenMult × swimMult × exhaustMult
@@ -285,9 +285,9 @@ result      = burdenMult × swimMult × exhaustMult
 | `fBurdenSpeedCurve_k` | float | 0.50 | 0.0–1.0 | Burden speed curve shape |
 | `bSwimSpeedPlayer` | bool | true | — | Per-actor toggle: swim speed scaling for player |
 | `bSwimSpeedNPC` | bool | true | — | Per-actor toggle: swim speed scaling for NPCs |
-| `fSpeedMultAboveWater` | float | 1.00 | 0.1–1.5 | Speed mult when not submerged |
+| `fSpeedMultNotSubmerged` | float | 1.00 | 0.1–1.5 | Speed mult when not submerged |
 | `fSpeedMultSubmerged` | float | 0.60 | 0.1–1.0 | Speed mult when fully submerged |
-| `fSubmergedCurve_k` | float | 0.20 | 0.0–1.0 | Swim speed curve shape |
+| `fSpeedSubmergedCurve_k` | float | 0.20 | 0.0–1.0 | Speed depth curve shape |
 | `fExhaustionSpeedMult` | float | 0.70 | 0.1–1.0 | Speed mult while exhausted (gated by `bExhaustionPlayer`/`bExhaustionNPC`) |
 | `bEnableDebugMovementLogging` | bool | true | — | Debug toggle |
 
@@ -848,11 +848,12 @@ All settings are `Parameter<T>` structs in `src/Settings/Params/`. No shipped IN
 - `fmaxEquippedWeightRatio` — ratio of carry weight used for max equipped weight
 - `fSlotBurdenMult_def/body/feet/head/hand` — slot multipliers for equipped burden
 - `iPlayerMaxSkill` — skill cap (default 100)
-- `fSkillInterpolate` — curve shape for armor skill weighting
-- `fSkillBurdenMult_minHeavy/maxHeavy/minLight/maxLight` — armor type skill multipliers
+- `fArmorWeightMultCurve_k` — curve shape for armor skill weighting
+- `fHeavyArmorWeightMult_LowSkill/HighSkill` — heavy armor skill multiplier
+- `fLightArmorWeightMult_LowSkill/HighSkill` — light armor skill multiplier
 - `fSteedStoneBurdenMult` — Steed Stone factor (default 0.30)
 - `fWeaponWeightMult_LowSkill/HighSkill/Curve_k` — weapon weight scaling by skill
-- `fConjuredWeightMin/Max/Curve_k` — conjured weapon weight by conjuration skill
+- `fConjuredWeightLowSkill/HighSkill/Curve_k` — conjured weapon weight by conjuration skill
 - `fBlockSkillBlendFactor` — weapon/block skill blend for block burden
 - `fBlockWeightMult_LowSkill/HighSkill/Curve_k` — block weight scaling
 - `fDualWieldBlockPenalty` — extra penalty for blocking while dual-wielding
@@ -981,9 +982,9 @@ Note: Burden and swim speed use per-actor toggles (`bBurdenSpeedPlayer/NPC`, `bS
 | `fBurdenSpeedCurve_k` | float | 0.50 | 0.0–1.0 | Burden speed curve shape |
 | `bSwimSpeedPlayer` | bool | true | — | Per-actor toggle: swim speed scaling for player |
 | `bSwimSpeedNPC` | bool | true | — | Per-actor toggle: swim speed scaling for NPCs |
-| `fSpeedMultAboveWater` | float | 1.00 | 0.1–1.5 | Speed mult when not submerged |
+| `fSpeedMultNotSubmerged` | float | 1.00 | 0.1–1.5 | Speed mult when not submerged |
 | `fSpeedMultSubmerged` | float | 0.60 | 0.1–1.0 | Speed mult when fully submerged |
-| `fSubmergedCurve_k` | float | 0.20 | 0.0–1.0 | Swim speed curve shape |
+| `fSpeedSubmergedCurve_k` | float | 0.20 | 0.0–1.0 | Speed depth curve shape |
 | `fExhaustionSpeedMult` | float | 0.70 | 0.1–1.0 | Speed mult while exhausted (gated by `bExhaustionPlayer`/`bExhaustionNPC`) |
 | `bEnableDebugMovementLogging` | bool | true | — | Debug toggle |
 
