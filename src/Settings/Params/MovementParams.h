@@ -10,7 +10,7 @@ struct MovementSpeedParams : REX::Singleton<MovementSpeedParams>
 	// ===== Burden Speed =====
 	Parameter<bool>  bBurdenSpeedPlayer{ true, false, true };
 	Parameter<bool>  bBurdenSpeedNPC{ true, false, true };
-	Parameter<float> SpeedMultLowBurden{ 1.1f, 0.1f, 2.0f };
+	Parameter<float> SpeedMultLowBurden{ 1.2f, 0.1f, 2.0f };
 	Parameter<float> SpeedMultHighBurden{ 0.7f, 0.1f, 1.0f };
 	Parameter<float> BurdenSpeedCurve_k{ 0.5f, 0.0f, 1.0f };
 
@@ -58,9 +58,9 @@ struct JumpParams : REX::Singleton<JumpParams>
 	Parameter<bool> EnableDebugJumpLogging{ true, false, true };
 
 	// ===== Height =====
-	Parameter<float> fJumpHeightLowBurden{ 1.0f, 0.1f, 2.0f };
-	Parameter<float> fJumpHeightHighBurden{ 0.5f, 0.1f, 1.0f };
-	Parameter<float> fJumpHeightCurve_k{ 0.5f, 0.0f, 1.0f };
+	Parameter<float> fJumpHeightLowBurden{ 1.2f, 0.1f, 2.0f };
+	Parameter<float> fJumpHeightHighBurden{ 0.6f, 0.1f, 1.0f };
+	Parameter<float> fJumpHeightCurve_k{ 0.7f, 0.0f, 1.0f };
 	Parameter<float> fJumpHeightExhaustionMult{ 0.70f, 0.1f, 1.0f };
 
 	template <typename F>

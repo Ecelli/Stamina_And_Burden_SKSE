@@ -14,7 +14,7 @@ namespace Damage
 		Parameter<bool> bDamageScalingNPC{ true, false, true };
 
 		// ===== Scaling =====
-		Parameter<float> fDamageScaleLow{ 0.50f, 0.0f, 1.0f };
+		Parameter<float> fDamageScaleLow{ 0.80f, 0.0f, 1.0f };
 		Parameter<float> fDamageScaleHigh{ 1.20f, 0.8f, 3.0f };
 		Parameter<float> fDamageScaleCurve_k{ 0.80f, 0.0f, 1.0f };
 

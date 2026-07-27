@@ -23,12 +23,12 @@ namespace Regen
 		Parameter<float> StaminaRegenMult_HighStamina{ 1.5f, 0.0f, 10.0f };
 		Parameter<float> StaminaRegenMult_LowMagicka{ 0.8f, 0.0f, 10.0f };
 		Parameter<float> StaminaRegenMult_HighMagicka{ 1.2f, 0.0f, 10.0f };
-		Parameter<float> StaminaRegenCurve_kStamina{ 0.8f, 0.0f, 1.0f };
+		Parameter<float> StaminaRegenCurve_kStamina{ 0.7f, 0.0f, 1.0f };
 		Parameter<float> StaminaRegenCurve_kMagicka{ 0.2f, 0.0f, 1.0f };
 		Parameter<float> StaminaRegenCurve_kHealth{ 0.6f, 0.0f, 1.0f };
 
 		// ===== Health Regen =====
-		Parameter<float> HealthRegenMult_LowStamina{ 0.3f, 0.0f, 10.0f };
+		Parameter<float> HealthRegenMult_LowStamina{ 0.5f, 0.0f, 10.0f };
 		Parameter<float> HealthRegenMult_HighStamina{ 1.3f, 0.0f, 10.0f };
 		Parameter<float> HealthRegenCurve_k{ 0.8f, 0.0f, 1.0f };
 
@@ -77,7 +77,7 @@ namespace Regen
 		Parameter<float> RegenStatic_min{ 0.0f, -5.0f, 5.0f };
 		Parameter<float> RegenWalking_max{ 1.2f, 0.0f, 5.0f };
 		Parameter<float> RegenWalking_min{ -0.4f, -2.0f, 5.0f };
-		Parameter<float> RegenSneaking_max{ 0.9f, 0.0f, 5.0f };
+		Parameter<float> RegenSneaking_max{ 0.8f, 0.0f, 5.0f };
 		Parameter<float> RegenSneaking_min{ -0.6f, -2.0f, 5.0f };
 		Parameter<float> RegenRunning_max{ 0.4f, 0.0f, 5.0f };
 		Parameter<float> RegenRunning_min{ -1.1f, -2.0f, 5.0f };
@@ -139,6 +139,12 @@ namespace Regen
 	// =========================================================================
 	struct NegativeRegen : REX::Singleton<NegativeRegen>
 	{
+        // When stamina regen rate is <0, we have to scale according to in-game bonus
+        // when the actor has low regeneration rate bonus(negative) the drain rate is larger
+        // (burnrate_lowbonus).
+        // when the actor has high regeneration rate bonus the drain rate is lower
+        // High/low bound are the limits we consider, so regen <low bound does
+        // not furtherscales, and similar for high regen rate
 		Parameter<float> BurnRate_LowBonus{ 2.0f, 0.0f, 10.0f };
 		Parameter<float> BurnRate_HighBonus{ 0.2f, 0.0f, 10.0f };
 		Parameter<float> BurnRate_Curve_k{ 0.5f, 0.0f, 1.0f };

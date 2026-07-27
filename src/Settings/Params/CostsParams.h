@@ -15,19 +15,19 @@ namespace Costs
 		Parameter<float> SprintDrainLowBurden{ 3.0f, 0.0f, 200.0f };
 		Parameter<float> SprintDrainHighBurden{ 15.0f, 0.0f, 200.0f };
 		Parameter<float> SprintDrainLowCarryBurdenPct{ 0.5f, 0.0f, 60.0f };
-		Parameter<float> SprintDrainHighCarryBurdenPct{ 10.0f, 0.0f, 60.0f };
-		Parameter<float> SprintDrainBurdenCurve_k{ 0.8f, 0.0f, 1.0f };
-		Parameter<float> SprintDrainCarryBurdenCurve_k{ 0.9f, 0.0f, 1.0f };
+		Parameter<float> SprintDrainHighCarryBurdenPct{ 11.0f, 0.0f, 60.0f };
+		Parameter<float> SprintDrainBurdenCurve_k{ 0.7f, 0.0f, 1.0f };
+		Parameter<float> SprintDrainCarryBurdenCurve_k{ 0.6f, 0.0f, 1.0f };
 
 		// ===== Jump =====
 		Parameter<bool>  bJumpCostPlayer{ true, false, true };
 		Parameter<bool>  bJumpCostNPC{ true, false, true };
 		Parameter<float> JumpCostLowBurden{ 5.0f, 0.0f, 200.0f };
-		Parameter<float> JumpCostHighBurden{ 20.0f, 0.0f, 200.0f };
+		Parameter<float> JumpCostHighBurden{ 25.0f, 0.0f, 200.0f };
 		Parameter<float> JumpCostLowCarryPct{ 0.5f, 0.0f, 60.0f };
-		Parameter<float> JumpCostHighCarryPct{ 10.0f, 0.0f, 60.0f };
+		Parameter<float> JumpCostHighCarryPct{ 12.0f, 0.0f, 60.0f };
 		Parameter<float> JumpCostBurdenCurve_k{ 0.8f, 0.0f, 1.0f };
-		Parameter<float> JumpCostCarryCurve_k{ 0.9f, 0.0f, 1.0f };
+		Parameter<float> JumpCostCarryCurve_k{ 0.8f, 0.0f, 1.0f };
 
 		template <typename F>
 		static void ForEach(F&& a_fn)
@@ -67,39 +67,39 @@ namespace Costs
 		// ===== Burden =====
 		Parameter<float> AttackLowCarryPct{ 1.0f, 0.0f, 60.0f };
 		Parameter<float> AttackHighCarryPct{ 10.0f, 0.0f, 60.0f };
-		Parameter<float> AttackCarryCurve_k{ 0.9f, 0.0f, 1.0f };
+		Parameter<float> AttackCarryCurve_k{ 0.8f, 0.0f, 1.0f };
 
 		// ===== 1H Attack =====
-		Parameter<float> Attack1hLowBurden{ 6.0f, 0.0f, 200.0f };
-		Parameter<float> Attack1hHighBurden{ 50.0f, 0.0f, 200.0f };
+		Parameter<float> Attack1hLowBurden{ 10.0f, 0.0f, 200.0f };
+		Parameter<float> Attack1hHighBurden{ 40.0f, 0.0f, 200.0f };
 		Parameter<float> Attack1hBurdenCurve_k{ 0.8f, 0.0f, 1.0f };
 		Parameter<float> Attack1hPowerMult{ 2.5f, 1.0f, 10.0f };
 
 		// ===== 2H Attack =====
-		Parameter<float> Attack2hLowBurden{ 10.0f, 0.0f, 200.0f };
-		Parameter<float> Attack2hHighBurden{ 90.0f, 0.0f, 200.0f };
+		Parameter<float> Attack2hLowBurden{ 20.0f, 0.0f, 200.0f };
+		Parameter<float> Attack2hHighBurden{ 80.0f, 0.0f, 200.0f };
 		Parameter<float> Attack2hBurdenCurve_k{ 0.8f, 0.0f, 1.0f };
-		Parameter<float> Attack2hPowerMult{ 3.5f, 1.0f, 10.0f };
+		Parameter<float> Attack2hPowerMult{ 3.0f, 1.0f, 10.0f };
 
 		// ===== Unarmed =====
 		Parameter<float> UnarmedBaseFlat{ 3.0f, 0.0f, 50.0f };
-		Parameter<float> UnarmedPowerMult{ 2.0f, 1.0f, 5.0f };
+		Parameter<float> UnarmedPowerMult{ 2.5f, 1.0f, 5.0f };
 
 		// ===== Shield Bash =====
-		Parameter<float> BashShieldLowBurden{ 5.0f, 0.0f, 200.0f };
-		Parameter<float> BashShieldHighBurden{ 30.0f, 0.0f, 200.0f };
+		Parameter<float> BashShieldLowBurden{ 10.0f, 0.0f, 200.0f };
+		Parameter<float> BashShieldHighBurden{ 35.0f, 0.0f, 200.0f };
 		Parameter<float> BashShieldBurdenCurve_k{ 0.8f, 0.0f, 1.0f };
-		Parameter<float> BashShieldPowerMult{ 2.0f, 1.0f, 10.0f };
+		Parameter<float> BashShieldPowerMult{ 3.5f, 1.0f, 10.0f };
 
 		// ===== Bow Bash =====
-		Parameter<float> BashBowLowBurden{ 3.0f, 0.0f, 200.0f };
-		Parameter<float> BashBowHighBurden{ 20.0f, 0.0f, 200.0f };
+		Parameter<float> BashBowLowBurden{ 10.0f, 0.0f, 200.0f };
+		Parameter<float> BashBowHighBurden{ 25.0f, 0.0f, 200.0f };
 		Parameter<float> BashBowBurdenCurve_k{ 0.8f, 0.0f, 1.0f };
 		Parameter<float> BashBowPowerMult{ 2.0f, 1.0f, 10.0f };
 
 		// ===== Weapon Bash =====
-		Parameter<float> BashWeaponLowBurden{ 5.0f, 0.0f, 200.0f };
-		Parameter<float> BashWeaponHighBurden{ 40.0f, 0.0f, 200.0f };
+		Parameter<float> BashWeaponLowBurden{ 15.0f, 0.0f, 200.0f };
+		Parameter<float> BashWeaponHighBurden{ 45.0f, 0.0f, 200.0f };
 		Parameter<float> BashWeaponBurdenCurve_k{ 0.8f, 0.0f, 1.0f };
 		Parameter<float> BashWeaponPowerMult{ 2.0f, 1.0f, 10.0f };
 
@@ -108,8 +108,8 @@ namespace Costs
 		Parameter<bool>  bBowCostNPC{ true, false, true };
 		Parameter<bool>  bBowDenyPlayer{ true, false, true };
 		Parameter<bool>  bBowDenyNPC{ true, false, true };
-		Parameter<float> BowFireLowBurden{ 10.0f, 0.0f, 200.0f };
-		Parameter<float> BowFireHighBurden{ 30.0f, 0.0f, 200.0f };
+		Parameter<float> BowFireLowBurden{ 5.0f, 0.0f, 200.0f };
+		Parameter<float> BowFireHighBurden{ 20.0f, 0.0f, 200.0f };
 		Parameter<float> BowFireBurdenCurve_k{ 0.7f, 0.0f, 1.0f };
 		Parameter<float> BowFireLowCarryPct{ 1.0f, 0.0f, 60.0f };
 		Parameter<float> BowFireHighCarryPct{ 12.0f, 0.0f, 60.0f };
@@ -120,11 +120,11 @@ namespace Costs
 		Parameter<bool>  bStaffCostNPC{ true, false, true };
 		Parameter<bool>  bStaffDenyPlayer{ true, false, true };
 		Parameter<bool>  bStaffDenyNPC{ true, false, true };
-		Parameter<float> StaffFireLowBurden{ 5.0f, 0.0f, 200.0f };
-		Parameter<float> StaffFireHighBurden{ 20.0f, 0.0f, 200.0f };
+		Parameter<float> StaffFireLowBurden{ 10.0f, 0.0f, 200.0f };
+		Parameter<float> StaffFireHighBurden{ 25.0f, 0.0f, 200.0f };
 		Parameter<float> StaffFireBurdenCurve_k{ 0.6f, 0.0f, 1.0f };
 		Parameter<float> StaffFireLowCarryPct{ 1.0f, 0.0f, 60.0f };
-		Parameter<float> StaffFireHighCarryPct{ 8.0f, 0.0f, 60.0f };
+		Parameter<float> StaffFireHighCarryPct{ 10.0f, 0.0f, 60.0f };
 		Parameter<float> StaffFireCarryCurve_k{ 0.7f, 0.0f, 1.0f };
  
 		template <typename F>
