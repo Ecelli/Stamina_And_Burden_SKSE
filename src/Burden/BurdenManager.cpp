@@ -86,7 +86,6 @@ namespace
 		}
 
 		float skillValue = a_actor->GetActorValue(skill);
-		// Invert: at 0 skill → maxMult (most burden), at 100 skill → minMult (least burden)
 		float skillRatio = Math::Clamp01(skillValue / params->PlayerMaxSkill.Get());
 		float skillMultiplier = Math::Interpolate(lowSkillMult, highSkillMult, skillRatio, params->ArmorWeightMultCurve_k.Get());
 		return skillMultiplier;
