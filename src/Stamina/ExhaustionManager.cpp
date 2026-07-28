@@ -22,12 +22,9 @@ namespace
 
 		DispatchExhaustionEvent(a_actor, a_exhausted);
 
-		const SKSE::ModCallbackEvent event{
-			.eventName = RE::BSFixedString("StaminaAndBurden_OnExhaustionChanged"),
-			.numArg = a_exhausted ? 1.0f : 0.0f,
-			.sender = a_actor
-		};
-		SKSE::GetModCallbackEventSource()->SendEvent(&event);
+		auto* mgr = Exhaustion::ExhaustionManager::GetSingleton();
+		mgr->exhaustionChanged.QueueEvent(a_actor, a_exhausted);
+		mgr->actorExhaustionChanged.QueueEvent(a_actor->GetFormID(), a_exhausted);
 	}
 }
 

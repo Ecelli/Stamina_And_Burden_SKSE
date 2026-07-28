@@ -67,28 +67,27 @@ namespace
 	{
 		auto armorType = a_armor->GetArmorType();
 		auto params = BurdenParams::GetSingleton();
-		float minMult, maxMult;
+		float lowSkillMult, highSkillMult;
 		RE::ActorValue skill;
 
 		switch (armorType) {
 		case RE::BGSBipedObjectForm::ArmorType::kLightArmor:
-			minMult = params->SkillBurdenMult_minLight.Get();
-			maxMult = params->SkillBurdenMult_maxLight.Get();
+			lowSkillMult  = params->LightArmorWeightMult_LowSkill.Get();
+			highSkillMult = params->LightArmorWeightMult_HighSkill.Get();
 			skill = RE::ActorValue::kLightArmor;
 			break;
 		case RE::BGSBipedObjectForm::ArmorType::kHeavyArmor:
-			minMult = params->SkillBurdenMult_minHeavy.Get();
-			maxMult = params->SkillBurdenMult_maxHeavy.Get();
+			lowSkillMult  = params->HeavyArmorWeightMult_LowSkill.Get();
+			highSkillMult = params->HeavyArmorWeightMult_HighSkill.Get();
 			skill = RE::ActorValue::kHeavyArmor;
 			break;
 		default:
-			return 1.0f;
+			return 1.0f; // Clothes
 		}
 
 		float skillValue = a_actor->GetActorValue(skill);
-		// Invert: at 0 skill → maxMult (most burden), at 100 skill → minMult (least burden)
-		float skillRatio = 1.0f - Math::Clamp01(skillValue / params->PlayerMaxSkill.Get());
-		float skillMultiplier = Math::Interpolate(minMult, maxMult, skillRatio, params->SkillInterpolate.Get());
+		float skillRatio = Math::Clamp01(skillValue / params->PlayerMaxSkill.Get());
+		float skillMultiplier = Math::Interpolate(lowSkillMult, highSkillMult, skillRatio, params->ArmorWeightMultCurve_k.Get());
 		return skillMultiplier;
 	}
 
@@ -303,8 +302,8 @@ namespace Burden
 		auto* params = BurdenParams::GetSingleton();
 		float ratio = Math::Clamp01(static_cast<float>(conjurationSkill) / params->PlayerMaxSkill.Get());
 		float weight = Math::Interpolate(
-			params->ConjuredWeightMin.Get(),
-			params->ConjuredWeightMax.Get(),
+			params->ConjuredWeightLowSkill.Get(),
+			params->ConjuredWeightHighSkill.Get(),
 			ratio,
 			params->ConjuredWeightCurve_k.Get());
 		return isTwoHanded ? weight * 2.0f : weight;

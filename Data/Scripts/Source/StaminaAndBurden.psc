@@ -42,31 +42,43 @@ Base and percent curves are interpolated separately:
 /;
 Float Function ComputeActionCost(Actor a_actor, Int a_baseComponent, Float a_baseMin, Float a_baseMax, Float a_baseK, Int a_pctComponent, Float a_pctMin, Float a_pctMax, Float a_pctK) Global Native
 
+Bool Function IsExhausted(Actor a_actor) Global Native
+
 ;/
-Exhaustion
+Exhaustion events — register to receive notifications when an actor becomes exhausted or recovers.
 
-Papyrus scripts can react to exhaustion state changes via ModCallbackEvent.
-Event name: "StaminaAndBurden_OnExhaustionChanged"
-
-  numArg 1.0  — actor became exhausted
-  numArg 0.0  — actor recovered
-  sender       — the actor (Form)
+Two registration modes:
+  RegisterForExhaustionChanged(Form)         — fires for ANY actor
+  RegisterForActorExhaustionChanged(Form, Actor) — fires only for the specified actor
 
 Usage:
   Event OnInit()
-      RegisterForModEvent("StaminaAndBurden_OnExhaustionChanged", "OnExhaustionChanged")
+      RegisterForExhaustionChanged(Self)
+      ; or: RegisterForActorExhaustionChanged(Self, Game.GetPlayer())
   EndEvent
 
-  Event OnExhaustionChanged(string eventName, string strArg, float numArg, Form sender)
-      Actor actor = sender as Actor
-      if numArg == 1.0
-          ; exhausted
+  Event OnActorExhaustionChanged(Actor akActor, bool abExhausted)
+      if abExhausted
+          ; actor became exhausted
       else
-          ; recovered
+          ; actor recovered
+      endIf
+  EndEvent
+
+  Event OnExhaustionChanged(Actor akActor, bool abExhausted)
+      if abExhausted
+          ; actor became exhausted
+      else
+          ; actor recovered
       endIf
   EndEvent
 /;
-Bool Function IsExhausted(Actor a_actor) Global Native
+;; Register for exhaustion events for all actors
+Function RegisterForExhaustionChanged(Form akForm) global native
+Function UnregisterForExhaustionChanged(Form akForm) global native
+;; Register for exhaustion events for Specific actors (for example player and followers)
+Function RegisterForActorExhaustionChanged(Form akForm, Actor akActor) global native
+Function UnregisterForActorExhaustionChanged(Form akForm, Actor akActor) global native
 
 ; Console debug — returns formatted burden data for console display
 String Function GetBurdenDebug(Actor a_actor) Global Native

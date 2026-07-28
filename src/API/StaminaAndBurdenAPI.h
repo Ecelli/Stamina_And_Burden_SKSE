@@ -87,7 +87,6 @@ namespace StaminaAndBurdenAPI
 		// Exhaustion listener:
 		// Exhaustion is a temporary state, it does not live through saves.
 		// This listener gives the actor that changed state and the new state
-		// You could also register for the mod event using "StaminaAndBurden_OnExhaustionChanged"
 		using ExhaustionListener = void(*)(RE::Actor* actor, bool exhausted);
 		virtual void RegisterExhaustionListener(ExhaustionListener listener) = 0;
 	};

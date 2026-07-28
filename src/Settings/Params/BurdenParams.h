@@ -7,18 +7,18 @@ struct BurdenParams : REX::Singleton<BurdenParams>
 	// ===== Equipment =====
 	Parameter<float> maxEquippedWeightRatio{ 0.4f, 0.0f, 1.0f };
 	Parameter<float> SlotBurdenMult_def{ 1.0f, 0.2f, 10.0f };
-	Parameter<float> SlotBurdenMult_body{ 0.7f, 0.2f, 10.0f };
+	Parameter<float> SlotBurdenMult_body{ 0.9f, 0.2f, 10.0f };
 	Parameter<float> SlotBurdenMult_feet{ 1.5f, 0.2f, 10.0f };
 	Parameter<float> SlotBurdenMult_head{ 1.2f, 0.2f, 10.0f };
-	Parameter<float> SlotBurdenMult_hand{ 0.8f, 0.2f, 10.0f };
+	Parameter<float> SlotBurdenMult_hand{ 0.9f, 0.2f, 10.0f };
 
 	// ===== Skill =====
 	Parameter<int>   PlayerMaxSkill{ 100, 10, 999 };
-	Parameter<float> SkillInterpolate{ 0.0f, 0.0f, 1.0f };
-	Parameter<float> SkillBurdenMult_minHeavy{ 0.5f, 0.2f, 10.0f };
-	Parameter<float> SkillBurdenMult_maxHeavy{ 2.5f, 0.2f, 10.0f };
-	Parameter<float> SkillBurdenMult_minLight{ 0.6f, 0.2f, 10.0f };
-	Parameter<float> SkillBurdenMult_maxLight{ 2.0f, 0.2f, 10.0f };
+	Parameter<float> HeavyArmorWeightMult_LowSkill{ 0.8f, 0.2f, 10.0f };
+	Parameter<float> HeavyArmorWeightMult_HighSkill{ 2.5f, 0.2f, 10.0f };
+	Parameter<float> LightArmorWeightMult_LowSkill{ 0.7f, 0.2f, 10.0f };
+	Parameter<float> LightArmorWeightMult_HighSkill{ 2.0f, 0.2f, 10.0f };
+	Parameter<float> ArmorWeightMultCurve_k{ 0.4f, 0.0f, 1.0f };
 
 	// ===== Weapon =====
 	Parameter<float> WeaponWeightMult_LowSkill{ 3.0f, 0.1f, 10.0f };
@@ -26,8 +26,8 @@ struct BurdenParams : REX::Singleton<BurdenParams>
 	Parameter<float> WeaponWeightMult_Curve_k{ 0.5f, 0.0f, 1.0f };
 
 	// ===== Conjured =====
-	Parameter<float> ConjuredWeightMin{ 2.0f, 0.0f, 50.0f };
-	Parameter<float> ConjuredWeightMax{ 30.0f, 0.0f, 50.0f };
+	Parameter<float> ConjuredWeightLowSkill{ 30.0f, 0.0f, 50.0f };
+	Parameter<float> ConjuredWeightHighSkill{ 2.0f, 0.0f, 50.0f };
 	Parameter<float> ConjuredWeightCurve_k{ 0.8f, 0.0f, 1.0f };
 
 	// ===== Block =====
@@ -54,18 +54,18 @@ struct BurdenParams : REX::Singleton<BurdenParams>
 		a_fn("fSlotBurdenMult_hand"sv, s->SlotBurdenMult_hand);
 		a_fn("Skill Multipliers");
 		a_fn("iPlayerMaxSkill"sv, s->PlayerMaxSkill);
-		a_fn("fSkillInterpolate"sv, s->SkillInterpolate);
-		a_fn("fSkillBurdenMult_minHeavy"sv, s->SkillBurdenMult_minHeavy);
-		a_fn("fSkillBurdenMult_maxHeavy"sv, s->SkillBurdenMult_maxHeavy);
-		a_fn("fSkillBurdenMult_minLight"sv, s->SkillBurdenMult_minLight);
-		a_fn("fSkillBurdenMult_maxLight"sv, s->SkillBurdenMult_maxLight);
+		a_fn("fHeavyArmorWeightMult_LowSkill"sv,  s->HeavyArmorWeightMult_LowSkill);
+		a_fn("fHeavyArmorWeightMult_HighSkill"sv, s->HeavyArmorWeightMult_HighSkill);
+		a_fn("fLightArmorWeightMult_LowSkill"sv,  s->LightArmorWeightMult_LowSkill);
+		a_fn("fLightArmorWeightMult_HighSkill"sv, s->LightArmorWeightMult_HighSkill);
+		a_fn("fArmorWeightMultCurve_k"sv, s->ArmorWeightMultCurve_k);
 		a_fn("Weapon Burden");
-		a_fn("fWeaponWeightMult_LowSkill"sv, s->WeaponWeightMult_LowSkill);
+		a_fn("fWeaponWeightMult_LowSkill"sv,  s->WeaponWeightMult_LowSkill);
 		a_fn("fWeaponWeightMult_HighSkill"sv, s->WeaponWeightMult_HighSkill);
 		a_fn("fWeaponWeightMult_Curve_k"sv, s->WeaponWeightMult_Curve_k);
 		a_fn("Conjured Weapon Weight");
-		a_fn("fConjuredWeightMin"sv, s->ConjuredWeightMin);
-		a_fn("fConjuredWeightMax"sv, s->ConjuredWeightMax);
+		a_fn("fConjuredWeightLowSkill"sv,  s->ConjuredWeightLowSkill);
+		a_fn("fConjuredWeightHighSkill"sv, s->ConjuredWeightHighSkill);
 		a_fn("fConjuredWeightCurve_k"sv, s->ConjuredWeightCurve_k);
 		a_fn("Block Burden");
 		a_fn("fBlockSkillBlendFactor"sv, s->BlockSkillBlendFactor);

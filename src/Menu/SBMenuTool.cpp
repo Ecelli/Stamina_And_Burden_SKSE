@@ -1,5 +1,6 @@
 #include "SBMenuTool.h"
 
+#include "Burden/BurdenTracker.h"
 #include "Settings/Params/BurdenParams.h"
 #include "Settings/Params/CostsParams.h"
 #include "Settings/Params/DamageParams.h"
@@ -92,10 +93,33 @@ void SBMenuTool::Draw()
 	FUCK::SameLine(totalWidth - btnWidth);
 	if (FUCK::Button(overwriteLabel))
 		SBSettingsINI::SaveOverwrite();
+
+    // Next line
+	auto* player = RE::PlayerCharacter::GetSingleton();
+	logger::info("Pre player"sv);
+	if (player) {
+		const auto& data = Burden::Tracker::GetOrComputeBurden(player);
+		FUCK::Text("burden: %.1f/%.1f (%.3f)",
+			data.equippedWeight, data.maxEquippedWeight, data.burden);
+        logger::info("found player"sv);
+	}
+
 	FUCK::Separator();
 
 	if (!FUCK::BeginTabBar("Stamina and Burden Groups"))
 		return;
+
+	// ── Burden ──
+	if (FUCK::BeginTabItem("Burden")) {
+		DrawSectionHeader("BurdenParams", [](auto fn) { BurdenParams::ForEach(fn); });
+		DrawGroup([](auto fn) { BurdenParams::ForEach(fn); });
+
+		DrawSectionHeader("ExhaustionParams", [](auto fn) { ExhaustionParams::ForEach(fn); });
+		DrawGroup([](auto fn) { ExhaustionParams::ForEach(fn); });
+
+		FUCK::EndTabItem();
+	}
+
 
 	// ── Regen ──
 	if (FUCK::BeginTabItem("Regen")) {
@@ -110,6 +134,17 @@ void SBMenuTool::Draw()
 
 		DrawSectionHeader("WeatherParams", [](auto fn) { Regen::WeatherParams::ForEach(fn); });
 		DrawGroup([](auto fn) { Regen::WeatherParams::ForEach(fn); });
+
+		FUCK::EndTabItem();
+	}
+
+	// ── Movement ──
+	if (FUCK::BeginTabItem("Movement")) {
+		DrawSectionHeader("MovementSpeedParams", [](auto fn) { MovementSpeedParams::ForEach(fn); });
+		DrawGroup([](auto fn) { MovementSpeedParams::ForEach(fn); });
+
+		DrawSectionHeader("JumpParams", [](auto fn) { JumpParams::ForEach(fn); });
+		DrawGroup([](auto fn) { JumpParams::ForEach(fn); });
 
 		FUCK::EndTabItem();
 	}
@@ -135,28 +170,6 @@ void SBMenuTool::Draw()
 
 		DrawSectionHeader("DenyParams", [](auto fn) { Deny::DenyParams::ForEach(fn); });
 		DrawGroup([](auto fn) { Deny::DenyParams::ForEach(fn); });
-
-		FUCK::EndTabItem();
-	}
-
-	// ── Burden ──
-	if (FUCK::BeginTabItem("Burden")) {
-		DrawSectionHeader("BurdenParams", [](auto fn) { BurdenParams::ForEach(fn); });
-		DrawGroup([](auto fn) { BurdenParams::ForEach(fn); });
-
-		DrawSectionHeader("ExhaustionParams", [](auto fn) { ExhaustionParams::ForEach(fn); });
-		DrawGroup([](auto fn) { ExhaustionParams::ForEach(fn); });
-
-		FUCK::EndTabItem();
-	}
-
-	// ── Movement ──
-	if (FUCK::BeginTabItem("Movement")) {
-		DrawSectionHeader("MovementSpeedParams", [](auto fn) { MovementSpeedParams::ForEach(fn); });
-		DrawGroup([](auto fn) { MovementSpeedParams::ForEach(fn); });
-
-		DrawSectionHeader("JumpParams", [](auto fn) { JumpParams::ForEach(fn); });
-		DrawGroup([](auto fn) { JumpParams::ForEach(fn); });
 
 		FUCK::EndTabItem();
 	}
