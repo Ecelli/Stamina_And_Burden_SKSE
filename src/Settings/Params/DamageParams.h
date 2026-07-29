@@ -7,7 +7,7 @@ namespace Damage
 	struct DamageParams : REX::Singleton<DamageParams>
 	{
 		// ===== Debug =====
-		Parameter<bool> EnableDebugLogging{ true, false, true };
+		Parameter<bool> EnableDebugLogging{ false, false, true };
 
 		// ===== Toggles =====
 		Parameter<bool> bDamageScalingPlayer{ true, false, true };

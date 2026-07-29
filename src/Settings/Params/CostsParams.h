@@ -7,7 +7,7 @@ namespace Costs
 	struct CostsParams : REX::Singleton<CostsParams>
 	{
 		// ===== Debug =====
-		Parameter<bool> EnableDebugLogging{ true, false, true };
+		Parameter<bool> EnableDebugLogging{ false, false, true };
 
 		// ===== Sprint =====
 		Parameter<bool>  bSprintCostPlayer{ true, false, true };

@@ -5,7 +5,7 @@
 struct MovementSpeedParams : REX::Singleton<MovementSpeedParams>
 {
 	// ===== Debug =====
-	Parameter<bool> EnableDebugLogging{ true, false, true };
+	Parameter<bool> EnableDebugLogging{ false, false, true };
 
 	// ===== Burden Speed =====
 	Parameter<bool>  bBurdenSpeedPlayer{ true, false, true };

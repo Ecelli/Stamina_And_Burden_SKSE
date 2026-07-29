@@ -7,7 +7,7 @@ namespace Deny
 	struct DenyParams : REX::Singleton<DenyParams>
 	{
 		// ===== Debug =====
-		Parameter<bool> EnableDebugLogging{ true, false, true };
+		Parameter<bool> EnableDebugLogging{ false, false, true };
 
 		// ===== Threshold =====
 		Parameter<float> fMinStaminaCostMult{ 0.3f, 0.0f, 10.0f };

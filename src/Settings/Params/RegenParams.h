@@ -10,18 +10,18 @@ namespace Regen
 	struct RegenParams : REX::Singleton<RegenParams>
 	{
 		// ===== Debug =====
-		Parameter<bool> EnableDebugLogging{ true, false, true };
+		Parameter<bool> EnableDebugLogging{ false, false, true };
 
 		// ===== Toggles =====
 		Parameter<bool> bRegenPlayer{ true, false, true };
 		Parameter<bool> bRegenNPC{ true, false, true };
 
 		// ===== Stamina Regen =====
-		Parameter<float> StaminaRegenMult_LowHealth{ 0.8f, 0.0f, 10.0f };
-		Parameter<float> StaminaRegenMult_HighHealth{ 1.3f, 0.0f, 10.0f };
+		Parameter<float> StaminaRegenMult_LowHealth{ 0.7f, 0.0f, 10.0f };
+		Parameter<float> StaminaRegenMult_HighHealth{ 1.2f, 0.0f, 10.0f };
 		Parameter<float> StaminaRegenMult_LowStamina{ 0.6f, 0.0f, 10.0f };
-		Parameter<float> StaminaRegenMult_HighStamina{ 1.5f, 0.0f, 10.0f };
-		Parameter<float> StaminaRegenMult_LowMagicka{ 0.8f, 0.0f, 10.0f };
+		Parameter<float> StaminaRegenMult_HighStamina{ 1.3f, 0.0f, 10.0f };
+		Parameter<float> StaminaRegenMult_LowMagicka{ 0.7f, 0.0f, 10.0f };
 		Parameter<float> StaminaRegenMult_HighMagicka{ 1.2f, 0.0f, 10.0f };
 		Parameter<float> StaminaRegenCurve_kStamina{ 0.7f, 0.0f, 1.0f };
 		Parameter<float> StaminaRegenCurve_kMagicka{ 0.2f, 0.0f, 1.0f };
@@ -73,13 +73,13 @@ namespace Regen
 	struct RegenMovementParams : REX::Singleton<RegenMovementParams>
 	{
 		// ===== Movement Regeneration =====
-		Parameter<float> RegenStatic_max{ 2.0f, 0.0f, 5.0f };
+		Parameter<float> RegenStatic_max{ 1.5f, 0.0f, 5.0f };
 		Parameter<float> RegenStatic_min{ 0.0f, -5.0f, 5.0f };
-		Parameter<float> RegenWalking_max{ 1.2f, 0.0f, 5.0f };
+		Parameter<float> RegenWalking_max{ 1.0f, 0.0f, 5.0f };
 		Parameter<float> RegenWalking_min{ -0.4f, -2.0f, 5.0f };
 		Parameter<float> RegenSneaking_max{ 0.8f, 0.0f, 5.0f };
 		Parameter<float> RegenSneaking_min{ -0.6f, -2.0f, 5.0f };
-		Parameter<float> RegenRunning_max{ 0.4f, 0.0f, 5.0f };
+		Parameter<float> RegenRunning_max{ 0.3f, 0.0f, 5.0f };
 		Parameter<float> RegenRunning_min{ -1.1f, -2.0f, 5.0f };
 		Parameter<float> RegenSwimming_max{ 0.1f, 0.0f, 5.0f };
 		Parameter<float> RegenSwimming_min{ -1.5f, -2.0f, 5.0f };

@@ -7,7 +7,7 @@ namespace Blocking
 	struct BlockingParams : REX::Singleton<BlockingParams>
 	{
 		// ===== Debug =====
-		Parameter<bool> EnableDebugLogging{ true, false, true };
+		Parameter<bool> EnableDebugLogging{ false, false, true };
 
 		// ===== Block Cost =====
 		Parameter<bool>  bBlockCostPlayer{ true, false, true };

@@ -5,7 +5,7 @@
 struct ExhaustionParams : REX::Singleton<ExhaustionParams>
 {
 	// ===== Debug =====
-	Parameter<bool> bEnableDebugLogging{ true, false, true };
+	Parameter<bool> bEnableDebugLogging{ false, false, true };
 
 	// ===== Toggles =====
 	Parameter<bool> bExhaustionPlayer{ true, false, true };
