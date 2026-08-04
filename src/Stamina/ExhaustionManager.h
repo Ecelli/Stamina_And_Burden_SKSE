@@ -29,8 +29,10 @@ namespace Exhaustion
 		// Registration set/Map is a store <template> type for papyrus events
 		// When triggering an event the "string" is the event name "OnExhaustionChanged"
 		// register/unregister for event APIs add/remove consumers for the event
+		// NOTE: RegistrationMap<Filter, Args...> FormID is the Key, but is not part of the return value
+		//       Hence we need to return the actor
 		SKSE::RegistrationSet<const RE::Actor*, bool>  exhaustionChanged{ "OnExhaustionChanged"sv };
-		SKSE::RegistrationMap<RE::FormID, bool>         actorExhaustionChanged{ "OnActorExhaustionChanged"sv };
+		SKSE::RegistrationMap<RE::FormID, const RE::Actor*, bool>  actorExhaustionChanged{ "OnActorExhaustionChanged"sv };
 
 	private:
 		std::unordered_map<RE::FormID, ExhaustionState> states;
