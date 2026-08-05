@@ -11,6 +11,7 @@
 #include "Settings/Params/ExhaustionParams.h"
 #include "Settings/Params/MovementParams.h"
 #include "Settings/Params/DenyParams.h"
+#include "Settings/Params/BurdenParams.h"
 
 namespace Utils
 {
@@ -176,6 +177,17 @@ namespace Jump
 			logger::info(fmt::runtime(a_fmt), std::forward<Args>(a_args)...);
 		}
 	}
+}
+
+namespace Burden
+{
+    template <typename... Args>
+    void BurdenLog(std::string_view a_fmt, Args&&... a_args)
+    {
+        if (BurdenParams::GetSingleton()->EnableDebugLogging.Get()) {
+            logger::info(fmt::runtime(a_fmt), std::forward<Args>(a_args)...);
+        }
+    }
 }
 
 namespace Math
