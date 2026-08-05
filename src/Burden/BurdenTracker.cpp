@@ -47,7 +47,7 @@ namespace Burden::Tracker
 			return;
 		}
 
-		map.emplace(formId, UpdateBurdenLog(a_actor));
+		map.emplace(formId, UpdateBurden(a_actor));
 	}
 
 	void Unregister(RE::FormID a_formId)
@@ -74,7 +74,7 @@ namespace Burden::Tracker
 			auto& tracked = GetTrackedMap();
 			auto it = tracked.find(formId);
 			if (it != tracked.end()) {
-				it->second = UpdateBurdenLog(actor);
+				it->second = UpdateBurden(actor);
 				return;
 			}
 
@@ -82,7 +82,7 @@ namespace Burden::Tracker
 			auto& transient = GetTransientMap();
 			auto tIt = transient.find(formId);
 			if (tIt != transient.end()) {
-				tIt->second = UpdateBurdenLog(actor);
+				tIt->second = UpdateBurden(actor);
 			}
 		});
 	}

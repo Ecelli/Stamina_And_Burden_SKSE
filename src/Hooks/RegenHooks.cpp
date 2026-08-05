@@ -35,7 +35,7 @@
 
 namespace
 {
-	std::unordered_map<RE::Actor*, float> s_cachedDrainRate;
+	std::unordered_map<RE::FormID, float> s_cachedDrainRate;
 }
 
 namespace Hooks
@@ -74,12 +74,13 @@ namespace Hooks
 
 		// 3. If negative, cache for RegenDelayHook's bypass check
 		//    and return 0 (engine ignores negative rates at +0xE1).
+		//    Only stamina can ever be negative
 		if (rate < 0.0f) {
-			s_cachedDrainRate[a_actor] = rate;
+			s_cachedDrainRate[a_actor->GetFormID()] = rate;
 			rate = 0.0f;
 		}
 		else if (a_av == 26) {
-			s_cachedDrainRate.erase(a_actor);
+			s_cachedDrainRate.erase(a_actor->GetFormID());
 		}
 
 		// 4. Return the modified rate
@@ -106,10 +107,10 @@ namespace Hooks
 	bool RegenDelayHook::InterceptUpdateRegenDelay(
 		RE::Actor* a_actor, RE::ActorValue a_av, float a_passedTime)
 	{
-		if (a_av == RE::ActorValue::kStamina) {
+		if (a_actor && a_av == RE::ActorValue::kStamina) {
 			Exhaustion::CheckForAndTriggerExhaustion(a_actor, a_passedTime);
 
-			auto it = s_cachedDrainRate.find(a_actor);
+			auto it = s_cachedDrainRate.find(a_actor->GetFormID());
 			if (it != s_cachedDrainRate.end() && it->second < 0.0f) {
 				// Bypass the regen delay check — drain stamina
 				// directly and return false so the engine proceeds

@@ -24,7 +24,8 @@ namespace
 
 		auto* mgr = Exhaustion::ExhaustionManager::GetSingleton();
 		mgr->exhaustionChanged.QueueEvent(a_actor, a_exhausted);
-		mgr->actorExhaustionChanged.QueueEvent(a_actor->GetFormID(), a_exhausted);
+        // Note the form ID is table index, we need to return the actor for papyrus API
+		mgr->actorExhaustionChanged.QueueEvent(a_actor->GetFormID(), a_actor, a_exhausted);
 	}
 }
 
@@ -72,6 +73,8 @@ void Exhaustion::ExhaustionManager::UpdateExhaustion(RE::Actor* a_actor, float a
     }
 
 	if (a_actor->IsDead()) {
+		ExhaustionLog("UpdateExhaustion: {:x} | states.size={} erasing={} (dead)",
+		    a_actor->GetFormID(), states.size(), it != states.end() && it->second.isExhausted);
 		states.erase(it);
 		FireExhaustionEvent(a_actor, false);
         ResetStaminaBarColorIfPlayer(a_actor);
@@ -80,6 +83,8 @@ void Exhaustion::ExhaustionManager::UpdateExhaustion(RE::Actor* a_actor, float a
 
 	float maxStamina = a_actor->GetActorValueMax(RE::ActorValue::kStamina);
 	if (maxStamina <= 0.0f) {
+		ExhaustionLog("UpdateExhaustion: {:x} | states.size={} erasing={} (max<=0)",
+		    a_actor->GetFormID(), states.size(), it != states.end() && it->second.isExhausted);
 		states.erase(it);
 		FireExhaustionEvent(a_actor, false);
         ResetStaminaBarColorIfPlayer(a_actor);
@@ -96,6 +101,8 @@ void Exhaustion::ExhaustionManager::UpdateExhaustion(RE::Actor* a_actor, float a
 	float threshold = params->fExhaustionThresholdStamina.Get();
 
 	if (staminaPct >= threshold) {
+		ExhaustionLog("UpdateExhaustion: {:x} | states.size={} erasing={} (threshold)",
+		    a_actor->GetFormID(), states.size(), it != states.end() && it->second.isExhausted);
 		ExhaustionLog("ExhaustionManager: {:x} cleared (threshold {:.0f}% >= {:.0f}%)",
 			a_actor->GetFormID(), staminaPct * 100.0f, threshold * 100.0f);
 		states.erase(it);
