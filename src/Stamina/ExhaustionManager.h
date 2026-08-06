@@ -1,6 +1,6 @@
 #pragma once
 
-#include <unordered_map>
+#include "Common/LockedMap.h"
 #include <SKSE/RegistrationSet.h>
 #include "API/TrueHUDAPI.h"
 
@@ -35,7 +35,7 @@ namespace Exhaustion
 		SKSE::RegistrationMap<RE::FormID, const RE::Actor*, bool>  actorExhaustionChanged{ "OnActorExhaustionChanged"sv };
 
 	private:
-		std::unordered_map<RE::FormID, ExhaustionState> states;
+		LockedMap<RE::FormID, ExhaustionState> states;
 	};
 
 	void CheckForAndTriggerExhaustion(RE::Actor* a_actor, float a_deltaTime);

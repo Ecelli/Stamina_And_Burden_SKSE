@@ -44,6 +44,12 @@ public:
 		return true;
 	}
 
+	size_type size() const
+	{
+		std::shared_lock lock(m_mtx);
+		return m_map.size();
+	}
+
 private:
 	mutable std::shared_mutex m_mtx;
 	std::unordered_map<Key, Value, Hash> m_map;
