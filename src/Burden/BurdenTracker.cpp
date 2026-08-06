@@ -1,4 +1,5 @@
 #include "BurdenTracker.h"
+#include "Common/LockedMap.h"
 #include "Hooks/RegenHooks.h"
 #include "Stamina/ExhaustionManager.h"
 
@@ -24,7 +25,7 @@ namespace
 		return map;
 	}
 
-	using MaxEquipWeightOverrideMap = std::unordered_map<RE::FormID, float>;
+	using MaxEquipWeightOverrideMap = LockedMap<RE::FormID, float>;
 
 	MaxEquipWeightOverrideMap& GetMaxEquipWeightOverrideMap()
 	{
@@ -169,7 +170,7 @@ namespace Burden::Tracker
 		auto formId = a_actor->GetFormID();
 		if (formId == 0) return;
 		float clamped = std::max(a_value, 0.0f);
-		GetMaxEquipWeightOverrideMap()[formId] = clamped;
+		GetMaxEquipWeightOverrideMap().insert_or_assign(formId, clamped);
 		Update(a_actor);
 	}
 
@@ -178,7 +179,7 @@ namespace Burden::Tracker
 		if (!a_actor) return 0.0f;
 		auto formId = a_actor->GetFormID();
 		if (formId == 0) return 0.0f;
-		auto it = GetMaxEquipWeightOverrideMap().find(formId);
-		return (it != GetMaxEquipWeightOverrideMap().end()) ? it->second : 0.0f;
+		float value;
+		return GetMaxEquipWeightOverrideMap().get(formId, value) ? value : 0.0f;
 	}
 }
