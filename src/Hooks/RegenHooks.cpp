@@ -31,11 +31,11 @@
 #include "Stamina/ExhaustionManager.h"
 #include "Common/Utils.h"
 #include "Settings/Params/RegenParams.h"
-#include <unordered_map>
+#include "Common/LockedMap.h"
 
 namespace
 {
-	std::unordered_map<RE::FormID, float> s_cachedDrainRate;
+	LockedMap<RE::FormID, float> s_cachedDrainRate;
 }
 
 namespace Hooks
@@ -76,7 +76,7 @@ namespace Hooks
 		//    and return 0 (engine ignores negative rates at +0xE1).
 		//    Only stamina can ever be negative
 		if (rate < 0.0f) {
-			s_cachedDrainRate[a_actor->GetFormID()] = rate;
+			s_cachedDrainRate.insert_or_assign(a_actor->GetFormID(), rate);
 			rate = 0.0f;
 		}
 		else if (a_av == 26) {
@@ -110,12 +110,12 @@ namespace Hooks
 		if (a_actor && a_av == RE::ActorValue::kStamina) {
 			Exhaustion::CheckForAndTriggerExhaustion(a_actor, a_passedTime);
 
-			auto it = s_cachedDrainRate.find(a_actor->GetFormID());
-			if (it != s_cachedDrainRate.end() && it->second < 0.0f) {
+			float cachedDrainRate;
+			if (s_cachedDrainRate.get(a_actor->GetFormID(), cachedDrainRate) && cachedDrainRate < 0.0f) {
 				// Bypass the regen delay check — drain stamina
 				// directly and return false so the engine proceeds
 				// to +0x2B6 (rate recomputation and cache update).
-				float drain = -it->second * a_passedTime;
+				float drain = -cachedDrainRate * a_passedTime;
 				a_actor->DamageActorValue(a_av, drain);
 				return false;
 			}

@@ -97,7 +97,7 @@ void SBMenuTool::Draw()
     // Next line
 	auto* player = RE::PlayerCharacter::GetSingleton();
 	if (player) {
-		const auto& data = Burden::Tracker::GetOrComputeBurden(player);
+		const auto data = Burden::Tracker::GetOrComputeBurden(player);
 		FUCK::Text("burden: %.1f/%.1f (%.3f)",
 			data.equippedWeight, data.maxEquippedWeight, data.burden);
 	}

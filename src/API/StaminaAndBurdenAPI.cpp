@@ -62,7 +62,7 @@ namespace
 		float GetWeaponBurden(RE::Actor* a_actor, StaminaAndBurdenAPI::WeaponSlot a_slot) override
 		{
 			if (!a_actor) return 0.0f;
-			const auto& data = Burden::Tracker::GetOrComputeBurden(a_actor);
+			const auto data = Burden::Tracker::GetOrComputeBurden(a_actor);
 			switch (a_slot) {
 			case StaminaAndBurdenAPI::WeaponSlot::RightHand:  return data.weaponBurden_rh;
 			case StaminaAndBurdenAPI::WeaponSlot::LeftHand:   return data.weaponBurden_lh;
@@ -89,7 +89,7 @@ namespace
 		{
             if (!a_actor) return 0.0f;
             
-            auto& burden = Burden::Tracker::GetOrComputeBurden(a_actor);
+            const auto burden = Burden::Tracker::GetOrComputeBurden(a_actor);
             float Stamina1pct = 0.01f * static_cast<float>(a_actor->GetActorValueMax(RE::ActorValue::kStamina));
             
             float baseT = ResolveBurdenValue(burden, a_baseComponent);

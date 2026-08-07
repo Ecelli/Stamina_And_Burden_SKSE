@@ -108,7 +108,7 @@ namespace Costs
 		if (!actor)
 			return 0.0f;
 
-		auto& burden = Burden::Tracker::GetOrComputeBurden(actor);
+		const auto burden = Burden::Tracker::GetOrComputeBurden(actor);
 		auto handInfo = Utils::GetAttackHandInfo(actor, left, bash);
 		float baseCost = 0;
 
@@ -181,7 +181,7 @@ namespace Costs
 		if (!actor)
 			return 0.0f;
 
-		auto& burden = Burden::Tracker::GetOrComputeBurden(actor);
+		const auto burden = Burden::Tracker::GetOrComputeBurden(actor);
 		auto* params = AttackCostParams::GetSingleton();
 
 		float Stamina_1pctMax = 0.01f * actor->GetActorValueMax(RE::ActorValue::kStamina);
@@ -213,7 +213,7 @@ namespace Costs
 		if (!actor)
 			return 0.0f;
 
-		auto& burden = Burden::Tracker::GetOrComputeBurden(actor);
+		const auto burden = Burden::Tracker::GetOrComputeBurden(actor);
 		auto* params = AttackCostParams::GetSingleton();
 
 		float Stamina_1pctMax = 0.01f * actor->GetActorValueMax(RE::ActorValue::kStamina);

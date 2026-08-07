@@ -63,7 +63,7 @@ namespace Papyrus
 		if (!actor)
 			return "[S&B] No actor found";
 
-		const auto& data = Burden::Tracker::GetOrComputeBurden(actor);
+		const auto data = Burden::Tracker::GetOrComputeBurden(actor);
 
 		auto* base = actor->GetBaseObject();
 		auto name = base ? base->GetName() : "Unknown";

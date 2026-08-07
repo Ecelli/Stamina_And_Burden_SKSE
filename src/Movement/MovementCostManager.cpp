@@ -12,7 +12,7 @@ namespace Movement
 		if (!actor)
 			return 0.0f;
 
-		auto& burden = Burden::Tracker::GetOrComputeBurden(actor);
+		const auto burden = Burden::Tracker::GetOrComputeBurden(actor);
 		auto* params = Costs::CostsParams::GetSingleton();
 
 		float Stamina_1pctMax = 0.01f * actor->GetActorValueMax(RE::ActorValue::kStamina);
@@ -46,7 +46,7 @@ namespace Movement
 		if (!actor)
 			return 0.0f;
 
-		auto& burden = Burden::Tracker::GetOrComputeBurden(actor);
+		const auto burden = Burden::Tracker::GetOrComputeBurden(actor);
 		auto* params = Costs::CostsParams::GetSingleton();
 
 		float Stamina_1pctMax = 0.01f * actor->GetActorValueMax(RE::ActorValue::kStamina);

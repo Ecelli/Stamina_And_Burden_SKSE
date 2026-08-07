@@ -25,7 +25,7 @@ namespace Burden::Tracker
 	 *   Tier 2 — transient cache, computed once, and cleaned up periodically (worldspace).
 	 * Non-tracked actors are computed on-demand and cached in the transient tier.
 	 */
-	const Burden::ActorBurdenData& GetOrComputeBurden(RE::Actor* a_actor);
+	Burden::ActorBurdenData GetOrComputeBurden(RE::Actor* a_actor);
 
 	/**
 	 * Clears the transient NPC cache. Called on worldspace change 
