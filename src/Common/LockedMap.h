@@ -44,10 +44,25 @@ public:
 		return true;
 	}
 
+	bool contains(const Key& a_key) const
+	{
+		std::shared_lock lock(m_mtx);
+		return m_map.contains(a_key);
+	}
+
 	size_type size() const
 	{
 		std::shared_lock lock(m_mtx);
 		return m_map.size();
+	}
+
+	template <class Fn>
+	void for_each(Fn&& a_fn) const
+	{
+		std::shared_lock lock(m_mtx);
+		for (const auto& [key, value] : m_map) {
+			a_fn(key, value);
+		}
 	}
 
 private:
