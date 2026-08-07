@@ -26,7 +26,7 @@ namespace Movement
 		// Burden speed scaling
 		bool burdenSpeedEnabled = a_actor->IsPlayerRef() ? params->bBurdenSpeedPlayer.Get() : params->bBurdenSpeedNPC.Get();
 		if (burdenSpeedEnabled) {
-			auto& data = Burden::Tracker::GetOrComputeBurden(a_actor);
+			const auto data = Burden::Tracker::GetOrComputeBurden(a_actor);
 			burdenMult = Math::Interpolate(
 				params->SpeedMultLowBurden.Get(),
 				params->SpeedMultHighBurden.Get(),
@@ -71,7 +71,7 @@ namespace Movement
 		if (!enabled)
 			return 1.0f;
 
-		auto& data = Burden::Tracker::GetOrComputeBurden(a_actor);
+		const auto data = Burden::Tracker::GetOrComputeBurden(a_actor);
 
 		float burdenMult = Math::Interpolate(
 			params->fJumpHeightLowBurden.Get(),

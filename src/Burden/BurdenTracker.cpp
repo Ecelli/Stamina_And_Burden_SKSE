@@ -93,7 +93,7 @@ namespace Burden::Tracker
 		return GetTrackedMap().contains(a_formId);
 	}
 
-	const Burden::ActorBurdenData& GetOrComputeBurden(RE::Actor* a_actor)
+	Burden::ActorBurdenData GetOrComputeBurden(RE::Actor* a_actor)
 	{
 		auto formId = a_actor->GetFormID();
 
