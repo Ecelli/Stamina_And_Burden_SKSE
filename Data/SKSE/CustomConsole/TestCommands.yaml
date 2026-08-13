@@ -48,3 +48,23 @@ subs:
         type: float
         required: true
         help: New max equipped weight value (0 = clear override)
+  - name: speedmult
+    alias: sp
+    func: GetSBSpeedMultiplier
+    help: Show S&B speed multiplier for an actor
+    args:
+      - name: actor
+        type: Actor
+        selected: true
+        required: false
+        help: Target actor (defaults to player if nothing selected)
+  - name: totalspeed
+    alias: ts
+    func: GetSBTotalSpeed
+    help: Show total speed (engine speed x multiplier) for an actor
+    args:
+      - name: actor
+        type: Actor
+        selected: true
+        required: false
+        help: Target actor (defaults to player if nothing selected)
