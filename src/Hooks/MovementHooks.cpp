@@ -129,4 +129,11 @@ namespace Hooks::MovementHooks
 	void InstallSpeed()  { SpeedHook::Install(); }
 	void InstallSprint() { SprintHook::Install(); }
 	void InstallJump()   { JumpHook::Install(); }
+
+	float GetEngineSpeed(RE::Actor* a_actor)
+	{
+		if (!a_actor || SpeedHook::_func.address() == 0)
+			return 0.0f;
+		return SpeedHook::_func(a_actor);
+	}
 }
