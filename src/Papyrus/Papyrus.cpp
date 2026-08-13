@@ -2,6 +2,8 @@
 #include "Burden/BurdenTracker.h"
 #include "Stamina/ExhaustionManager.h"
 #include "API/StaminaAndBurdenAPI.h"
+#include "Movement/MovementManager.h"
+#include "Hooks/MovementHooks.h"
 
 namespace Papyrus
 {
@@ -110,6 +112,17 @@ namespace Papyrus
 		Exhaustion::ExhaustionManager::GetSingleton()->actorExhaustionChanged.Unregister(a_form, a_actor->GetFormID());
 	}
 
+	float GetSBSpeedMultiplier(STATIC_ARGS, RE::Actor* a_actor) {
+		if (!a_actor) return 1.0f;
+		return Movement::ComputeSpeedMultiplier(a_actor);
+	}
+
+	float GetSBTotalSpeed(STATIC_ARGS, RE::Actor* a_actor) {
+		if (!a_actor) return 0.0f;
+		float mult = Movement::ComputeSpeedMultiplier(a_actor);
+		return Hooks::MovementHooks::GetEngineSpeed(a_actor) * mult;
+	}
+
 	void Bind(VM& a_vm) {
 		logger::info("  >Binding GetVersion..."sv);
 		BIND(GetVersion);
@@ -127,6 +140,9 @@ namespace Papyrus
 		BIND(IsExhausted);
 		logger::info("  >Binding GetBurdenDebug..."sv);
 		BIND(GetBurdenDebug);
+		logger::info("  >Binding speed queries..."sv);
+		BIND(GetSBSpeedMultiplier);
+		BIND(GetSBTotalSpeed);
 		logger::info("  >Binding exhaustion events..."sv);
 		BIND_EVENT(RegisterForExhaustionChanged);
 		BIND_EVENT(UnregisterForExhaustionChanged);

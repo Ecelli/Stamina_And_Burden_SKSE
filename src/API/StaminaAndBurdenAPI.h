@@ -89,6 +89,10 @@ namespace StaminaAndBurdenAPI
 		// This listener gives the actor that changed state and the new state
 		using ExhaustionListener = void(*)(RE::Actor* actor, bool exhausted);
 		virtual void RegisterExhaustionListener(ExhaustionListener listener) = 0;
+
+		// Speed multiplier — the S&B factor (burden × swim × exhaustion) applied
+		// by the SpeedHook. Does not include the engine's own speedmult.
+		virtual float GetSBSpeedMultiplier(RE::Actor* actor) = 0;
 	};
 
 	using CurrentInterface = InterfaceVersion1;

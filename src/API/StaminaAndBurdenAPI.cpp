@@ -2,6 +2,7 @@
 #include "Burden/BurdenTracker.h"
 #include "Stamina/CostsManager.h"
 #include "Stamina/ExhaustionManager.h"
+#include "Movement/MovementManager.h"
 #include "Common/Utils.h"
 
 namespace
@@ -125,6 +126,12 @@ namespace
 		void RegisterExhaustionListener(ExhaustionListener a_listener) override
 		{
 			Exhaustion::ExhaustionManager::GetSingleton()->RegisterExhaustionListener(a_listener);
+		}
+
+		float GetSBSpeedMultiplier(RE::Actor* a_actor) override
+		{
+			if (!a_actor) return 1.0f;
+			return Movement::ComputeSpeedMultiplier(a_actor);
 		}
 	};
 
