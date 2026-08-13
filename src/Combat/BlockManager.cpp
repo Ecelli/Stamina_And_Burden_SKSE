@@ -26,7 +26,7 @@ namespace Blocking
 			(!isPlayer && !params->bBlockCostNPC.Get()))
 			return 0.0f;
 
-		auto& burden = Burden::Tracker::GetOrComputeBurden(actor);
+		const auto burden = Burden::Tracker::GetOrComputeBurden(actor);
 		float stamina1pct = 0.01f * actor->GetActorValueMax(RE::ActorValue::kStamina);
 
 		float flatCost = Math::Interpolate(
@@ -67,7 +67,7 @@ namespace Blocking
 			(!isPlayer && !params->bBlockRedirectNPC.Get()))
 			return 0.0f;
 
-		auto& burden = Burden::Tracker::GetOrComputeBurden(actor);
+		const auto burden = Burden::Tracker::GetOrComputeBurden(actor);
 		float stamina1pct = 0.01f * actor->GetActorValueMax(RE::ActorValue::kStamina);
 
 		float redirectMult = Math::Interpolate(
@@ -115,7 +115,7 @@ namespace Blocking
 			(!isPlayer && !params->bBlockCostNPC.Get()))
 			return 0.0f;
 
-		auto& burden = Burden::Tracker::GetOrComputeBurden(actor);
+		const auto burden = Burden::Tracker::GetOrComputeBurden(actor);
 
 		float effectiveDamage = hitData.totalDamage;
 		float currentHealth = actor->GetActorValue(RE::ActorValue::kHealth);

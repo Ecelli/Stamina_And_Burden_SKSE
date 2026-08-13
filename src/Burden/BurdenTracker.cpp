@@ -1,4 +1,5 @@
 #include "BurdenTracker.h"
+#include "Common/LockedMap.h"
 #include "Hooks/RegenHooks.h"
 #include "Stamina/ExhaustionManager.h"
 
@@ -8,7 +9,7 @@
 // Function-local static maps avoid static-initialization-order issues.
 namespace
 {
-	using TrackedMap = std::unordered_map<RE::FormID, Burden::ActorBurdenData>;
+	using TrackedMap = LockedMap<RE::FormID, Burden::ActorBurdenData>;
 
 	TrackedMap& GetTrackedMap()
 	{
@@ -16,7 +17,7 @@ namespace
 		return map;
 	}
 
-	using TransientMap = std::unordered_map<RE::FormID, Burden::ActorBurdenData>;
+	using TransientMap = LockedMap<RE::FormID, Burden::ActorBurdenData>;
 
 	TransientMap& GetTransientMap()
 	{
@@ -24,12 +25,25 @@ namespace
 		return map;
 	}
 
-	using MaxEquipWeightOverrideMap = std::unordered_map<RE::FormID, float>;
+	using MaxEquipWeightOverrideMap = LockedMap<RE::FormID, float>;
 
 	MaxEquipWeightOverrideMap& GetMaxEquipWeightOverrideMap()
 	{
 		static MaxEquipWeightOverrideMap map;
 		return map;
+	}
+
+	bool NeedToUpdateBurden(RE::Actor* a_actor, const Burden::ActorBurdenData& a_data)
+	{
+		return static_cast<int>(a_actor->GetActorValue(RE::ActorValue::kLightArmor)) != a_data.lightSkill
+			|| static_cast<int>(a_actor->GetActorValue(RE::ActorValue::kHeavyArmor)) != a_data.heavySkill
+			|| static_cast<int>(a_actor->GetActorValue(RE::ActorValue::kOneHanded)) != a_data.oneHandedSkill
+			|| static_cast<int>(a_actor->GetActorValue(RE::ActorValue::kTwoHanded)) != a_data.twoHandedSkill
+			|| static_cast<int>(a_actor->GetActorValue(RE::ActorValue::kArchery)) != a_data.marksmanSkill
+			|| static_cast<int>(a_actor->GetActorValue(RE::ActorValue::kBlock)) != a_data.blockSkill
+			|| static_cast<int>(a_actor->GetActorValue(RE::ActorValue::kConjuration)) != a_data.conjurationSkill
+			|| static_cast<int>(a_actor->GetActorValue(RE::ActorValue::kEnchanting)) != a_data.staffSkill
+			|| std::abs(a_actor->GetActorValue(RE::ActorValue::kCarryWeight) - a_data.maxCarryWeight) > 0.001f;
 	}
 }
 
@@ -47,7 +61,7 @@ namespace Burden::Tracker
 			return;
 		}
 
-		map.emplace(formId, UpdateBurdenLog(a_actor));
+		map.insert_or_assign(formId, UpdateBurden(a_actor));
 	}
 
 	void Unregister(RE::FormID a_formId)
@@ -72,17 +86,16 @@ namespace Burden::Tracker
 
 			// Tier 1: tracked actors
 			auto& tracked = GetTrackedMap();
-			auto it = tracked.find(formId);
-			if (it != tracked.end()) {
-				it->second = UpdateBurdenLog(actor);
+			Burden::ActorBurdenData data; // We don't care for data here
+			if (tracked.get(formId, data)) {
+				tracked.insert_or_assign(formId, UpdateBurden(actor));
 				return;
 			}
 
 			// Tier 2: transient NPCs
 			auto& transient = GetTransientMap();
-			auto tIt = transient.find(formId);
-			if (tIt != transient.end()) {
-				tIt->second = UpdateBurdenLog(actor);
+			if (transient.get(formId, data)) {
+				transient.insert_or_assign(formId, UpdateBurden(actor));
 			}
 		});
 	}
@@ -92,27 +105,27 @@ namespace Burden::Tracker
 		return GetTrackedMap().contains(a_formId);
 	}
 
-	const Burden::ActorBurdenData& GetOrComputeBurden(RE::Actor* a_actor)
+	Burden::ActorBurdenData GetOrComputeBurden(RE::Actor* a_actor)
 	{
 		auto formId = a_actor->GetFormID();
 
 		// Tier 1: tracked map
 		auto& tracked = GetTrackedMap();
-		auto it = tracked.find(formId);
-		if (it != tracked.end()) {
-			return it->second;
+		Burden::ActorBurdenData data;
+		if (tracked.get(formId, data)) {
+			return data;
 		}
 
 		// Tier 2: transient cache
 		auto& transient = GetTransientMap();
-		auto tIt = transient.find(formId);
-		if (tIt != transient.end()) {
-			return tIt->second;
+		if (transient.get(formId, data)) {
+			return data;
 		}
 
 		// Compute and cache
-		auto [newIt, _] = transient.emplace(formId, UpdateBurden(a_actor));
-		return newIt->second;
+		data = UpdateBurden(a_actor);
+		transient.insert_or_assign(formId, data);
+		return data;
 	}
 
 	void ClearTransientCache()
@@ -143,24 +156,18 @@ namespace Burden::Tracker
 	void PollTrackedActorParams()
 	{
 		auto& map = GetTrackedMap();
-		for (auto& [formId, data] : map) {
+
+		auto pollActorParams = [](RE::FormID formId, const Burden::ActorBurdenData& data) {
 			auto* actor = RE::TESForm::LookupByID<RE::Actor>(formId);
 			if (!actor) {
-				continue;
+				return;
 			}
-			if (static_cast<int>(actor->GetActorValue(RE::ActorValue::kLightArmor)) != data.lightSkill
-				|| static_cast<int>(actor->GetActorValue(RE::ActorValue::kHeavyArmor)) != data.heavySkill
-				|| static_cast<int>(actor->GetActorValue(RE::ActorValue::kOneHanded)) != data.oneHandedSkill
-				|| static_cast<int>(actor->GetActorValue(RE::ActorValue::kTwoHanded)) != data.twoHandedSkill
-				|| static_cast<int>(actor->GetActorValue(RE::ActorValue::kArchery)) != data.marksmanSkill
-				|| static_cast<int>(actor->GetActorValue(RE::ActorValue::kBlock)) != data.blockSkill
-				|| static_cast<int>(actor->GetActorValue(RE::ActorValue::kConjuration)) != data.conjurationSkill
-				|| static_cast<int>(actor->GetActorValue(RE::ActorValue::kEnchanting)) != data.staffSkill
-				|| std::abs(actor->GetActorValue(RE::ActorValue::kCarryWeight) - data.maxCarryWeight) > 0.001f) {
-
+			if (NeedToUpdateBurden(actor, data)) {
 				Burden::Tracker::Update(actor);
 			}
-		}
+		};
+
+		map.for_each(pollActorParams);
 	}
 
 	void SetMaxEquippedWeightOverride(RE::Actor* a_actor, float a_value)
@@ -169,7 +176,7 @@ namespace Burden::Tracker
 		auto formId = a_actor->GetFormID();
 		if (formId == 0) return;
 		float clamped = std::max(a_value, 0.0f);
-		GetMaxEquipWeightOverrideMap()[formId] = clamped;
+		GetMaxEquipWeightOverrideMap().insert_or_assign(formId, clamped);
 		Update(a_actor);
 	}
 
@@ -178,7 +185,7 @@ namespace Burden::Tracker
 		if (!a_actor) return 0.0f;
 		auto formId = a_actor->GetFormID();
 		if (formId == 0) return 0.0f;
-		auto it = GetMaxEquipWeightOverrideMap().find(formId);
-		return (it != GetMaxEquipWeightOverrideMap().end()) ? it->second : 0.0f;
+		float value;
+		return GetMaxEquipWeightOverrideMap().get(formId, value) ? value : 0.0f;
 	}
 }

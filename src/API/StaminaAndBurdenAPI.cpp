@@ -2,6 +2,7 @@
 #include "Burden/BurdenTracker.h"
 #include "Stamina/CostsManager.h"
 #include "Stamina/ExhaustionManager.h"
+#include "Movement/MovementManager.h"
 #include "Common/Utils.h"
 
 namespace
@@ -62,7 +63,7 @@ namespace
 		float GetWeaponBurden(RE::Actor* a_actor, StaminaAndBurdenAPI::WeaponSlot a_slot) override
 		{
 			if (!a_actor) return 0.0f;
-			const auto& data = Burden::Tracker::GetOrComputeBurden(a_actor);
+			const auto data = Burden::Tracker::GetOrComputeBurden(a_actor);
 			switch (a_slot) {
 			case StaminaAndBurdenAPI::WeaponSlot::RightHand:  return data.weaponBurden_rh;
 			case StaminaAndBurdenAPI::WeaponSlot::LeftHand:   return data.weaponBurden_lh;
@@ -89,7 +90,7 @@ namespace
 		{
             if (!a_actor) return 0.0f;
             
-            auto& burden = Burden::Tracker::GetOrComputeBurden(a_actor);
+            const auto burden = Burden::Tracker::GetOrComputeBurden(a_actor);
             float Stamina1pct = 0.01f * static_cast<float>(a_actor->GetActorValueMax(RE::ActorValue::kStamina));
             
             float baseT = ResolveBurdenValue(burden, a_baseComponent);
@@ -125,6 +126,12 @@ namespace
 		void RegisterExhaustionListener(ExhaustionListener a_listener) override
 		{
 			Exhaustion::ExhaustionManager::GetSingleton()->RegisterExhaustionListener(a_listener);
+		}
+
+		float GetSBSpeedMultiplier(RE::Actor* a_actor) override
+		{
+			if (!a_actor) return 1.0f;
+			return Movement::ComputeSpeedMultiplier(a_actor);
 		}
 	};
 

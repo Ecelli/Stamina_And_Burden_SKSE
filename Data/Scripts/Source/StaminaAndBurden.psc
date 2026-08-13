@@ -82,3 +82,15 @@ Function UnregisterForActorExhaustionChanged(Form akForm, Actor akActor) global 
 
 ; Console debug — returns formatted burden data for console display
 String Function GetBurdenDebug(Actor a_actor) Global Native
+
+;/
+GetSpeedMultiplier — the S&B movement speed multiplier (burden × swim × exhaustion).
+Returns 1.0 when nothing scales the actor's speed.
+/;
+Float Function GetSBSpeedMultiplier(Actor a_actor) Global Native
+
+;/
+GetTotalSpeed — engine vanilla speed × GetSpeedMultiplier, in game units.
+Returns 0 if the speed hook is not active.
+/;
+Float Function GetSBTotalSpeed(Actor a_actor) Global Native

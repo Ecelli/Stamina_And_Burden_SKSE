@@ -4,6 +4,9 @@
 
 struct BurdenParams : REX::Singleton<BurdenParams>
 {
+	// ===== Debug =====
+	Parameter<bool> EnableDebugLogging{ false, false, true };
+
 	// ===== Equipment =====
 	Parameter<float> maxEquippedWeightRatio{ 0.4f, 0.0f, 1.0f };
 	Parameter<float> SlotBurdenMult_def{ 1.0f, 0.2f, 10.0f };
@@ -45,6 +48,8 @@ struct BurdenParams : REX::Singleton<BurdenParams>
 	static void ForEach(F&& a_fn)
 	{
 		auto* s = GetSingleton();
+		a_fn("Burden Debug");
+		a_fn("bEnableDebugBurdenLogging"sv, s->EnableDebugLogging);
 		a_fn("Equipment");
 		a_fn("fmaxEquippedWeightRatio"sv, s->maxEquippedWeightRatio);
 		a_fn("fSlotBurdenMult_def"sv, s->SlotBurdenMult_def);

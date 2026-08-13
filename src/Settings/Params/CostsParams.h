@@ -107,7 +107,7 @@ namespace Costs
 		Parameter<bool>  bBowCostPlayer{ true, false, true };
 		Parameter<bool>  bBowCostNPC{ true, false, true };
 		Parameter<bool>  bBowDenyPlayer{ true, false, true };
-		Parameter<bool>  bBowDenyNPC{ true, false, true };
+		Parameter<bool>  bBowDenyNPC{ false, false, true };
 		Parameter<float> BowFireLowBurden{ 5.0f, 0.0f, 200.0f };
 		Parameter<float> BowFireHighBurden{ 20.0f, 0.0f, 200.0f };
 		Parameter<float> BowFireBurdenCurve_k{ 0.7f, 0.0f, 1.0f };

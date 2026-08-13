@@ -68,7 +68,7 @@ namespace Regen
 	{
 		if (!actor || !actor->IsBlocking())
 			return 0.0f;
-		auto& data = Burden::Tracker::GetOrComputeBurden(actor);
+		const auto data = Burden::Tracker::GetOrComputeBurden(actor);
 		auto* params = RegenMovementParams::GetSingleton();
 		float penalty = Math::Interpolate(
 			params->BlockHoldLowBurden.Get(),
@@ -96,7 +96,7 @@ namespace Regen
 		if (!actor)
 			return 0.0f;
 
-		auto& data = Burden::Tracker::GetOrComputeBurden(actor);
+		const auto data = Burden::Tracker::GetOrComputeBurden(actor);
 		auto* params = RegenMovementParams::GetSingleton();
 
 		float weaponBurden = leftHand ? data.weaponBurden_lh : data.weaponBurden_rh;
@@ -136,7 +136,7 @@ namespace Regen
 		auto type = weap->GetWeaponType();
 		if (type != RE::WEAPON_TYPE::kBow && type != RE::WEAPON_TYPE::kCrossbow)
 			return 0.0f;
-		auto& data = Burden::Tracker::GetOrComputeBurden(actor);
+		const auto data = Burden::Tracker::GetOrComputeBurden(actor);
 		auto* params = RegenMovementParams::GetSingleton();
 		float penalty = Math::Interpolate(
 			params->BowDrawLowBurden.Get(),
@@ -275,7 +275,7 @@ namespace Regen
 		if (!actor)
 			return 1.0f;
 
-		auto& burdenData = Burden::Tracker::GetOrComputeBurden(actor);
+		const auto burdenData = Burden::Tracker::GetOrComputeBurden(actor);
 		float regenBonus = 0.0f;
 
 		float HMS = GetHMSStaminaMult(actor);

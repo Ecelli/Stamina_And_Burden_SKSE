@@ -95,14 +95,14 @@ namespace
 	{
 	public:
 		RE::Actor* actor;
-		float total = 0.0f;
-		float SteedMult;
 		bool steedStoneActive;
+		float steedMult;
+		float total = 0.0f;
 
 		explicit BurdenEquipVisitor(RE::Actor* a_actor) :
 			actor(a_actor),
 			steedStoneActive(HasSteedStoneBlessing(a_actor)),
-			SteedMult(BurdenParams::GetSingleton()->SteedStoneBurdenMult.Get())
+			steedMult(BurdenParams::GetSingleton()->SteedStoneBurdenMult.Get())
 		{}
 
 		RE::BSContainer::ForEachResult Visit(RE::InventoryEntryData* a_entry) override
@@ -120,7 +120,7 @@ namespace
 				slotMult = GetSlotMultiplier(armor);
 				armorTypeMult = GetWeightedArmorTypeMult(actor, armor);
 				if (steedStoneActive) {
-					slotMult *= SteedMult;
+					slotMult *= steedMult;
 				}
 			}
 
@@ -311,6 +311,8 @@ namespace Burden
 
 	float ResolveWeaponWeight(RE::TESObjectWEAP* weapon, int conjurationSkill)
 	{
+		if (!weapon)
+			return 0.0f;
 		if (!weapon->IsBound())
 			return weapon->GetWeight();
 		auto type = weapon->GetWeaponType();
@@ -337,6 +339,9 @@ namespace Burden
 	ActorBurdenData UpdateBurden(RE::Actor* actor)
 	{
 		ActorBurdenData data{};
+		if (!actor) {
+			return data;
+		}
 		data.actor = actor;
 
 		data.maxCarryWeight = std::max(actor->GetActorValue(RE::ActorValue::kCarryWeight), 1.0f);
@@ -361,20 +366,15 @@ namespace Burden
 		ComputeLeftHandBurden(actor, data);
 		data.weaponBurden_block = ComputeBlockBurden(actor, data);
 
-		return data;
-	}
-
-	ActorBurdenData UpdateBurdenLog(RE::Actor* actor)
-	{
-		auto data = UpdateBurden(actor);
-		logger::info("Burden | Carry: {:.2f}% ({:.1f}/{}), Equipped: {:.2f}% ({:.1f}/{:.1f})",
+		BurdenLog("Burden | Carry: {:.2f}% ({:.1f}/{}), Equipped: {:.2f}% ({:.1f}/{:.1f})",
 			data.carryBurden * 100.0f,
 			data.carryWeight,
 			data.maxCarryWeight,
 			data.burden * 100.0f,
 			data.equippedWeight,
 			data.maxEquippedWeight);
-        return data;
+
+		return data;
 	}
 
     // This is used specifically for external APIs and Papyrus scripts
